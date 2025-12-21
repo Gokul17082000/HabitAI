@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/habitai
+    username: gokulbj
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+security:
+  jwt:
+    secret: YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXphYmNkZWY=
+    expiration: 3600000
