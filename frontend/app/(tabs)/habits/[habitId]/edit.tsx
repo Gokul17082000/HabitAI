@@ -9,9 +9,9 @@ import {
 import { useLocalSearchParams, router } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
-import FormInput from "../../../components/FormInput";
-import PrimaryButton from "../../../components/PrimaryButton";
-import { getToken } from "../../../utils/authStorage";
+import FormInput from "../../../../components/FormInput";
+import PrimaryButton from "../../../../components/PrimaryButton";
+import { getToken } from "../../../../utils/authStorage";
 
 /* -------------------- Screen -------------------- */
 export default function EditHabitScreen() {
@@ -142,11 +142,13 @@ export default function EditHabitScreen() {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()}>
-          <Text style={styles.close}>Cancel</Text>
+          <Text style={styles.close}>Close</Text>
         </Pressable>
       </View>
 
       <Text style={styles.title}>Edit Habit</Text>
+
+      <View style={{ height: 1, backgroundColor: "#e5e7eb", marginBottom: 16 }} />
 
       <View style={styles.form}>
         <FormInput label="Title" value={title} onChangeText={setTitle} />

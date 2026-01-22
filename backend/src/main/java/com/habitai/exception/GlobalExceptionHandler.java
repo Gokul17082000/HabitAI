@@ -45,4 +45,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error(accessDeniedException.getMessage(), HttpStatus.FORBIDDEN));
     }
 
+    @ExceptionHandler(HabitDayOfWeekNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handlerDayOfWeekNotFound(HabitDayOfWeekNotFoundException habitDayOfWeekNotFoundException){
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(habitDayOfWeekNotFoundException.getMessage(), HttpStatus.NOT_FOUND));
+    }
+
+    @ExceptionHandler(HabitDayOfMonthNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handlerDayOfMonthNotFound(HabitDayOfMonthNotFoundException habitDayOfMonthNotFoundException){
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(habitDayOfMonthNotFoundException.getMessage(), HttpStatus.NOT_FOUND));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiErrorResponse> handleGenericException(Exception ex) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error("Something went wrong", HttpStatus.INTERNAL_SERVER_ERROR));
+    }
 }

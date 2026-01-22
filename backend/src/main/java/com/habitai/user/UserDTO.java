@@ -1,4 +1,3 @@
 package com.habitai.user;
 
-public class UserDTO {
-}
+public record UserDTO(String email) {}

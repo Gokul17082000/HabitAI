@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import { useCallback, useState } from "react";
 import { router, useFocusEffect } from "expo-router";
-import { getToken } from "../../utils/authStorage";
+import { getToken } from "../../../utils/authStorage";
 import { Alert } from "react-native";
 
 export default function MasterHabitsScreen() {
@@ -69,13 +69,22 @@ export default function MasterHabitsScreen() {
   /* ---------------- Render ---------------- */
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>All Habits</Text>
+      <Text style={styles.header}>Habits</Text>
+
+      <View style={styles.divider} />
 
       {loading ? (
         <Text>Loading habits...</Text>
       ) : habits.length === 0 ? (
-        <Text style={styles.empty}>No habits created yet</Text>
-      ) : (
+        <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>🧠</Text>
+            <Text style={styles.emptyTitle}>No habits yet</Text>
+            <Text style={styles.emptySubtitle}>
+              Create habits to stay consistent and build better routines.
+            </Text>
+
+          </View>
+        ) : (
         <ScrollView>
           {habits.map((habit) => (
             <View key={habit.id} style={styles.card}>
@@ -91,11 +100,14 @@ export default function MasterHabitsScreen() {
               </View>
 
               <View style={styles.actions}>
-                <Pressable onPress={() => router.push(`/habits/${habit.id}/edit`)}>
+                <Pressable onPress={() => router.push(`/(tabs)/habits/${habit.id}/edit`)}>
                     <Text style={{ opacity: deletingId === habit.id ? 0.4 : 1 }}>✏️</Text>
                 </Pressable>
-                <Pressable onPress={() => confirmDelete(habit.id)}>
+                <Pressable disabled={deletingId === habit.id} onPress={() => confirmDelete(habit.id)}>
                     <Text style={{ opacity: deletingId === habit.id ? 0.4 : 1 }}> {deletingId === habit.id ? "⏳" : "🗑️"}</Text>
+                </Pressable>
+                <Pressable onPress={() => router.push(`/(tabs)/habits/${habit.id}/activity`)}>
+                  <Text>📊</Text>
                 </Pressable>
               </View>
             </View>
@@ -105,7 +117,7 @@ export default function MasterHabitsScreen() {
 
       <Pressable
         style={styles.addButton}
-        onPress={() => router.push("/habits/create")}
+        onPress={() => router.push("(tabs)/habits/create")}
       >
         <Text style={styles.addButtonText}>＋</Text>
       </Pressable>
@@ -191,4 +203,36 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "bold",
   },
+
+  divider: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
+    marginBottom: 16,
+  },
+
+  emptyState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+
+  emptySubtitle: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+
 });

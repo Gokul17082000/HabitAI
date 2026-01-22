@@ -1,4 +1,8 @@
 package com.habitai.exception;
 
-public class HabitDayOfMonthNotFoundException {
+public class HabitDayOfMonthNotFoundException extends RuntimeException{
+
+    public HabitDayOfMonthNotFoundException(String message) {
+        super(message);
+    }
 }

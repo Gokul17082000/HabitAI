@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import { useEffect, useState } from "react";
-import { getToken } from "../../utils/authStorage";
+import { getToken } from "../../../utils/authStorage";
 
+/* -------------------- Screen -------------------- */
 export default function CalendarScreen() {
   const today = new Date().toISOString().split("T")[0];
 
@@ -28,18 +29,21 @@ export default function CalendarScreen() {
     setHabits(data);
   };
 
-  /* ---------- Generate dates ---------- */
+  /* ---------------- Generate dates ---------------- */
   const dates = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - 6 + i);
     return d.toISOString().split("T")[0];
   });
 
+  /* ---------------- Render ---------------- */
   return (
     <View style={styles.container}>
+      {/* Header */}
       <Text style={styles.header}>Calendar</Text>
+      <View style={styles.divider} />
 
-      {/* Date Strip */}
+      {/* Date strip */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -48,6 +52,7 @@ export default function CalendarScreen() {
         {dates.map((date) => {
           const isSelected = date === selectedDate;
           const isToday = date === today;
+          const future = date > today;
 
           return (
             <Pressable
@@ -56,39 +61,64 @@ export default function CalendarScreen() {
               style={[
                 styles.dateChip,
                 isSelected && styles.selectedChip,
+                future && styles.futureChip,
               ]}
             >
-              <Text style={styles.day}>
-                {new Date(date).toLocaleDateString("en-US", { weekday: "short" })}
+              <Text
+                style={[
+                  styles.day,
+                  isSelected && styles.selectedText,
+                ]}
+              >
+                {new Date(date).toLocaleDateString("en-US", {
+                  weekday: "short",
+                })}
               </Text>
-              <Text style={styles.dayNum}>
+
+              <Text
+                style={[
+                  styles.dayNum,
+                  isSelected && styles.selectedText,
+                ]}
+              >
                 {new Date(date).getDate()}
               </Text>
+
               {isToday && <Text style={styles.todayDot}>•</Text>}
             </Pressable>
           );
         })}
       </ScrollView>
 
-      {/* Info */}
+      {/* Info text */}
       {isFuture && (
-        <Text style={styles.info}>🔒 Future habits cannot be completed</Text>
+        <Text style={styles.info}>
+          🔒 Future habits cannot be completed
+        </Text>
       )}
       {isPast && (
-        <Text style={styles.info}>📅 Past habits are read-only</Text>
+        <Text style={styles.info}>
+          📅 Past habits are read-only
+        </Text>
       )}
 
-      {/* Habits */}
-      <ScrollView>
+      {/* Habits list */}
+      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
         {habits.length === 0 ? (
-          <Text style={styles.empty}>No habits scheduled</Text>
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>📆</Text>
+            <Text style={styles.emptyTitle}>No habits scheduled</Text>
+            <Text style={styles.emptySubtitle}>
+              There are no habits planned for this day.
+            </Text>
+          </View>
         ) : (
           habits.map((h) => (
             <View
               key={h.id}
               style={[
                 styles.card,
-                isFuture && styles.futureCard
+                isFuture && styles.futureCard,
               ]}
             >
               <Text style={styles.title}>{h.title}</Text>
@@ -103,16 +133,14 @@ export default function CalendarScreen() {
   );
 }
 
-/* ---------- Helpers ---------- */
-
+/* ---------------- Helpers ---------------- */
 function statusEmoji(status: string) {
   if (status === "COMPLETED") return "✅";
   if (status === "MISSED") return "❌";
   return "⏳";
 }
 
-/* ---------- Styles ---------- */
-
+/* ---------------- Styles ---------------- */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -123,11 +151,17 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 22,
     fontWeight: "600",
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
+    marginBottom: 16,
   },
 
   dateStrip: {
-    marginBottom: 14,
+    marginBottom: 16,
   },
 
   dateChip: {
@@ -144,14 +178,23 @@ const styles = StyleSheet.create({
     backgroundColor: "#4f46e5",
   },
 
+  futureChip: {
+    opacity: 0.5,
+  },
+
   day: {
     fontSize: 12,
-    color: "#666",
+    color: "#6b7280",
   },
 
   dayNum: {
     fontSize: 18,
     fontWeight: "600",
+    color: "#111827",
+  },
+
+  selectedText: {
+    color: "#fff",
   },
 
   todayDot: {
@@ -162,28 +205,46 @@ const styles = StyleSheet.create({
 
   info: {
     fontSize: 12,
-    color: "#666",
+    color: "#6b7280",
     textAlign: "center",
     marginBottom: 10,
   },
 
-  empty: {
+  emptyState: {
+    marginTop: 60,
+    alignItems: "center",
+  },
+
+  emptyIcon: {
+    fontSize: 42,
+    marginBottom: 10,
+  },
+
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+
+  emptySubtitle: {
+    fontSize: 14,
+    color: "#6b7280",
     textAlign: "center",
-    color: "#666",
-    marginTop: 40,
+    maxWidth: 260,
   },
 
   card: {
     backgroundColor: "#fff",
     padding: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 10,
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
   },
 
   futureCard: {
-    opacity: 0.5,
+    opacity: 0.6,
   },
 
   title: {

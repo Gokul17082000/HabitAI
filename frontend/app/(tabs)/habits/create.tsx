@@ -10,9 +10,9 @@ import {
 import { router } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
-import FormInput from "../../components/FormInput";
-import PrimaryButton from "../../components/PrimaryButton";
-import { getToken } from "../../utils/authStorage";
+import FormInput from "../../../components/FormInput";
+import PrimaryButton from "../../../components/PrimaryButton";
+import { getToken } from "../../../utils/authStorage";
 
 /* -------------------- Screen -------------------- */
 export default function CreateHabitScreen() {
@@ -97,7 +97,7 @@ export default function CreateHabitScreen() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Failed to create habit");
 
-      router.back();
+      router.replace("/(tabs)/habits");
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -109,11 +109,13 @@ export default function CreateHabitScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={() => router.replace("/(tabs)/habits")}>
           <Text style={styles.close}>Close</Text>
         </Pressable>
       </View>
       <Text style={styles.title}>New Habit</Text>
+
+      <View style={{ height: 1, backgroundColor: "#e5e7eb", marginBottom: 16 }} />
 
       <View style={styles.form}>
         <FormInput label="Title" value={title} onChangeText={setTitle} />
@@ -213,7 +215,7 @@ export default function CreateHabitScreen() {
 
         {error && <Text style={styles.error}>{error}</Text>}
 
-        <PrimaryButton title="Save Habit" loading={loading} onPress={handleSave} />
+        <PrimaryButton title="Save Habit" loading={loading} disabled={loading} onPress={handleSave} />
       </View>
     </ScrollView>
   );
@@ -235,7 +237,7 @@ const styles = StyleSheet.create({
   form: { backgroundColor: "#fff", padding: 20, borderRadius: 10 },
   label: { marginTop: 12, marginBottom: 6, fontSize: 14 },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
+  chip: { borderWidth: 1, borderColor: "#d1d5db", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
   chipActive: { backgroundColor: "#4f46e5", borderColor: "#4f46e5" },
   chipText: { fontSize: 13 },
   chipTextActive: { color: "#fff", fontWeight: "600" },
@@ -243,5 +245,5 @@ const styles = StyleSheet.create({
   error: { color: "red", textAlign: "center", marginBottom: 10 },
   sectionTitle: {fontSize: 15, fontWeight: "600", marginTop: 16, marginBottom: 8, color: '#333'},
   header: { flexDirection: "row", justifyContent: "flex-end", marginBottom: 10, },
-  close: { color: "#4f46e5", fontSize: 16, fontWeight: "500", },
+  close: { color: "#6b7280", fontSize: 14, fontWeight: "500", },
 });

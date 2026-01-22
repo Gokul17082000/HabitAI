@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.DayOfWeek;
 import java.time.LocalTime;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -35,6 +37,21 @@ public class Habit {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private HabitFrequency frequency;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @Enumerated(EnumType.STRING)
+    @CollectionTable(
+            name = "habit_days_of_week",
+            joinColumns = @JoinColumn(name = "habit_id")
+    )
+    private Set<DayOfWeek> daysOfWeek;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+            name = "habit_days_of_month",
+            joinColumns = @JoinColumn(name = "habit_id")
+    )
+    private Set<Integer> daysOfMonth;
 
     @Column(nullable = false)
     private LocalTime targetTime;

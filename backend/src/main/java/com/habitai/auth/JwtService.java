@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.List;
 
 @Service
 public class JwtService {
@@ -24,6 +25,8 @@ public class JwtService {
     public String generateToken(User user){
         return Jwts.builder()
                 .setSubject(String.valueOf(user.getId()))
+                .claim("email", user.getEmail())
+                .claim("role", List.of("USER"))
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSignKey(), SignatureAlgorithm.HS256)

@@ -5,6 +5,7 @@ import com.habitai.exception.UserAlreadyExistException;
 import com.habitai.exception.UserNotFoundException;
 import com.habitai.user.User;
 import com.habitai.user.UserRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -26,10 +27,14 @@ public class AuthService {
             throw new UserAlreadyExistException("User Already Exists!");
         }
 
-        User user = new User();
-        user.setEmail(authRequest.email());
-        user.setPassword(passwordEncoder.encode(authRequest.password()));
-        userRepository.save(user);
+        try {
+            User user = new User();
+            user.setEmail(authRequest.email());
+            user.setPassword(passwordEncoder.encode(authRequest.password()));
+            userRepository.save(user);
+        } catch (DataIntegrityViolationException ex) {
+            throw new UserAlreadyExistException("User already exists");
+        }
 
         return new RegisterResponse("User Successfully created!");
     }

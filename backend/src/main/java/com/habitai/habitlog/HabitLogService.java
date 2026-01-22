@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class HabitLogService {
@@ -25,14 +27,19 @@ public class HabitLogService {
         habitAccessValidator.validate(habitId);
         long userId = currentUser.getId();
 
-        LocalDate date = LocalDate.now();
-        HabitLog habitLog = habitLogRepository.findByHabitIdAndUserIdAndDate(habitId, userId, date);
+        LocalDate today = LocalDate.now();
+
+        if (!habitLogRequest.date().isEqual(today)) {
+            throw new IllegalStateException("Cannot update past or future habits");
+        }
+
+        HabitLog habitLog = habitLogRepository.findByHabitIdAndUserIdAndDate(habitId, userId, today);
 
         if(habitLog == null){
             habitLog = new HabitLog();
             habitLog.setHabitId(habitId);
             habitLog.setUserId(userId);
-            habitLog.setDate(date);
+            habitLog.setDate(today);
         }
         habitLog.setStatus(habitLogRequest.habitStatus());
         habitLogRepository.save(habitLog);
@@ -42,22 +49,32 @@ public class HabitLogService {
         habitAccessValidator.validate(habitId);
         long userId = currentUser.getId();
 
-        List<HabitLog> habitLogs = habitLogRepository.findByHabitIdAndUserIdOrderByDateDesc(habitId,userId);
-        if(habitLogs.isEmpty()){
-            return new HabitStreakResponse(0);
-        }
+        Map<LocalDate, HabitStatus> statusMap =
+                habitLogRepository.findByHabitIdAndUserId(habitId, userId)
+                        .stream()
+                        .collect(Collectors.toMap(
+                                HabitLog::getDate,
+                                HabitLog::getStatus
+                        ));
+
         LocalDate date = LocalDate.now();
         int streak = 0;
-        for(HabitLog habitLog : habitLogs){
-            if((HabitStatus.COMPLETED == habitLog.getStatus()) && habitLog.getDate().isEqual(date)){
+
+        while (true) {
+            HabitStatus status = statusMap.get(date);
+
+            if (status == HabitStatus.COMPLETED) {
                 streak++;
             } else {
                 break;
             }
+
             date = date.minusDays(1);
         }
+
         return new HabitStreakResponse(streak);
     }
+
 
     public List<HabitActivityStatus> getHabitActivity(long habitId, LocalDate startDate, LocalDate endDate) {
         habitAccessValidator.validate(habitId);
@@ -84,5 +101,10 @@ public class HabitLogService {
             currentDate = currentDate.plusDays(1);
         }
         return habitActivityStatusList;
+    }
+
+    public void deleteByHabitId(long habitId) {
+        habitAccessValidator.validate(habitId);
+        habitLogRepository.deleteByHabitIdAndUserId(habitId, currentUser.getId());
     }
 }
