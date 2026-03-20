@@ -2,18 +2,18 @@ package com.habitai.habit;
 
 import com.habitai.common.validation.HabitAccessValidator;
 import com.habitai.common.security.CurrentUser;
-import com.habitai.exception.HabitDayOfMonthNotFoundException;
-import com.habitai.exception.HabitDayOfWeekNotFoundException;
-import com.habitai.exception.HabitNotFoundException;
 import com.habitai.habitlog.HabitLog;
 import com.habitai.habitlog.HabitLogRepository;
+import com.habitai.habitlog.HabitLogService;
 import com.habitai.habitlog.HabitStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class HabitService {
@@ -21,13 +21,15 @@ public class HabitService {
     private final HabitRepository habitRepository;
     private final CurrentUser currentUser;
     private final HabitAccessValidator habitAccessValidator;
-    private final HabitLogRepository  habitLogRepository;
+    private final HabitLogRepository habitLogRepository;
+    private final HabitLogService habitLogService;
 
-    public HabitService(HabitRepository habitRepository, CurrentUser currentUser, HabitAccessValidator habitAccessValidator, HabitLogRepository habitLogRepository) {
+    public HabitService(HabitRepository habitRepository, CurrentUser currentUser, HabitAccessValidator habitAccessValidator, HabitLogRepository habitLogRepository, HabitLogService habitLogService) {
         this.habitRepository = habitRepository;
         this.currentUser = currentUser;
         this.habitAccessValidator = habitAccessValidator;
         this.habitLogRepository = habitLogRepository;
+        this.habitLogService = habitLogService;
     }
 
     public List<HabitDTO> getAllHabits() {
@@ -38,68 +40,62 @@ public class HabitService {
         long userId = currentUser.getId();
         LocalTime now = LocalTime.now();
         LocalDate today = LocalDate.now();
-        return habitRepository.findByUserId(currentUser.getId())
+
+        List<Habit> habits = habitRepository.findByUserId(userId)
                 .stream()
                 .filter(habit -> isScheduledForDate(habit, date))
+                .filter(habit -> !date.isBefore(habit.getCreatedAt()))
+                .toList();
+
+        Map<Long, HabitStatus> logStatusMap = habitLogRepository
+                .findByUserIdAndDate(userId, date)
+                .stream()
+                .collect(Collectors.toMap(HabitLog::getHabitId, HabitLog::getStatus));
+
+        return habits.stream()
                 .map(habit -> {
-                    HabitLog habitLog = habitLogRepository.findByHabitIdAndUserIdAndDate(habit.getId(), userId, date);
-                    HabitStatus status;
-                    if (habitLog != null) {
-                        status = habitLog.getStatus();
-                    } else if (date.isBefore(today)) {
-                        status = HabitStatus.MISSED;
-                    } else if (date.isAfter(today)) {
-                        status = HabitStatus.PENDING;
-                    } else {
-                        // today
-                        status = now.isBefore(habit.getTargetTime())
-                                ? HabitStatus.PENDING
-                                : HabitStatus.MISSED;
-                    }
+                    HabitStatus status = logStatusMap.containsKey(habit.getId())
+                            ? logStatusMap.get(habit.getId())
+                            : getDefaultStatus(date, today, now, habit);
                     return new HabitResponse(habit.getId(), habit.getTitle(), habit.getDescription(), habit.getCategory(), habit.getTargetTime(), status);
                 })
                 .toList();
     }
 
+    private HabitStatus getDefaultStatus(LocalDate date, LocalDate today, LocalTime now, Habit habit) {
+        if (date.isBefore(today)) return HabitStatus.MISSED;
+        if (date.isAfter(today)) return HabitStatus.PENDING;
+        return now.isBefore(habit.getTargetTime()) ? HabitStatus.PENDING : HabitStatus.MISSED;
+    }
+
     public HabitDTO getHabitById(long habitId) {
-        Habit habit =  habitRepository.findById(habitId).orElseThrow(() -> new HabitNotFoundException("Habit not found"));
+        Habit habit = habitAccessValidator.getAndValidate(habitId);
         return toDTO(habit);
     }
+
     public boolean isScheduledForDate(Habit habit, LocalDate date) {
         return switch (habit.getFrequency()) {
-
             case DAILY -> true;
-
-            case WEEKLY ->
-                    isWeeklyMatch(habit, date);
-
-            case MONTHLY ->
-                    isMonthlyMatch(habit, date);
-
+            case WEEKLY -> isWeeklyMatch(habit, date);
+            case MONTHLY -> isMonthlyMatch(habit, date);
         };
     }
 
-
     private boolean isWeeklyMatch(Habit habit, LocalDate date) {
-
-        if(habit.getDaysOfWeek() != null && !habit.getDaysOfWeek().isEmpty()) {
-            DayOfWeek dayOfWeek = date.getDayOfWeek();
-            return habit.getDaysOfWeek().contains(dayOfWeek);
+        if (habit.getDaysOfWeek() != null && !habit.getDaysOfWeek().isEmpty()) {
+            return habit.getDaysOfWeek().contains(date.getDayOfWeek());
         }
-
         return false;
     }
 
     private boolean isMonthlyMatch(Habit habit, LocalDate date) {
-
         if (habit.getDaysOfMonth() != null && !habit.getDaysOfMonth().isEmpty()) {
             return habit.getDaysOfMonth().contains(date.getDayOfMonth());
         }
-
         return false;
     }
 
-
+    @Transactional
     public HabitDTO createHabit(HabitRequest habitRequest) {
         validateSchedule(habitRequest);
 
@@ -119,10 +115,11 @@ public class HabitService {
         return toDTO(saved);
     }
 
+    @Transactional
     public void updateHabit(long habitId, HabitRequest habitRequest) {
         validateSchedule(habitRequest);
 
-        Habit habit = habitAccessValidator.validate(habitId);
+        Habit habit = habitAccessValidator.getAndValidate(habitId);
         habit.setTitle(habitRequest.title());
         habit.setDescription(habitRequest.description());
         habit.setCategory(habitRequest.category());
@@ -135,48 +132,53 @@ public class HabitService {
         habitRepository.save(habit);
     }
 
-
+    @Transactional
     public void deleteHabit(long habitId) {
-        Habit habit = habitAccessValidator.validate(habitId);
+        Habit habit = habitAccessValidator.getAndValidate(habitId);
+        habitLogService.deleteByHabitId(habitId);
         habitRepository.delete(habit);
     }
 
     private HabitDTO toDTO(Habit habit) {
-        return new HabitDTO(habit.getId(), habit.getTitle(), habit.getDescription(), habit.getCategory(), habit.getFrequency(), habit.getDaysOfWeek(), habit.getDaysOfMonth(), habit.getTargetTime());
+        return new HabitDTO(
+                habit.getId(),
+                habit.getTitle(),
+                habit.getDescription(),
+                habit.getCategory(),
+                habit.getFrequency(),
+                habit.getDaysOfWeek(),
+                habit.getDaysOfMonth(),
+                habit.getTargetTime(),
+                habit.getCreatedAt()
+        );
     }
 
     private void validateSchedule(HabitRequest habitRequest) {
         switch (habitRequest.frequency()) {
             case WEEKLY -> {
                 if (habitRequest.daysOfWeek() == null || habitRequest.daysOfWeek().isEmpty()) {
-                    throw new HabitDayOfWeekNotFoundException("At least one day of week required");
+                    throw new IllegalArgumentException("At least one day of week required");
                 }
             }
             case MONTHLY -> {
-
                 if (habitRequest.daysOfMonth() == null || habitRequest.daysOfMonth().isEmpty()) {
-                    throw new HabitDayOfMonthNotFoundException("At least one day of month is required");
+                    throw new IllegalArgumentException("At least one day of month is required");
                 }
-
                 for (Integer d : habitRequest.daysOfMonth()) {
                     if (d < 1 || d > 31)
-                        throw new HabitDayOfMonthNotFoundException("Invalid day: " + d);
+                        throw new IllegalArgumentException("Invalid day: " + d);
                 }
             }
         }
     }
 
     private void normalizeSchedule(Habit habit) {
-
         switch (habit.getFrequency()) {
-
             case DAILY -> {
                 habit.setDaysOfWeek(null);
                 habit.setDaysOfMonth(null);
             }
-
             case WEEKLY -> habit.setDaysOfMonth(null);
-
             case MONTHLY -> habit.setDaysOfWeek(null);
         }
     }

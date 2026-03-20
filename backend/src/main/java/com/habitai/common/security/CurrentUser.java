@@ -9,10 +9,13 @@ import org.springframework.web.context.annotation.RequestScope;
 public class CurrentUser {
 
     public long getId() {
-        Object principal = SecurityContextHolder
-                .getContext()
-                .getAuthentication()
-                .getPrincipal();
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new IllegalStateException("User not authenticated");
+        }
+
+        Object principal = authentication.getPrincipal();
 
         if (principal instanceof UserPrincipal userPrincipal) {
             return userPrincipal.getUserId();

@@ -1,143 +1,306 @@
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import { useEffect, useState } from "react";
-import { getToken } from "../../../utils/authStorage";
+import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { router } from "expo-router";
+import { getHabitsForDateApi } from "../../../services/habitService";
+import { HabitResponse } from "../../../types/habit";
+import { formatDate, formatTime } from "../../../utils/formatters";
+import { Colors } from "../../../constants/colors";
 
-/* -------------------- Screen -------------------- */
+/* ---------------- Types ---------------- */
+type HabitStatus = "COMPLETED" | "MISSED" | "PENDING" | "PARTIALLY_COMPLETED";
+
+const STATUS_CONFIG: Record<HabitStatus, { color: string; emoji: string; label: string }> = {
+  COMPLETED: { color: "#16a34a", emoji: "✅", label: "COMPLETED" },
+  MISSED: { color: "#dc2626", emoji: "❌", label: "MISSED" },
+  PENDING: { color: "#f59e0b", emoji: "⏳", label: "PENDING" },
+  PARTIALLY_COMPLETED: { color: "#f97316", emoji: "🔶", label: "PARTIAL" },
+};
+
+const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+/* ---------------- Helpers ---------------- */
+function getDaysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfMonth(year: number, month: number): number {
+  const day = new Date(year, month, 1).getDay();
+  return (day + 6) % 7; // Monday = 0
+}
+
+/* ---------------- Screen ---------------- */
 export default function CalendarScreen() {
-  const today = new Date().toISOString().split("T")[0];
+  const todayDate = new Date();
+  const today = formatDate(todayDate);
 
+  const [currentYear, setCurrentYear] = useState(todayDate.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(todayDate.getMonth());
   const [selectedDate, setSelectedDate] = useState(today);
-  const [habits, setHabits] = useState<any[]>([]);
+  const [habits, setHabits] = useState<HabitResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [monthStatusMap, setMonthStatusMap] = useState<Map<string, HabitStatus[]>>(new Map());
 
   const isFuture = selectedDate > today;
   const isPast = selectedDate < today;
+  const isToday = selectedDate === today;
 
+  /* ---------------- Load habits for selected date ---------------- */
   useEffect(() => {
     loadHabitsForDate(selectedDate);
   }, [selectedDate]);
 
+  /* ---------------- Load month overview ---------------- */
+  useEffect(() => {
+    loadMonthOverview();
+  }, [currentYear, currentMonth]);
+
   const loadHabitsForDate = async (date: string) => {
-    const token = await getToken();
-    if (!token) return;
-
-    const res = await fetch(
-      `http://localhost:8080/habits?date=${date}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    const data = await res.json();
-    setHabits(data);
+    setError("");
+    setLoading(true);
+    try {
+      const data = await getHabitsForDateApi(date);
+      setHabits(data);
+    } catch (e) {
+      if (e instanceof Error && e.message === "Not authenticated") {
+        router.replace("/");
+        return;
+      }
+      setError("Failed to load habits.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  /* ---------------- Generate dates ---------------- */
-  const dates = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - 6 + i);
-    return d.toISOString().split("T")[0];
+  const loadMonthOverview = async () => {
+    const newMap = new Map<string, HabitStatus[]>();
+    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+
+    // Load all days in parallel
+    const promises = Array.from({ length: daysInMonth }, (_, i) => {
+      const date = formatDate(new Date(currentYear, currentMonth, i + 1));
+      return getHabitsForDateApi(date).then((habits) => {
+        if (habits.length > 0) {
+          newMap.set(date, habits.map((h) => h.habitStatus as HabitStatus));
+        }
+      }).catch(() => {});
+    });
+
+    await Promise.all(promises);
+    setMonthStatusMap(new Map(newMap));
+  };
+
+  /* ---------------- Navigation ---------------- */
+  const goToPrevMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear((y) => y - 1);
+    } else {
+      setCurrentMonth((m) => m - 1);
+    }
+  };
+
+  const goToNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear((y) => y + 1);
+    } else {
+      setCurrentMonth((m) => m + 1);
+    }
+  };
+
+  const goToToday = () => {
+    setCurrentYear(todayDate.getFullYear());
+    setCurrentMonth(todayDate.getMonth());
+    setSelectedDate(today);
+  };
+
+  /* ---------------- Build calendar grid ---------------- */
+  const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+  const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
+
+  const calendarCells: (number | null)[] = [
+    ...Array(firstDay).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+
+  // Pad to complete last row
+  while (calendarCells.length % 7 !== 0) {
+    calendarCells.push(null);
+  }
+
+  const monthName = new Date(currentYear, currentMonth).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
   });
+
+  /* ---------------- Get dot color for a day ---------------- */
+  const getDotColor = (dateStr: string): string | null => {
+    const statuses = monthStatusMap.get(dateStr);
+    if (!statuses || statuses.length === 0) return null;
+    if (statuses.every((s) => s === "COMPLETED")) return "#16a34a";
+    if (statuses.some((s) => s === "COMPLETED")) return "#f97316";
+    if (statuses.some((s) => s === "MISSED")) return "#dc2626";
+    return "#f59e0b";
+  };
 
   /* ---------------- Render ---------------- */
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <Text style={styles.header}>Calendar</Text>
       <View style={styles.divider} />
 
-      {/* Date strip */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.dateStrip}
-      >
-        {dates.map((date) => {
-          const isSelected = date === selectedDate;
-          const isToday = date === today;
-          const future = date > today;
+      {/* Month navigation */}
+      <View style={styles.monthNav}>
+        <Pressable onPress={goToPrevMonth} style={styles.navBtn}>
+          <Text style={styles.navBtnText}>‹</Text>
+        </Pressable>
+
+        <Pressable onPress={goToToday}>
+          <Text style={styles.monthTitle}>{monthName}</Text>
+        </Pressable>
+
+        <Pressable onPress={goToNextMonth} style={styles.navBtn}>
+          <Text style={styles.navBtnText}>›</Text>
+        </Pressable>
+      </View>
+
+      {/* Week day headers */}
+      <View style={styles.weekRow}>
+        {WEEK_DAYS.map((day) => (
+          <Text key={day} style={styles.weekDay}>{day}</Text>
+        ))}
+      </View>
+
+      {/* Calendar grid */}
+      <View style={styles.grid}>
+        {calendarCells.map((day, index) => {
+          if (day === null) {
+            return <View key={`empty-${index}`} style={styles.cell} />;
+          }
+
+          const dateStr = formatDate(new Date(currentYear, currentMonth, day));
+          const isSelected = dateStr === selectedDate;
+          const isTodayCell = dateStr === today;
+          const dotColor = getDotColor(dateStr);
 
           return (
             <Pressable
-              key={date}
-              onPress={() => setSelectedDate(date)}
+              key={dateStr}
               style={[
-                styles.dateChip,
-                isSelected && styles.selectedChip,
-                future && styles.futureChip,
+                styles.cell,
+                isSelected && styles.selectedCell,
+                isTodayCell && !isSelected && styles.todayCell,
               ]}
+              onPress={() => setSelectedDate(dateStr)}
             >
               <Text
                 style={[
-                  styles.day,
-                  isSelected && styles.selectedText,
+                  styles.cellText,
+                  isSelected && styles.selectedCellText,
+                  isTodayCell && !isSelected && styles.todayCellText,
                 ]}
               >
-                {new Date(date).toLocaleDateString("en-US", {
-                  weekday: "short",
-                })}
+                {day}
               </Text>
-
-              <Text
-                style={[
-                  styles.dayNum,
-                  isSelected && styles.selectedText,
-                ]}
-              >
-                {new Date(date).getDate()}
-              </Text>
-
-              {isToday && <Text style={styles.todayDot}>•</Text>}
+              {dotColor && (
+                <View style={[styles.dot, { backgroundColor: dotColor }]} />
+              )}
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
-      {/* Info text */}
-      {isFuture && (
-        <Text style={styles.info}>
-          🔒 Future habits cannot be completed
-        </Text>
-      )}
-      {isPast && (
-        <Text style={styles.info}>
-          📅 Past habits are read-only
-        </Text>
-      )}
+      <View style={styles.divider} />
 
-      {/* Habits list */}
-      <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-        {habits.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>📆</Text>
-            <Text style={styles.emptyTitle}>No habits scheduled</Text>
-            <Text style={styles.emptySubtitle}>
-              There are no habits planned for this day.
-            </Text>
+      {/* Selected date label */}
+      <View style={styles.selectedDateRow}>
+        <Text style={styles.selectedDateLabel}>
+          {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </Text>
+        {isFuture && (
+          <View style={[styles.badge, { backgroundColor: "#eff6ff" }]}>
+            <Text style={[styles.badgeText, { color: "#3b82f6" }]}>🔒 Future</Text>
           </View>
-        ) : (
-          habits.map((h) => (
+        )}
+        {isPast && (
+          <View style={[styles.badge, { backgroundColor: "#fef3c7" }]}>
+            <Text style={[styles.badgeText, { color: "#d97706" }]}>📅 Past</Text>
+          </View>
+        )}
+        {isToday && (
+          <View style={[styles.badge, { backgroundColor: "#f0fdf4" }]}>
+            <Text style={[styles.badgeText, { color: "#16a34a" }]}>Today</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Habits for selected date */}
+      {loading ? (
+        <Text style={styles.loadingText}>Loading habits...</Text>
+      ) : error ? (
+        <Text style={styles.errorText}>{error}</Text>
+      ) : habits.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyIcon}>📆</Text>
+          <Text style={styles.emptyTitle}>No habits scheduled</Text>
+          <Text style={styles.emptySubtitle}>
+            There are no habits planned for this day.
+          </Text>
+        </View>
+      ) : (
+        habits.map((h) => {
+          const config = STATUS_CONFIG[h.habitStatus as HabitStatus] ?? STATUS_CONFIG.PENDING;
+          return (
             <View
               key={h.id}
               style={[
                 styles.card,
+                { borderLeftColor: config.color },
                 isFuture && styles.futureCard,
               ]}
             >
-              <Text style={styles.title}>{h.title}</Text>
-              <Text style={styles.status}>
-                {statusEmoji(h.habitStatus)} {h.habitStatus}
-              </Text>
+              <View style={styles.cardLeft}>
+                <Text style={styles.cardTitle}>{h.title}</Text>
+                <View style={styles.cardMeta}>
+                  <Text style={styles.cardCategory}>{h.category}</Text>
+                  <Text style={styles.cardDot}>·</Text>
+                  <Text style={styles.cardTime}>⏰ {formatTime(h.targetTime)}</Text>
+                </View>
+              </View>
+              <View style={[styles.statusBadge, { backgroundColor: config.color + "20" }]}>
+                <Text style={styles.statusEmoji}>{config.emoji}</Text>
+                <Text style={[styles.statusLabel, { color: config.color }]}>
+                  {config.label}
+                </Text>
+              </View>
             </View>
-          ))
-        )}
-      </ScrollView>
-    </View>
-  );
-}
+          );
+        })
+      )}
 
-/* ---------------- Helpers ---------------- */
-function statusEmoji(status: string) {
-  if (status === "COMPLETED") return "✅";
-  if (status === "MISSED") return "❌";
-  return "⏳";
+      {/* Legend */}
+      <View style={styles.legend}>
+        {[
+          { color: "#16a34a", label: "All completed" },
+          { color: "#f97316", label: "Partial" },
+          { color: "#dc2626", label: "Missed" },
+          { color: "#f59e0b", label: "Pending" },
+        ].map((item) => (
+          <View key={item.label} style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+            <Text style={styles.legendLabel}>{item.label}</Text>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
 }
 
 /* ---------------- Styles ---------------- */
@@ -145,114 +308,221 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: Colors.background,
   },
-
   header: {
     fontSize: 22,
     fontWeight: "600",
     marginBottom: 8,
+    color: Colors.text,
   },
-
   divider: {
     height: 1,
     backgroundColor: "#e5e7eb",
     marginBottom: 16,
   },
-
-  dateStrip: {
+  monthNav: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
-
-  dateChip: {
-    width: 56,
-    height: 72,
-    marginRight: 10,
-    borderRadius: 12,
-    backgroundColor: "#fff",
+  navBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.card,
     justifyContent: "center",
     alignItems: "center",
   },
-
-  selectedChip: {
-    backgroundColor: "#4f46e5",
+  navBtnText: {
+    fontSize: 22,
+    color: Colors.text,
+    fontWeight: "600",
   },
-
-  futureChip: {
-    opacity: 0.5,
-  },
-
-  day: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-
-  dayNum: {
+  monthTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#111827",
+    color: Colors.text,
   },
-
-  selectedText: {
-    color: "#fff",
+  weekRow: {
+    flexDirection: "row",
+    marginBottom: 8,
   },
-
-  todayDot: {
-    fontSize: 18,
-    color: "#16a34a",
-    marginTop: -4,
-  },
-
-  info: {
-    fontSize: 12,
-    color: "#6b7280",
+  weekDay: {
+    flex: 1,
     textAlign: "center",
-    marginBottom: 10,
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.subtext,
+    paddingVertical: 4,
   },
-
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginBottom: 16,
+  },
+  cell: {
+    width: `${100 / 7}%`,
+    height: 52,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 2,
+  },
+  selectedCell: {
+    backgroundColor: Colors.primary,
+    borderRadius: 8,
+  },
+  todayCell: {
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    borderRadius: 8,
+  },
+  cellText: {
+    fontSize: 14,
+    color: Colors.text,
+    fontWeight: "400",
+  },
+  selectedCellText: {
+    color: Colors.white,
+    fontWeight: "600",
+  },
+  todayCellText: {
+    color: Colors.primary,
+    fontWeight: "600",
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    marginTop: 2,
+  },
+  selectedDateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  selectedDateLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.text,
+    flex: 1,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  loadingText: {
+    color: Colors.subtext,
+    textAlign: "center",
+    marginTop: 20,
+  },
+  errorText: {
+    color: Colors.error,
+    textAlign: "center",
+    marginTop: 20,
+  },
   emptyState: {
-    marginTop: 60,
+    marginTop: 30,
     alignItems: "center",
   },
-
   emptyIcon: {
     fontSize: 42,
     marginBottom: 10,
   },
-
   emptyTitle: {
     fontSize: 18,
     fontWeight: "600",
     marginBottom: 4,
+    color: Colors.text,
   },
-
   emptySubtitle: {
     fontSize: 14,
-    color: "#6b7280",
+    color: Colors.subtext,
     textAlign: "center",
     maxWidth: 260,
   },
-
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: Colors.card,
     padding: 14,
     borderRadius: 12,
     marginBottom: 10,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    borderLeftWidth: 4,
   },
-
   futureCard: {
-    opacity: 0.6,
+    opacity: 0.7,
   },
-
-  title: {
+  cardLeft: {
+    flex: 1,
+    marginRight: 12,
+  },
+  cardTitle: {
     fontSize: 15,
     fontWeight: "600",
+    color: Colors.text,
+    marginBottom: 6,
   },
-
-  status: {
-    fontSize: 14,
+  cardMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  cardCategory: {
+    fontSize: 12,
+    color: Colors.subtext,
+  },
+  cardDot: {
+    fontSize: 12,
+    color: Colors.subtext,
+  },
+  cardTime: {
+    fontSize: 12,
+    color: Colors.primary,
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 4,
+  },
+  statusEmoji: {
+    fontSize: 12,
+  },
+  statusLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  legend: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 20,
+    marginBottom: 30,
+    justifyContent: "center",
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendLabel: {
+    fontSize: 11,
+    color: Colors.subtext,
   },
 });

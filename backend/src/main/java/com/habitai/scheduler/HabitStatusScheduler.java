@@ -3,9 +3,10 @@ package com.habitai.scheduler;
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitRepository;
 import com.habitai.habit.HabitService;
-import com.habitai.habitlog.*;
+import com.habitai.habitlog.HabitLogRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -26,34 +27,26 @@ public class HabitStatusScheduler {
         this.habitStatusSystemService = habitStatusSystemService;
     }
 
-    @Scheduled(cron = "0 * * * * *")
+    @Transactional
+    @Scheduled(cron = "0 */5 * * * *")
     public void updateMissedHabits() {
         LocalDate today = LocalDate.now();
         LocalTime now = LocalTime.now();
 
-        List<Habit> overdueHabits =
-                habitRepository.findByTargetTimeBefore(now);
+        List<Habit> overdueHabits = habitRepository.findByTargetTimeBefore(now);
 
         for (Habit habit : overdueHabits) {
-
             if (!habitService.isScheduledForDate(habit, today)) {
                 continue;
             }
 
-            HabitLog alreadyLogged =
-                    habitLogRepository.findByHabitIdAndUserIdAndDate(
-                            habit.getId(),
-                            habit.getUserId(),
-                            today
-                    );
+            boolean alreadyLogged = habitLogRepository
+                    .findByHabitIdAndUserIdAndDate(habit.getId(), habit.getUserId(), today)
+                    .isPresent();
 
-            if (alreadyLogged == null) {
-                habitStatusSystemService.updateTodayHabitStatus(
-                        habit.getId(),
-                        habit.getUserId()
-                );
+            if (!alreadyLogged) {
+                habitStatusSystemService.updateTodayHabitStatus(habit.getId(), habit.getUserId());
             }
         }
     }
-
 }

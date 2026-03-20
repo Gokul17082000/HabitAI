@@ -2,8 +2,8 @@ package com.habitai.auth;
 
 import com.habitai.user.User;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,23 +29,26 @@ public class JwtService {
                 .claim("role", List.of("USER"))
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(getSignKey(), SignatureAlgorithm.HS256)
+                .signWith(getSignKey())  // HS256 inferred from key type
                 .compact();
     }
 
-    public Key getSignKey() {
+    private Key getSignKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
     public boolean isValidJwtToken(String token){
-        Claims claims = extractAllClaims(token);
-        return !isTokenExpired(claims);
+        try {
+            Claims claims = extractAllClaims(token);
+            return !isTokenExpired(claims);
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
     }
 
     private boolean isTokenExpired(Claims claims) {
-        Date expirationDate = claims.getExpiration();
-        return expirationDate.before(new Date());
+        return claims.getExpiration().before(new Date());
     }
 
     private Claims extractAllClaims(String token) {

@@ -18,7 +18,7 @@ public class HabitAccessValidator {
         this.currentUser = currentUser;
     }
 
-    public Habit validate(long habitId){
+    public Habit getAndValidate(long habitId){
         long userId = currentUser.getId();
         Habit habit = habitRepository.findById(habitId)
                 .orElseThrow(() -> new HabitNotFoundException("Habit not found"));

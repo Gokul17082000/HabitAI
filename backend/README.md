@@ -1,197 +1,130 @@
-# 📌 HabitAI – Habit Tracking & Reminder Backend
+# HabitAI Backend
 
-HabitAI is a **backend system for habit tracking**, streak calculation, activity visualization, and scheduled reminders.
-It is designed with **clean architecture**, **JWT-based authentication**, and **scalable modules**.
+Spring Boot REST API for the HabitAI habit tracking application.
 
----
+## Prerequisites
 
-## 🚀 Features
+- Java 21+
+- PostgreSQL 14+
+- Maven 3.8+
+- Firebase project with Admin SDK credentials
 
-### ✅ Authentication & Security
+## Getting Started
 
-* User registration & login
-* JWT-based stateless authentication
-* Secure access to user-specific resources
-* Centralized exception handling
-
-### ✅ Habit Management
-
-* Create, update, delete habits
-* Habit frequency support (DAILY, WEEKLY, MONTHLY)
-* Per-habit target time
-* User-specific habit isolation
-
-### ✅ Habit Logs
-
-* Daily habit status logging
-* Prevents duplicate logs per day
-* Supported statuses:
-
-    * `COMPLETED`
-    * `MISSED`
-    * `PENDING`
-    * `PARTIALLY_COMPLETED`
-
-### ✅ Streak Tracking
-
-* Calculates **current streak** for a habit
-* Automatically breaks streak on missed day
-
-### ✅ Habit Activity Graph
-
-* Returns activity between a date range
-* Fills missing dates automatically with `MISSED` / `PENDING`
-* Backend-driven consistency (frontend stays simple)
-
-### ✅ Reminder System
-
-* Scheduled reminders before habit time
-* Centralized reminder offset (30 minutes)
-* Central scheduler with notification abstraction
-* Prevents duplicate reminders per day
-
----
-
-## 🧱 Architecture Overview
-
-```
-├── auth            → Authentication & JWT
-├── security        → JWT filter & security config
-├── habit           → Habit CRUD
-├── habitlog        → Logs, streaks, activity
-├── notification    → Notification abstraction
-├── scheduler       → Reminder scheduler
-├── common
-│   ├── security    → CurrentUser, UserPrincipal
-│   └── validation  → Access validators
-└── exception       → Global exception handling
+### 1. Clone the repository
+```bash
+git clone https://github.com/yourusername/HabitAI.git
+cd HabitAI/backend
 ```
 
----
-
-## 🔐 Authentication Flow
-
-1. User logs in → JWT token issued
-2. Token sent in `Authorization` header:
-
-   ```
-   Authorization: Bearer <JWT_TOKEN>
-   ```
-3. `JwtAuthenticationFilter`:
-
-    * Validates token
-    * Extracts `userId`
-    * Sets authenticated `UserPrincipal`
-4. `CurrentUser` provides userId across services
-
----
-
-## 📦 API Endpoints
-
-### 🔑 Auth
-
-| Method | Endpoint         | Description     |
-|--------|------------------|-----------------|
-| POST   | `/auth/register` | Register user   |
-| POST   | `/auth/login`    | Login & get JWT |
-
----
-
-### 🧠 Habits
-
-| Method | Endpoint       | Description    |
-|--------|----------------|----------------|
-| GET    | `/habits`      | Get all habits |
-| POST   | `/habits`      | Create habit   |
-| PUT    | `/habits/{id}` | Update habit   |
-| DELETE | `/habits/{id}` | Delete habit   |
-
----
-
-### 📊 Habit Logs
-
-| Method | Endpoint                | Description                |
-|--------|-------------------------|----------------------------|
-| POST   | `/habits/{id}/log`      | Log today’s status         |
-| GET    | `/habits/{id}/streak`   | Get current streak         |
-| GET    | `/habits/{id}/activity` | Get activity by date range |
-
----
-
-## ⏰ Reminder System
-
-* Scheduler runs **at the 45th minute of every hour**
-* Finds habits whose reminder time falls in current window
-* Sends notification
-
-### Reminder Time Formula
-
-```
-reminderTime = targetTime - reminderOffsetMinutes
+### 2. Create PostgreSQL database
+```sql
+CREATE DATABASE habitai;
 ```
 
----
-
-## 🧪 Validation & Error Handling
-
-* Bean validation on request DTOs
-* Centralized `@RestControllerAdvice`
-* Consistent error response format:
-
-```json
-{
-  "message": "Habit not found",
-  "status": 404,
-  "timestamp": "2025-01-01T10:15:30"
-}
+### 3. Create `.env` file
+```env
+DB_URL=jdbc:postgresql://localhost:5432/habitai
+DB_USERNAME=your_db_username
+DB_PASSWORD=your_db_password
+JWT_SECRET=your_generated_secret
+JWT_EXPIRATION=86400000
+DDL_AUTO=update
+CORS_ORIGIN_1=http://localhost:8081
+CORS_ORIGIN_2=http://your_local_ip:8081
+CORS_ORIGIN_3=http://your_local_ip:19006
+FIREBASE_SERVICE_ACCOUNT=src/main/resources/firebase-service-account.json
 ```
 
----
+Generate a strong JWT secret:
+```bash
+openssl rand -base64 32
+```
 
-## 🛠 Tech Stack
+### 4. Add Firebase service account
+- Go to Firebase Console → Project Settings → Service Accounts
+- Click **Generate new private key**
+- Save as `src/main/resources/firebase-service-account.json`
 
-* **Java 21**
-* **Spring Boot 4 (Spring Framework 7)**
-* **Spring Security**
-* **JWT (jjwt)**
-* **Spring Data JPA**
-* **Hibernate**
-* **PostgreSQL**
-* **Lombok**
-* **Maven**
+### 5. Run the application
+```bash
+mvn spring-boot:run
+```
 
----
+The server starts on `http://localhost:8080`
 
-## 🧩 Design Decisions (Why this way?)
+## API Documentation
 
-* Records used for immutable responses
-* Validators extracted to avoid duplication
-* Scheduler decoupled from notification delivery
-* Backend controls streak & activity logic
-* No unnecessary bidirectional JPA mappings
-* No overuse of annotations (`@Transactional` only when needed)
+Swagger UI available at:
+```
+http://localhost:8080/swagger-ui/index.html
+```
 
----
+## Project Structure
+```
+src/main/java/com/habitai/
+├── auth/              # Authentication (login, register, JWT)
+├── common/            # Shared utilities (CurrentUser, FirebaseConfig)
+│   ├── security/      # UserPrincipal, CurrentUser
+│   └── validation/    # HabitAccessValidator
+├── exception/         # Global exception handling
+├── habit/             # Habit CRUD
+├── habitlog/          # Habit logging, streaks, activity
+├── notification/      # FCM push notifications
+├── scheduler/         # Scheduled jobs (MISSED status, reminders)
+├── security/          # JWT filter, Spring Security config
+└── user/              # User profile, stats
+```
 
-## 🔮 Future Enhancements
+## API Endpoints
 
-* User preferred reminder offset time
-* Push notifications (FCM)
-* Email reminders
-* User notification preferences
-* Habit analytics dashboard
-* Web / Mobile frontend
-* Async messaging (Kafka / SQS)
-* Caching streaks for performance
+### Auth
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/auth/register` | Register new user |
+| POST | `/auth/login` | Login and get JWT token |
 
----
+### Habits
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/habits` | Get habits for a date |
+| GET | `/habits/all` | Get all habits |
+| GET | `/habits/{id}` | Get habit by ID |
+| POST | `/habits` | Create habit |
+| PUT | `/habits/{id}` | Update habit |
+| DELETE | `/habits/{id}` | Delete habit |
 
-## 🧠 Author Notes
+### Habit Logs
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/habits/{id}/log` | Log habit status |
+| GET | `/habits/{id}/streak` | Get current streak |
+| GET | `/habits/{id}/streak/longest` | Get longest streak |
+| GET | `/habits/{id}/activity` | Get activity history |
 
-This project is intentionally built with:
+### User
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/user` | Get user details |
+| GET | `/user/stats` | Get user stats dashboard |
+| POST | `/user/push-token` | Save FCM push token |
 
-* **Clarity over cleverness**
-* **Explicit logic over magic**
-* **Scalability without premature optimization**
+## Scheduled Jobs
 
----
+| Job | Schedule | Description |
+|-----|----------|-------------|
+| `updateMissedHabits` | Every 5 minutes | Marks overdue habits as MISSED |
+| `sendHabitReminder` | Every 15 minutes | Sends FCM push notifications |
+
+## Environment Variables Reference
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DB_URL` | PostgreSQL connection URL | `jdbc:postgresql://localhost:5432/habitai` |
+| `DB_USERNAME` | Database username | `gokulbj` |
+| `DB_PASSWORD` | Database password | _(empty)_ |
+| `JWT_SECRET` | JWT signing secret | _(required)_ |
+| `JWT_EXPIRATION` | JWT expiration in ms | `86400000` (24h) |
+| `DDL_AUTO` | Hibernate DDL mode | `update` |
+| `CORS_ORIGIN_1` | Allowed CORS origin 1 | `http://localhost:8081` |
+| `FIREBASE_SERVICE_ACCOUNT` | Path to Firebase service account JSON | `src/main/resources/firebase-service-account.json` |

@@ -28,8 +28,19 @@ public class HabitLogController {
         return habitLogService.getCurrentStreak(habitId);
     }
 
+    @GetMapping("/{habitId}/streak/longest")
+    public HabitStreakResponse getLongestStreak(@PathVariable long habitId) {
+        return habitLogService.getLongestStreak(habitId);
+    }
+
     @GetMapping("/{habitId}/activity")
-    public List<HabitActivityStatus> getHabitActivity(@PathVariable long habitId, @RequestParam LocalDate startDate, @RequestParam LocalDate endDate) {
+    public List<HabitActivityStatus> getHabitActivity(
+            @PathVariable long habitId,
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate) {
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("startDate must not be after endDate");
+        }
         return habitLogService.getHabitActivity(habitId, startDate, endDate);
     }
 }

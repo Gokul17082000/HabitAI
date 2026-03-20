@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import { router } from "expo-router";
-import { getToken, removeToken } from "../../../utils/authStorage";
+import { removeToken } from "../../../utils/authStorage";
+import { getUserApi, getUserStatsApi, UserStats } from "../../../services/authService";
+import { Colors } from "../../../constants/colors";
 
 type UserDTO = {
   email: string;
@@ -9,29 +11,29 @@ type UserDTO = {
 
 export default function ProfileScreen() {
   const [user, setUser] = useState<UserDTO | null>(null);
+  const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     loadProfile();
   }, []);
 
   const loadProfile = async () => {
+    setError("");
     try {
-      const token = await getToken();
-      if (!token) return router.replace("/");
-
-      const res = await fetch("http://localhost:8080/user", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) throw new Error("Failed to load profile");
-
-      const data = await res.json();
-      setUser(data);
+      const [userData, statsData] = await Promise.all([
+        getUserApi(),
+        getUserStatsApi(),
+      ]);
+      setUser(userData);
+      setStats(statsData);
     } catch (e) {
-      console.log("Profile load error", e);
+      if (e instanceof Error && e.message === "Not authenticated") {
+        router.replace("/");
+        return;
+      }
+      setError("Failed to load profile.");
     } finally {
       setLoading(false);
     }
@@ -42,120 +44,314 @@ export default function ProfileScreen() {
     router.replace("/");
   };
 
+  const formatMemberSince = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+  };
+
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <Text style={styles.header}>Profile</Text>
+      <View style={styles.divider} />
 
       {/* Profile Card */}
-      <View style={styles.card}>
+      <View style={styles.profileCard}>
         <Text style={styles.avatar}>👤</Text>
-        <Text style={styles.email}>
-          {loading ? "Loading..." : user?.email}
-        </Text>
+        {loading ? (
+          <Text style={styles.email}>Loading...</Text>
+        ) : error ? (
+          <Text style={styles.errorText}>{error}</Text>
+        ) : (
+          <>
+            <Text style={styles.email}>{user?.email}</Text>
+            {stats && (
+              <Text style={styles.memberSince}>
+                Member since {formatMemberSince(stats.memberSince)}
+              </Text>
+            )}
+          </>
+        )}
       </View>
 
-      {/* Stats (placeholder – wire later) */}
-      <View style={styles.statsCard}>
-        <Text style={styles.sectionTitle}>Stats</Text>
+      {!loading && stats && (
+        <>
+          {/* Overview */}
+          <View style={styles.overviewRow}>
+            <View style={styles.overviewCard}>
+              <Text style={styles.overviewValue}>{stats.totalHabits}</Text>
+              <Text style={styles.overviewLabel}>Total{"\n"}Habits</Text>
+            </View>
+            <View style={styles.overviewCard}>
+              <Text style={styles.overviewValue}>{stats.overallConsistency}%</Text>
+              <Text style={styles.overviewLabel}>Overall{"\n"}Consistency</Text>
+            </View>
+            <View style={styles.overviewCard}>
+              <Text style={styles.overviewValue}>{stats.totalDaysTracked}</Text>
+              <Text style={styles.overviewLabel}>Days{"\n"}Tracked</Text>
+            </View>
+          </View>
 
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Total Habits</Text>
-          <Text style={styles.statValue}>—</Text>
-        </View>
+          {/* All Time */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>All Time</Text>
+            <View style={styles.allTimeRow}>
+              <View style={styles.allTimeItem}>
+                <Text style={styles.allTimeEmoji}>✅</Text>
+                <Text style={styles.allTimeValue}>{stats.totalCompleted}</Text>
+                <Text style={styles.allTimeLabel}>Completed</Text>
+              </View>
+              <View style={styles.allTimeDivider} />
+              <View style={styles.allTimeItem}>
+                <Text style={styles.allTimeEmoji}>❌</Text>
+                <Text style={styles.allTimeValue}>{stats.totalMissed}</Text>
+                <Text style={styles.allTimeLabel}>Missed</Text>
+              </View>
+              <View style={styles.allTimeDivider} />
+              <View style={styles.allTimeItem}>
+                <Text style={styles.allTimeEmoji}>📅</Text>
+                <Text style={styles.allTimeValue}>{stats.totalDaysTracked}</Text>
+                <Text style={styles.allTimeLabel}>Days</Text>
+              </View>
+            </View>
+          </View>
 
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Active Habits</Text>
-          <Text style={styles.statValue}>—</Text>
-        </View>
+          {/* Streaks */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Streaks</Text>
+            <View style={styles.streakRow}>
+              <View style={styles.streakItem}>
+                <Text style={styles.streakEmoji}>🔥</Text>
+                <Text style={styles.streakValue}>{stats.currentStreak}</Text>
+                <Text style={styles.streakLabel}>Current Streak</Text>
+                <Text style={styles.streakSub}>days</Text>
+              </View>
+              <View style={styles.streakDivider} />
+              <View style={styles.streakItem}>
+                <Text style={styles.streakEmoji}>🏆</Text>
+                <Text style={styles.streakValue}>{stats.longestStreak}</Text>
+                <Text style={styles.streakLabel}>Longest Streak</Text>
+                <Text style={styles.streakSub}>days</Text>
+              </View>
+            </View>
+          </View>
 
-        <View style={styles.statRow}>
-          <Text style={styles.statLabel}>Longest Streak</Text>
-          <Text style={styles.statValue}>—</Text>
-        </View>
-      </View>
+          {/* Top Habits */}
+          {stats.topHabits && stats.topHabits.length > 0 && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>🏅 Top Habits</Text>
+              {stats.topHabits.map((habit, index) => {
+                const medals = ["🥇", "🥈", "🥉"];
+                return (
+                  <View key={habit.title} style={styles.topHabitRow}>
+                    <Text style={styles.topHabitMedal}>{medals[index]}</Text>
+                    <View style={styles.topHabitInfo}>
+                      <Text style={styles.topHabitTitle}>{habit.title}</Text>
+                      <Text style={styles.topHabitSub}>
+                        {habit.completions} completions · {habit.consistencyPercent}% consistency
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </>
+      )}
 
       {/* Logout */}
       <Pressable style={styles.logoutBtn} onPress={handleLogout}>
         <Text style={styles.logoutText}>Logout</Text>
       </Pressable>
-    </View>
+
+      <View style={{ height: 30 }} />
+    </ScrollView>
   );
 }
-
-/* ---------------- Styles ---------------- */
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: Colors.background,
   },
-
   header: {
     fontSize: 22,
     fontWeight: "600",
-    marginBottom: 20,
+    marginBottom: 8,
+    color: Colors.text,
   },
-
-  card: {
-    backgroundColor: "#fff",
+  divider: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
+    marginBottom: 16,
+  },
+  profileCard: {
+    backgroundColor: Colors.card,
     padding: 24,
     borderRadius: 14,
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 16,
   },
-
   avatar: {
     fontSize: 48,
     marginBottom: 10,
   },
-
   email: {
     fontSize: 15,
     fontWeight: "500",
     color: "#374151",
   },
-
-  statsCard: {
-    backgroundColor: "#fff",
+  memberSince: {
+    fontSize: 12,
+    color: Colors.subtext,
+    marginTop: 4,
+  },
+  errorText: {
+    fontSize: 14,
+    color: Colors.error,
+  },
+  overviewRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 16,
+  },
+  overviewCard: {
+    flex: 1,
+    backgroundColor: Colors.card,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  overviewValue: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: Colors.primary,
+    marginBottom: 4,
+  },
+  overviewLabel: {
+    fontSize: 11,
+    color: Colors.subtext,
+    textAlign: "center",
+  },
+  card: {
+    backgroundColor: Colors.card,
     padding: 16,
     borderRadius: 14,
-    marginBottom: 30,
+    marginBottom: 16,
   },
-
-  sectionTitle: {
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.text,
+    marginBottom: 16,
+  },
+  allTimeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  allTimeItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  allTimeDivider: {
+    width: 1,
+    height: 50,
+    backgroundColor: "#e5e7eb",
+  },
+  allTimeEmoji: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  allTimeValue: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: Colors.text,
+  },
+  allTimeLabel: {
+    fontSize: 11,
+    color: Colors.subtext,
+    marginTop: 2,
+  },
+  streakRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  streakItem: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  streakDivider: {
+    width: 1,
+    height: 60,
+    backgroundColor: "#e5e7eb",
+  },
+  streakEmoji: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  streakValue: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: Colors.text,
+  },
+  streakLabel: {
+    fontSize: 12,
+    color: Colors.subtext,
+    marginTop: 2,
+  },
+  streakSub: {
+    fontSize: 11,
+    color: Colors.subtext,
+  },
+  mostConsistentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  mostConsistentEmoji: {
+    fontSize: 24,
+  },
+  mostConsistentHabit: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 12,
+    color: Colors.text,
   },
-
-  statRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-
-  statLabel: {
-    fontSize: 14,
-    color: "#6b7280",
-  },
-
-  statValue: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-
   logoutBtn: {
     backgroundColor: "#ef4444",
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
+    marginBottom: 16,
   },
-
   logoutText: {
-    color: "#fff",
+    color: Colors.white,
     fontWeight: "600",
     fontSize: 15,
+  },
+  topHabitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 10,
+  },
+  topHabitMedal: {
+    fontSize: 24,
+  },
+  topHabitInfo: {
+    flex: 1,
+  },
+  topHabitTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.text,
+  },
+  topHabitSub: {
+    fontSize: 12,
+    color: Colors.subtext,
+    marginTop: 2,
   },
 });

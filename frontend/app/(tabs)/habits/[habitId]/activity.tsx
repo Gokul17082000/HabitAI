@@ -1,13 +1,36 @@
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useEffect, useState } from "react";
-import { useLocalSearchParams } from "expo-router";
-import { getToken } from "../../../../utils/authStorage";
+import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { useLocalSearchParams, router } from "expo-router";
+import { getHabitActivityApi } from "../../../../services/habitService";
+import { ActivityItem } from "../../../../types/habit";
+import { formatDate, formatDisplayDate } from "../../../../utils/formatters";
+import { Colors } from "../../../../constants/colors";
+import { getHabitStreakApi, getLongestStreakApi } from "../../../../services/habitService";
 
-/* ---------------- Types ---------------- */
-type ActivityItem = {
-  date: string;
-  habitStatus: "COMPLETED" | "MISSED" | "PENDING";
+/* ---------------- Range Options ---------------- */
+type RangeOption = "1W" | "1M" | "3M" | "6M" | "1Y" | "ALL";
+
+const RANGE_OPTIONS: { label: string; value: RangeOption }[] = [
+  { label: "1W", value: "1W" },
+  { label: "1M", value: "1M" },
+  { label: "3M", value: "3M" },
+  { label: "6M", value: "6M" },
+  { label: "1Y", value: "1Y" },
+  { label: "All", value: "ALL" },
+];
+
+const getRangeDays = (range: RangeOption): number => {
+  switch (range) {
+    case "1W": return 7;
+    case "1M": return 30;
+    case "3M": return 90;
+    case "6M": return 180;
+    case "1Y": return 365;
+    case "ALL": return 3650;
+  }
 };
+
+const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /* ---------------- Screen ---------------- */
 export default function HabitActivityScreen() {
@@ -15,185 +38,495 @@ export default function HabitActivityScreen() {
 
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [range, setRange] = useState<RangeOption>("3M");
+  const [showRecent, setShowRecent] = useState(false);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [longestStreak, setLongestStreak] = useState(0);
 
   useEffect(() => {
     if (!habitId) return;
-    loadActivity();
-  }, [habitId]);
+    loadActivity(range);
+    loadStreaks();
+  }, [habitId, range]);
 
-  const loadActivity = async () => {
+  const loadActivity = async (selectedRange: RangeOption) => {
+    setError("");
+    setLoading(true);
     try {
-      const token = await getToken();
-      if (!token) return;
-
       const end = new Date();
       const start = new Date();
-      start.setDate(end.getDate() - 90); // last 90 days
+      start.setDate(end.getDate() - getRangeDays(selectedRange));
 
-      const res = await fetch(
-        `http://localhost:8080/habits/${habitId}/activity?startDate=${fmt(
-          start
-        )}&endDate=${fmt(end)}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const data = await getHabitActivityApi(
+        Number(habitId),
+        formatDate(start),
+        formatDate(end)
       );
-
-      const data = await res.json();
       setActivity(data);
-    } catch {
-      console.log("Failed to load activity");
+    } catch (e) {
+      if (e instanceof Error && e.message === "Not authenticated") {
+        router.replace("/");
+        return;
+      }
+      setError("Failed to load activity.");
     } finally {
       setLoading(false);
     }
   };
 
   /* ---------------- Stats ---------------- */
-  const completed = activity.filter(a => a.habitStatus === "COMPLETED").length;
-  const missed = activity.filter(a => a.habitStatus === "MISSED").length;
+  const completed = activity.filter((a) => a.habitStatus === "COMPLETED").length;
+  const missed = activity.filter((a) => a.habitStatus === "MISSED").length;
   const total = activity.length;
   const percent = total ? Math.round((completed / total) * 100) : 0;
+  const recentActivity = [...activity]
+    .reverse()
+    .filter((a) => a.habitStatus !== "PENDING");
 
-  /* ---------------- Render ---------------- */
+  const loadStreaks = async () => {
+    try {
+      const [current, longest] = await Promise.all([
+        getHabitStreakApi(Number(habitId)),
+        getLongestStreakApi(Number(habitId)),
+      ]);
+      setCurrentStreak(current.streak);
+      setLongestStreak(longest.streak);
+    } catch {
+      // silently fail — streaks are non-critical
+    }
+  };
+
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.header}>Activity</Text>
 
-      {/* Summary */}
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryMain}>{percent}% consistency</Text>
-        <Text style={styles.summarySub}>
-          {completed} completed · {missed} missed (last 90 days)
-        </Text>
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <Text style={styles.header}>Activity</Text>
+        <Pressable onPress={() => router.replace("/habits")}>
+          <Text style={styles.close}>Close</Text>
+        </Pressable>
       </View>
+      <View style={styles.divider} />
 
-      {/* Heatmap */}
-      <Text style={styles.sectionTitle}>Consistency</Text>
-      <Heatmap activity={activity} />
+      {/* Range Selector */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.rangeStrip}
+      >
+        {RANGE_OPTIONS.map((option) => (
+          <Pressable
+            key={option.value}
+            onPress={() => setRange(option.value)}
+            style={[
+              styles.rangeChip,
+              range === option.value && styles.rangeChipActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.rangeChipText,
+                range === option.value && styles.rangeChipTextActive,
+              ]}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
 
-      {/* Recent */}
-      <Text style={styles.sectionTitle}>Recent Activity</Text>
-      {activity.slice(-7).reverse().map((a, i) => (
-        <View key={i} style={styles.recentRow}>
-          <Text>{prettyDate(a.date)}</Text>
-          <Text style={styles.statusText}>
-            {emoji(a.habitStatus)} {a.habitStatus}
-          </Text>
+      {loading ? (
+        <View style={styles.centered}>
+          <Text style={styles.loadingText}>Loading activity...</Text>
         </View>
-      ))}
+      ) : (
+        <>
+          {/* Summary */}
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryMain}>{percent}% consistency</Text>
+            <Text style={styles.summarySub}>
+              {completed} completed · {missed} missed
+            </Text>
+
+            <View style={styles.streakRow}>
+              <View style={styles.streakItem}>
+                <Text style={styles.streakValue}>🔥 {currentStreak}</Text>
+                <Text style={styles.streakLabel}>Current Streak</Text>
+              </View>
+              <View style={styles.streakDivider} />
+              <View style={styles.streakItem}>
+                <Text style={styles.streakValue}>🏆 {longestStreak}</Text>
+                <Text style={styles.streakLabel}>Longest Streak</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* GitHub-style Heatmap */}
+          <Text style={styles.sectionTitle}>Consistency</Text>
+          <GitHubHeatmap activity={activity} />
+
+          {/* Legend */}
+          <View style={styles.legend}>
+            <Text style={styles.legendLabel}>Less</Text>
+            <View style={[styles.legendCell, { backgroundColor: "#e5e7eb" }]} />
+            <View style={[styles.legendCell, { backgroundColor: "#dc2626" }]} />
+            <View style={[styles.legendCell, { backgroundColor: "#16a34a" }]} />
+            <Text style={styles.legendLabel}>More</Text>
+          </View>
+
+          {/* Collapsible Recent Activity */}
+          <Pressable
+            style={styles.recentHeader}
+            onPress={() => setShowRecent(!showRecent)}
+          >
+            <Text style={styles.sectionTitle}>
+              Recent Activity ({recentActivity.length})
+            </Text>
+            <Text style={styles.chevron}>
+              {showRecent ? "▲" : "▼"}
+            </Text>
+          </Pressable>
+
+          {showRecent && (
+            <>
+              {recentActivity.length === 0 ? (
+                <Text style={styles.emptyText}>No activity recorded yet.</Text>
+              ) : (
+                recentActivity.map((a, i) => (
+                  <View key={i} style={styles.recentRow}>
+                    <Text style={styles.dateText}>
+                      {formatDisplayDate(a.date)}
+                    </Text>
+                    <Text style={styles.statusText}>
+                      {statusEmoji(a.habitStatus)} {a.habitStatus}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </>
+          )}
+        </>
+      )}
     </ScrollView>
   );
 }
 
-/* ---------------- Heatmap ---------------- */
-function Heatmap({ activity }: { activity: ActivityItem[] }) {
-  const map = new Map(activity.map(a => [a.date, a.habitStatus]));
+/* ---------------- GitHub Heatmap ---------------- */
+function GitHubHeatmap({ activity }: { activity: ActivityItem[] }) {
+  const statusMap = new Map(activity.map((a) => [a.date, a.habitStatus]));
 
-  const days = Array.from({ length: 90 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (89 - i));
-    return d;
+  const today = new Date();
+  const dayOfWeek = (today.getDay() + 6) % 7;
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - activity.length - dayOfWeek);
+
+  const allDays: Date[] = [];
+  const current = new Date(startDate);
+  while (current <= today) {
+    allDays.push(new Date(current));
+    current.setDate(current.getDate() + 1);
+  }
+
+  const weeks: Date[][] = [];
+  for (let i = 0; i < allDays.length; i += 7) {
+    weeks.push(allDays.slice(i, i + 7));
+  }
+
+  // Show year only in January (year boundary)
+  const monthLabels: { label: string; colIndex: number }[] = [];
+  weeks.forEach((week, i) => {
+    const firstDay = week[0];
+    if (firstDay && (i === 0 || firstDay.getDate() <= 7)) {
+      const isJanuary = firstDay.getMonth() === 0;
+      const label = firstDay.toLocaleDateString("en-US", {
+        month: "short",
+        year: isJanuary ? "numeric" : undefined,
+      });
+      monthLabels.push({ label, colIndex: i });
+    }
   });
 
+  const cellSize = 13;
+  const cellGap = 3;
+  const dayLabelWidth = 36;
+
   return (
-    <View style={styles.heatmap}>
-      {days.map((d, i) => {
-        const status = map.get(fmt(d));
-        return (
-          <View
-            key={i}
-            style={[
-              styles.cell,
-              status === "COMPLETED" && styles.completed,
-              status === "MISSED" && styles.missed,
-            ]}
-          />
-        );
-      })}
-    </View>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <View>
+        {/* Month labels */}
+        <View style={{ flexDirection: "row", marginLeft: dayLabelWidth, marginBottom: 4 }}>
+          {weeks.map((_, i) => {
+            const label = monthLabels.find((m) => m.colIndex === i);
+            return (
+              <View
+                key={i}
+                style={{ width: cellSize + cellGap, alignItems: "flex-start" }}
+              >
+                {label && (
+                  <Text style={styles.monthLabel}>{label.label}</Text>
+                )}
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Grid */}
+        <View style={{ flexDirection: "row" }}>
+          {/* Day labels */}
+          <View style={{ width: dayLabelWidth, marginRight: 2 }}>
+            {DAY_LABELS.map((day, i) => (
+              <View
+                key={day}
+                style={{
+                  height: cellSize + cellGap,
+                  justifyContent: "center",
+                }}
+              >
+                {i % 2 === 0 && (
+                  <Text style={styles.dayLabel}>{day}</Text>
+                )}
+              </View>
+            ))}
+          </View>
+
+          {/* Weeks */}
+          {weeks.map((week, wi) => (
+            <View key={wi} style={{ marginRight: cellGap }}>
+              {Array.from({ length: 7 }, (_, di) => {
+                const day = week[di];
+                if (!day) {
+                  return (
+                    <View
+                      key={di}
+                      style={{
+                        width: cellSize,
+                        height: cellSize,
+                        marginBottom: cellGap,
+                      }}
+                    />
+                  );
+                }
+                const dateStr = formatDate(day);
+                const status = statusMap.get(dateStr);
+                const isToday = dateStr === formatDate(new Date());
+
+                return (
+                  <View
+                    key={di}
+                    style={[
+                      styles.heatCell,
+                      { width: cellSize, height: cellSize, marginBottom: cellGap },
+                      status === "COMPLETED" && styles.cellCompleted,
+                      status === "MISSED" && styles.cellMissed,
+                      isToday && styles.cellToday,
+                    ]}
+                  />
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      </View>
+    </ScrollView>
   );
 }
 
 /* ---------------- Helpers ---------------- */
-const fmt = (d: Date) => d.toISOString().split("T")[0];
-
-const prettyDate = (date: string) =>
-  new Date(date).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-
-const emoji = (s: string) =>
-  s === "COMPLETED" ? "✅" : s === "MISSED" ? "❌" : "⏳";
+function statusEmoji(status: string) {
+  if (status === "COMPLETED") return "✅";
+  if (status === "MISSED") return "❌";
+  return "⏳";
+}
 
 /* ---------------- Styles ---------------- */
 const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingTop: 60,
+  },
+  loadingText: {
+    color: Colors.subtext,
+    fontSize: 15,
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: 15,
+  },
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#f8f9fa",
+    paddingLeft: 24,
+    backgroundColor: Colors.background,
   },
-
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
   header: {
     fontSize: 22,
     fontWeight: "600",
+    color: Colors.text,
+  },
+  close: {
+    color: Colors.primary,
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
     marginBottom: 16,
   },
-
+  rangeStrip: {
+    marginBottom: 16,
+  },
+  rangeChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginRight: 8,
+    backgroundColor: Colors.card,
+  },
+  rangeChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  rangeChipText: {
+    fontSize: 13,
+    color: Colors.text,
+  },
+  rangeChipTextActive: {
+    color: Colors.white,
+    fontWeight: "600",
+  },
   summaryCard: {
-    backgroundColor: "#fff",
+    backgroundColor: Colors.card,
     padding: 16,
     borderRadius: 12,
     marginBottom: 20,
   },
-
   summaryMain: {
     fontSize: 24,
     fontWeight: "700",
+    color: Colors.text,
   },
-
   summarySub: {
     marginTop: 6,
-    color: "#6b7280",
+    color: Colors.subtext,
   },
-
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
     marginBottom: 10,
+    color: Colors.text,
   },
-
-  heatmap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 4,
-    marginBottom: 24,
+  monthLabel: {
+    fontSize: 10,
+    color: Colors.subtext,
   },
-
-  cell: {
-    width: 14,
-    height: 14,
+  dayLabel: {
+    fontSize: 10,
+    color: Colors.subtext,
+  },
+  heatCell: {
     borderRadius: 3,
     backgroundColor: "#e5e7eb",
   },
-
-  completed: {
+  cellCompleted: {
     backgroundColor: "#16a34a",
   },
-
-  missed: {
+  cellMissed: {
     backgroundColor: "#dc2626",
   },
-
+  cellToday: {
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+  },
+  legend: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 24,
+    marginTop: 8,
+  },
+  legendCell: {
+    width: 13,
+    height: 13,
+    borderRadius: 3,
+  },
+  legendLabel: {
+    fontSize: 11,
+    color: Colors.subtext,
+  },
+  recentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  chevron: {
+    fontSize: 12,
+    color: Colors.subtext,
+  },
   recentRow: {
-    backgroundColor: "#fff",
+    backgroundColor: Colors.card,
     padding: 12,
     borderRadius: 10,
     marginBottom: 8,
     flexDirection: "row",
     justifyContent: "space-between",
   },
-
+  dateText: {
+    fontSize: 14,
+    color: Colors.text,
+  },
   statusText: {
     fontWeight: "600",
+    color: Colors.text,
+  },
+  emptyText: {
+    color: Colors.subtext,
+    textAlign: "center",
+    marginTop: 20,
+  },
+  streakRow: {
+    flexDirection: "row",
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+  },
+  streakItem: {
+    flex: 1,
+    alignItems: "center",
+  },
+  streakDivider: {
+    width: 1,
+    backgroundColor: "#e5e7eb",
+  },
+  streakValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.text,
+  },
+  streakLabel: {
+    fontSize: 12,
+    color: Colors.subtext,
+    marginTop: 4,
   },
 });

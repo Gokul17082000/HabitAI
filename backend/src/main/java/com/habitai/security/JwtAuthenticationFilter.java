@@ -33,13 +33,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        long userId = Long.parseLong(jwtService.extractUserId(token));
+        try {
+            long userId = Long.parseLong(jwtService.extractUserId(token));
+            UserPrincipal principal = new UserPrincipal(userId);
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(principal, null, List.of());
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+        } catch (NumberFormatException e) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-        UserPrincipal principal = new UserPrincipal(userId);
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(principal, null, List.of());
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        filterChain.doFilter(request,response);
+        filterChain.doFilter(request, response);
     }
 
     private String extractBearerToken(HttpServletRequest request) {

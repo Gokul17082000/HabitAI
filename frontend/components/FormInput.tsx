@@ -1,20 +1,15 @@
-import { useState, forwardRef } from "react";
-import { Pressable, Text, TextInput, View, StyleSheet } from "react-native";
+import { forwardRef, useState } from "react";
+import { Pressable, Text, TextInput, View, StyleSheet, TextInputProps } from "react-native";
+import { Colors } from "../constants/colors";
 
-const FormInput = forwardRef<TextInput, any>(
-  (
-    {
-      label,
-      value,
-      onChangeText,
-      error,
-      secureTextEntry = false,
-      placeholder,
-      returnKeyType,
-      onSubmitEditing,
-    },
-    ref
-  ) => {
+interface FormInputProps extends TextInputProps {
+  label: string;
+  error?: string;
+  secureTextEntry?: boolean;
+}
+
+const FormInput = forwardRef<TextInput, FormInputProps>(
+  ({ label, error, secureTextEntry = false, ...props }, ref) => {
     const [showPassword, setShowPassword] = useState(false);
     const isPassword = secureTextEntry;
 
@@ -26,17 +21,11 @@ const FormInput = forwardRef<TextInput, any>(
           <TextInput
             ref={ref}
             style={[styles.input, error && styles.inputError]}
-            value={value}
-            placeholder={placeholder}
-            placeholderTextColor="#999"
-            onChangeText={onChangeText}
+            placeholderTextColor={Colors.placeholder}
             secureTextEntry={isPassword && !showPassword}
             autoCapitalize="none"
             autoCorrect={false}
-            keyboardType={isPassword ? "default" : "email-address"}
-            textContentType={isPassword ? "password" : "emailAddress"}
-            returnKeyType={returnKeyType}
-            onSubmitEditing={onSubmitEditing}
+            {...props}
           />
 
           {isPassword && (
@@ -64,7 +53,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     marginBottom: 6,
-    color: "#333",
+    color: Colors.text,
   },
   inputWrapper: {
     position: "relative",
@@ -72,7 +61,7 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: Colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -80,7 +69,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   inputError: {
-    borderColor: "red",
+    borderColor: Colors.error,
   },
   eye: {
     position: "absolute",
@@ -88,7 +77,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   error: {
-    color: "red",
+    color: Colors.error,
     fontSize: 12,
     marginTop: 4,
   },

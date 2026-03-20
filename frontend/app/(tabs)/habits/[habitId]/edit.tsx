@@ -5,33 +5,42 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
-
 import FormInput from "../../../../components/FormInput";
 import PrimaryButton from "../../../../components/PrimaryButton";
-import { getToken } from "../../../../utils/authStorage";
+import Chip from "../../../../components/Chip";
+import { getHabitByIdApi, updateHabitApi } from "../../../../services/habitService";
+import { formatTargetTime, parseTargetTime } from "../../../../utils/formatters";
+import {
+  HabitCategory,
+  HabitFrequency,
+  DayOfWeek,
+  UpdateHabitRequest,
+} from "../../../../types/habit";
+import { Colors } from "../../../../constants/colors";
 
-/* -------------------- Screen -------------------- */
+const CATEGORIES: HabitCategory[] = ["GENERAL", "HEALTH", "WORK", "FITNESS", "LEARNING"];
+const FREQUENCIES: HabitFrequency[] = ["DAILY", "WEEKLY", "MONTHLY"];
+const DAYS_OF_WEEK: DayOfWeek[] = [
+  "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY",
+];
+
 export default function EditHabitScreen() {
   const { habitId } = useLocalSearchParams<{ habitId: string }>();
 
-  /* -------------------- State -------------------- */
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] =
-    useState<"GENERAL" | "HEALTH" | "WORK" | "FITNESS" | "LEARNING">("GENERAL");
-
-  const [frequency, setFrequency] =
-    useState<"DAILY" | "WEEKLY" | "MONTHLY">("DAILY");
-  const [daysOfWeek, setDaysOfWeek] = useState<string[]>([]);
+  const [category, setCategory] = useState<HabitCategory>("GENERAL");
+  const [frequency, setFrequency] = useState<HabitFrequency>("DAILY");
+  const [daysOfWeek, setDaysOfWeek] = useState<DayOfWeek[]>([]);
   const [daysOfMonth, setDaysOfMonth] = useState<number[]>([]);
-
   const [targetTime, setTargetTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
-
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
 
   /* -------------------- Load Habit -------------------- */
@@ -40,49 +49,43 @@ export default function EditHabitScreen() {
   }, []);
 
   const loadHabit = async () => {
-    const token = await getToken();
-    if (!token) return router.replace("/");
-
-    const res = await fetch(`http://localhost:8080/habits/${habitId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (!res.ok) {
-      setError("Failed to load habit");
-      return;
+    setFetching(true);
+    try {
+      const habit = await getHabitByIdApi(Number(habitId));
+      setTitle(habit.title);
+      setDescription(habit.description);
+      setCategory(habit.category);
+      setFrequency(habit.frequency);
+      setDaysOfWeek((habit.daysOfWeek as DayOfWeek[]) ?? []);
+      setDaysOfMonth(habit.daysOfMonth ?? []);
+      setTargetTime(parseTargetTime(habit.targetTime));
+    } catch (e) {
+      if (e instanceof Error && e.message === "Not authenticated") {
+        router.replace("/");
+        return;
+      }
+      setError("Failed to load habit.");
+    } finally {
+      setFetching(false);
     }
-
-    const habit = await res.json();
-
-    setTitle(habit.title);
-    setDescription(habit.description);
-    setCategory(habit.category);
-    setFrequency(habit.frequency);
-    setDaysOfWeek(habit.daysOfWeek || []);
-    setDaysOfMonth(habit.daysOfMonth || []);
-
-    const [h, m] = habit.targetTime.split(":");
-    const time = new Date();
-    time.setHours(Number(h), Number(m));
-    setTargetTime(time);
   };
 
   /* -------------------- Helpers -------------------- */
-  const handleFrequencyChange = (value: "DAILY" | "WEEKLY" | "MONTHLY") => {
+  const handleFrequencyChange = (value: HabitFrequency) => {
     setFrequency(value);
     setDaysOfWeek([]);
     setDaysOfMonth([]);
   };
 
-  const toggleDayOfWeek = (day: string) => {
-    setDaysOfWeek(prev =>
-      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+  const toggleDayOfWeek = (day: DayOfWeek) => {
+    setDaysOfWeek((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
     );
   };
 
   const toggleDayOfMonth = (day: number) => {
-    setDaysOfMonth(prev =>
-      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+    setDaysOfMonth((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
     );
   };
 
@@ -90,54 +93,53 @@ export default function EditHabitScreen() {
   const handleUpdate = async () => {
     setError("");
 
-    if (!title.trim()) return setError("Habit title is required");
-    if (!description.trim()) return setError("Description is required");
-
-    if (frequency === "WEEKLY" && daysOfWeek.length === 0) {
-      return setError("Select at least one day of week");
+    if (!title.trim()) {
+      setError("Habit title is required");
+      return;
     }
-
+    if (!description.trim()) {
+      setError("Description is required");
+      return;
+    }
+    if (frequency === "WEEKLY" && daysOfWeek.length === 0) {
+      setError("Select at least one day of week");
+      return;
+    }
     if (frequency === "MONTHLY" && daysOfMonth.length === 0) {
-      return setError("Select at least one day of month");
+      setError("Select at least one day of month");
+      return;
     }
 
     setLoading(true);
-
     try {
-      const token = await getToken();
-      if (!token) return router.replace("/");
+      const request: UpdateHabitRequest = {
+        title: title.trim(),
+        description: description.trim(),
+        category,
+        frequency,
+        daysOfWeek: frequency === "WEEKLY" ? daysOfWeek : null,
+        daysOfMonth: frequency === "MONTHLY" ? daysOfMonth : null,
+        targetTime: formatTargetTime(targetTime),
+      };
 
-      const hours = targetTime.getHours().toString().padStart(2, "0");
-      const minutes = targetTime.getMinutes().toString().padStart(2, "0");
-
-      const res = await fetch(`http://localhost:8080/habits/${habitId}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title,
-          description,
-          category,
-          frequency,
-          daysOfWeek: frequency === "WEEKLY" ? daysOfWeek : null,
-          daysOfMonth: frequency === "MONTHLY" ? daysOfMonth : null,
-          targetTime: `${hours}:${minutes}`,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Failed to update habit");
-
+      await updateHabitApi(Number(habitId), request);
       router.back();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update habit");
     } finally {
       setLoading(false);
     }
   };
 
   /* -------------------- UI -------------------- */
+  if (fetching) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.loadingText}>Loading habit...</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -147,22 +149,31 @@ export default function EditHabitScreen() {
       </View>
 
       <Text style={styles.title}>Edit Habit</Text>
-
-      <View style={{ height: 1, backgroundColor: "#e5e7eb", marginBottom: 16 }} />
+      <View style={styles.divider} />
 
       <View style={styles.form}>
-        <FormInput label="Title" value={title} onChangeText={setTitle} />
-        <FormInput label="Description" value={description} onChangeText={setDescription} />
+        <FormInput
+          label="Title"
+          value={title}
+          onChangeText={setTitle}
+          placeholder="e.g. Morning Run"
+        />
+        <FormInput
+          label="Description"
+          value={description}
+          onChangeText={setDescription}
+          placeholder="e.g. Run 5km every morning"
+        />
 
         {/* Category */}
         <Text style={styles.sectionTitle}>Category</Text>
         <View style={styles.row}>
-          {["GENERAL", "HEALTH", "WORK", "FITNESS", "LEARNING"].map(item => (
+          {CATEGORIES.map((item) => (
             <Chip
               key={item}
               label={item}
               active={category === item}
-              onPress={() => setCategory(item as any)}
+              onPress={() => setCategory(item)}
             />
           ))}
         </View>
@@ -170,12 +181,12 @@ export default function EditHabitScreen() {
         {/* Frequency */}
         <Text style={styles.label}>Frequency</Text>
         <View style={styles.row}>
-          {["DAILY", "WEEKLY", "MONTHLY"].map(f => (
+          {FREQUENCIES.map((f) => (
             <Chip
               key={f}
               label={f}
               active={frequency === f}
-              onPress={() => handleFrequencyChange(f as any)}
+              onPress={() => handleFrequencyChange(f)}
             />
           ))}
         </View>
@@ -185,15 +196,14 @@ export default function EditHabitScreen() {
           <>
             <Text style={styles.label}>Days of Week</Text>
             <View style={styles.row}>
-              {["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"]
-                .map(d => (
-                  <Chip
-                    key={d}
-                    label={d.slice(0, 3)}
-                    active={daysOfWeek.includes(d)}
-                    onPress={() => toggleDayOfWeek(d)}
-                  />
-                ))}
+              {DAYS_OF_WEEK.map((d) => (
+                <Chip
+                  key={d}
+                  label={d.slice(0, 3)}
+                  active={daysOfWeek.includes(d)}
+                  onPress={() => toggleDayOfWeek(d)}
+                />
+              ))}
             </View>
           </>
         )}
@@ -203,7 +213,7 @@ export default function EditHabitScreen() {
           <>
             <Text style={styles.label}>Days of Month</Text>
             <View style={styles.row}>
-              {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                 <Chip
                   key={day}
                   label={String(day)}
@@ -217,28 +227,56 @@ export default function EditHabitScreen() {
 
         {/* Time */}
         <Text style={styles.label}>Target Time</Text>
-        <Pressable style={styles.timeBox} onPress={() => setShowTimePicker(true)}>
-          <Text>
-            {targetTime.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </Text>
-        </Pressable>
 
-        {showTimePicker && (
-          <DateTimePicker
-            mode="time"
-            value={targetTime}
-            is24Hour
-            onChange={(_, t) => {
-              setShowTimePicker(false);
-              if (t) setTargetTime(t);
+        {Platform.OS === "web" ? (
+          <input
+            type="time"
+            value={formatTargetTime(targetTime)}
+            onChange={(e) => {
+              const [h, m] = e.target.value.split(":");
+              const newTime = new Date();
+              newTime.setHours(Number(h), Number(m), 0, 0);
+              setTargetTime(newTime);
+            }}
+            style={{
+              border: "1px solid #ccc",
+              borderRadius: 8,
+              padding: 12,
+              fontSize: 15,
+              marginBottom: 12,
+              width: "100%",
+              boxSizing: "border-box",
             }}
           />
+        ) : (
+          <>
+            <Pressable
+              style={styles.timeBox}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <Text style={styles.timeText}>
+                {targetTime.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </Text>
+            </Pressable>
+
+            {showTimePicker && (
+              <DateTimePicker
+                mode="time"
+                value={targetTime}
+                is24Hour
+                onChange={(_, t) => {
+                  setShowTimePicker(false);
+                  if (t) setTargetTime(t);
+                }}
+              />
+            )}
+          </>
         )}
 
-        {error && <Text style={styles.error}>{error}</Text>}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <PrimaryButton
           title="Update Habit"
@@ -250,31 +288,82 @@ export default function EditHabitScreen() {
   );
 }
 
-/* -------------------- Chip -------------------- */
-function Chip({ label, active, onPress }: any) {
-  return (
-    <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 /* -------------------- Styles -------------------- */
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#f8f9fa" },
-  title: { fontSize: 24, fontWeight: "600", textAlign: "center", marginBottom: 20 },
-  form: { backgroundColor: "#fff", padding: 20, borderRadius: 10 },
-  label: { marginTop: 12, marginBottom: 6, fontSize: 14 },
-  row: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
-  chipActive: { backgroundColor: "#4f46e5", borderColor: "#4f46e5" },
-  chipText: { fontSize: 13 },
-  chipTextActive: { color: "#fff", fontWeight: "600" },
-  timeBox: { borderWidth: 1, padding: 12, borderRadius: 8, marginBottom: 12 },
-  error: { color: "red", textAlign: "center", marginBottom: 10 },
-  sectionTitle: { fontSize: 15, fontWeight: "600", marginTop: 16, marginBottom: 8 },
-  header: { flexDirection: "row", justifyContent: "flex-end", marginBottom: 10 },
-  close: { color: "#4f46e5", fontSize: 16, fontWeight: "500" },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.background,
+  },
+  loadingText: {
+    color: Colors.subtext,
+    fontSize: 15,
+  },
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: Colors.background,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginBottom: 10,
+  },
+  close: {
+    color: Colors.primary,
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 20,
+    color: Colors.text,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
+    marginBottom: 16,
+  },
+  form: {
+    backgroundColor: Colors.card,
+    padding: 20,
+    borderRadius: 10,
+  },
+  label: {
+    marginTop: 12,
+    marginBottom: 6,
+    fontSize: 14,
+    color: Colors.text,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginTop: 16,
+    marginBottom: 8,
+    color: Colors.text,
+  },
+  row: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  timeBox: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  timeText: {
+    fontSize: 15,
+    color: Colors.text,
+  },
+  error: {
+    color: Colors.error,
+    textAlign: "center",
+    marginBottom: 10,
+  },
 });

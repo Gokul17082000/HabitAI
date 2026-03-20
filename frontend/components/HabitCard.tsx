@@ -1,75 +1,59 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import { getToken } from "../utils/authStorage";
 import { useEffect, useState } from "react";
+import { getHabitStreakApi, logHabitApi } from "../services/habitService";
+import { formatTime } from "../utils/formatters";
+import { HabitResponse, HabitStatus } from "../types/habit";
+import { Colors } from "../constants/colors";
 
-export default function HabitCard({ habit, onLogged }) {
-  const statusColor = {
-    PENDING: "#f59e0b",
-    COMPLETED: "#16a34a",
-    MISSED: "#dc2626",
-  }[habit.habitStatus || "PENDING"];
+interface HabitCardProps {
+  habit: HabitResponse;
+  onLogged?: () => void;
+}
 
-  const today = new Date().toISOString().split("T")[0];
+const STATUS_COLORS: Record<HabitStatus, string> = {
+  PENDING: "#f59e0b",
+  COMPLETED: "#16a34a",
+  MISSED: "#dc2626",
+  PARTIALLY_COMPLETED: "#f97316",
+};
 
+export default function HabitCard({ habit, onLogged }: HabitCardProps) {
   const [streak, setStreak] = useState<number | null>(null);
+  const [logging, setLogging] = useState(false);
+
+  const statusColor = STATUS_COLORS[habit.habitStatus] ?? STATUS_COLORS.PENDING;
+  const today = new Date().toISOString().split("T")[0];
+  const isCompleted = habit.habitStatus === "COMPLETED";
+  const isMissed = habit.habitStatus === "MISSED";
+
+  useEffect(() => {
+    loadStreak();
+  }, [habit.id]);
 
   const loadStreak = async () => {
     try {
-      const token = await getToken();
-      if (!token) return;
-
-      const res = await fetch(
-        `http://localhost:8080/habits/${habit.id}/streak`,
-         {
-          headers: { Authorization: `Bearer ${token}` },
-         }
-      );
-
-      const data = await res.json();
+      const data = await getHabitStreakApi(habit.id);
       setStreak(data.streak);
     } catch {
       setStreak(0);
     }
   };
 
-  useEffect(() => {
-    loadStreak();
-  }, [habit.id]);
+  const handleLog = async () => {
+    if (isMissed || logging) return;
 
-  const handleLog = async() => {
-      if (habit.habitStatus == "COMPLETED") {
-          return;
-      }
-
-      try {
-          const token = await getToken();
-          if (!token) return;
-
-          const res = await fetch(
-            `http://localhost:8080/habits/${habit.id}/log`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                date: today,
-                habitStatus: "COMPLETED",
-              }),
-            }
-          );
-
-          if (!res.ok) {
-            throw new Error("Failed to log habit");
-          }
-
-          // Let parent refresh
-          onLogged?.();
-          await loadStreak();
-      } catch (error) {
-          console.log("Failed to log habit");
-      }
+    setLogging(true);
+    try {
+      // Toggle — if completed tap again to undo back to PENDING
+      const newStatus = isCompleted ? "PENDING" : "COMPLETED";
+      await logHabitApi(habit.id, today, newStatus);
+      onLogged?.();
+      await loadStreak();
+    } catch (error) {
+      console.error("Failed to log habit", error);
+    } finally {
+      setLogging(false);
+    }
   };
 
   return (
@@ -77,31 +61,28 @@ export default function HabitCard({ habit, onLogged }) {
       {/* Left */}
       <View style={styles.left}>
         <Text style={styles.title}>{habit.title}</Text>
-
-        <Text style={styles.category}>
-          {habit.category}
-        </Text>
-
-        <Text style={styles.time}>
-          ⏰ {formatTime(habit.targetTime)}
-        </Text>
+        <Text style={styles.category}>{habit.category}</Text>
+        <Text style={styles.time}>⏰ {formatTime(habit.targetTime)}</Text>
       </View>
 
       {/* Right */}
-
       <View style={styles.right}>
         <Pressable
-          disabled={habit.habitStatus === "COMPLETED"}
+          disabled={isMissed || logging}
           style={({ pressed }) => [
             styles.button,
-            pressed && habit.habitStatus !== "COMPLETED" && { opacity: 0.7 },
-            habit.habitStatus === "COMPLETED" && { opacity: 0.6 },
+            pressed && !isMissed && { opacity: 0.7 },
+            (isMissed || logging) && { opacity: 0.5 },
           ]}
           onPress={handleLog}
         >
           <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
             <Text style={styles.statusText}>
-              {habit.habitStatus || "PENDING"}
+              {logging
+                ? "..."
+                : isCompleted
+                ? "✓ DONE"
+                : habit.habitStatus ?? "PENDING"}
             </Text>
           </View>
         </Pressable>
@@ -109,28 +90,18 @@ export default function HabitCard({ habit, onLogged }) {
         {streak !== null && streak > 0 && (
           <Text style={styles.streak}>🔥 {streak}</Text>
         )}
-      </View>
 
+        {isCompleted && (
+          <Text style={styles.undoHint}>tap to undo</Text>
+        )}
+      </View>
     </View>
   );
 }
 
-/* -------- Time formatter -------- */
-function formatTime(time) {
-  if (!time) return "";
-
-  const [hour, minute] = time.split(":");
-  const h = Number(hour);
-  const ampm = h >= 12 ? "PM" : "AM";
-  const formattedHour = h % 12 || 12;
-
-  return `${formattedHour}:${minute} ${ampm}`;
-}
-
-/* -------- Styles -------- */
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: Colors.card,
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
@@ -138,36 +109,31 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-
   left: {
     flex: 1,
   },
-
   title: {
     fontSize: 16,
     fontWeight: "600",
+    color: Colors.text,
   },
-
   category: {
     fontSize: 12,
-    color: "#666",
+    color: Colors.subtext,
     marginTop: 4,
   },
-
   time: {
     fontSize: 13,
-    color: "#4f46e5",
+    color: Colors.primary,
     marginTop: 6,
   },
-
   statusBadge: {
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 10,
   },
-
   statusText: {
-    color: "#fff",
+    color: Colors.white,
     fontSize: 12,
     fontWeight: "600",
   },
@@ -183,5 +149,10 @@ const styles = StyleSheet.create({
   },
   right: {
     alignItems: "flex-end",
+  },
+  undoHint: {
+    fontSize: 10,
+    color: Colors.subtext,
+    marginTop: 4,
   },
 });

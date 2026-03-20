@@ -1,29 +1,31 @@
 package com.habitai.habitlog;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDate;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "habitlogs",
         uniqueConstraints = @UniqueConstraint(columnNames = {"habitId", "userId", "date"}),
         indexes = {
-            @Index(name = "idx_habitlog_habit_user_date", columnList = "habitId, userId, date"),
-            @Index(name = "idx_habitlog_habit_user", columnList = "habitId, userId")
+                @Index(name = "idx_habitlog_habit_user_date", columnList = "habitId, userId, date"),
+                @Index(name = "idx_habitlog_habit_user", columnList = "habitId, userId")
         })
 public class HabitLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
+    private Long id;
 
     @Column(nullable = false)
-    private long habitId;
+    private Long habitId;
 
     @Column(nullable = false)
-    private long userId;
+    private Long userId;
 
     @Column(nullable = false)
     private LocalDate date;

@@ -1,24 +1,15 @@
-import { useRef, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { useRef, useState, useEffect } from "react";
+import { View, Text, StyleSheet, TextInput, Pressable } from "react-native";
 import { router } from "expo-router";
 import FormInput from "../components/FormInput";
 import PrimaryButton from "../components/PrimaryButton";
-import { saveToken } from "../utils/authStorage";
-import { useEffect } from "react";
-import { getToken } from "../utils/authStorage";
-import { TextInput, Pressable } from "react-native";
+import { saveToken, getToken } from "../utils/authStorage";
+import { loginApi } from "../services/authService";
+import { isValidEmail } from "../utils/validation";
+import { Colors } from "../constants/colors";
+import { registerForPushNotifications } from "../utils/pushNotifications";
 
 export default function LoginScreen() {
-
-  useEffect(() => {
-      const autoLogin = async () => {
-          const token = await getToken();
-          if(token) {
-              router.replace("/(tabs)/home")
-          }
-      };
-      autoLogin();
-  }, []);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,16 +20,20 @@ export default function LoginScreen() {
 
   const passwordRef = useRef<TextInput>(null);
 
-  const isValidEmail = (email: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
+  useEffect(() => {
+    const autoLogin = async () => {
+      const token = await getToken();
+      if (token) {
+        router.replace("/home");
+      }
+    };
+    autoLogin();
+  }, []);
 
   const handleLogin = async () => {
-
     if (loading) return;
 
     let valid = true;
-
     setEmailError("");
     setPasswordError("");
     setApiError("");
@@ -50,8 +45,8 @@ export default function LoginScreen() {
       setEmailError("Enter a valid email address");
       valid = false;
     } else if (email.length > 100) {
-        setEmailError("Email is too long");
-        valid = false;
+      setEmailError("Email is too long");
+      valid = false;
     }
 
     if (!password.trim()) {
@@ -62,30 +57,13 @@ export default function LoginScreen() {
     if (!valid) return;
 
     setLoading(true);
-
     try {
-      const response = await fetch("http://localhost:8080/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim(),
-          password: password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Authentication failed");
-      }
-
-      console.log(data.token)
-
+      const data = await loginApi(email, password);
       await saveToken(data.token);
-
-      router.replace("/(tabs)/home");
+      await registerForPushNotifications();
+      router.replace("/home");
     } catch (error) {
-      setApiError(error.message);
+      setApiError(error instanceof Error ? error.message : "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -105,6 +83,7 @@ export default function LoginScreen() {
           label="Email"
           value={email}
           placeholder="Enter email"
+          keyboardType="email-address"
           returnKeyType="next"
           onChangeText={(text) => {
             setEmail(text);
@@ -131,16 +110,15 @@ export default function LoginScreen() {
           error={passwordError}
         />
 
-        {apiError && <Text style={styles.apiError}>{apiError}</Text>}
+        {apiError ? <Text style={styles.apiError}>{apiError}</Text> : null}
 
-        <PrimaryButton title="Login" loading={loading} disabled={loading} onPress={handleLogin} />
+        <PrimaryButton title="Login" loading={loading} onPress={handleLogin} />
 
         <Pressable disabled={loading} onPress={() => router.push("/auth/register")}>
           <Text style={[styles.link, loading && { opacity: 0.5 }]}>
-            Don’t have an account? Register
+            Don't have an account? Register
           </Text>
         </Pressable>
-
       </View>
     </View>
   );
@@ -151,50 +129,42 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     padding: 20,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: Colors.background,
   },
-
   branding: {
     alignItems: "center",
     marginBottom: 30,
   },
-
   appTitle: {
     fontSize: 32,
     fontWeight: "bold",
   },
-
   subtitle: {
     fontSize: 15,
-    color: "#666",
+    color: Colors.subtext,
     marginTop: 6,
   },
-
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: Colors.card,
     padding: 20,
     borderRadius: 12,
   },
-
   screenTitle: {
     fontSize: 20,
     fontWeight: "600",
     textAlign: "center",
     marginBottom: 16,
   },
-
   link: {
     marginTop: 20,
     textAlign: "center",
-    color: "#4f46e5",
+    color: Colors.primary,
     fontWeight: "500",
   },
-
   apiError: {
-    color: "red",
+    color: Colors.error,
     textAlign: "center",
     marginBottom: 12,
     fontSize: 14,
   },
 });
-

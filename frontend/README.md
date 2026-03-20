@@ -1,50 +1,158 @@
-# Welcome to your Expo app 👋
+# HabitAI Frontend
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+React Native mobile app for HabitAI built with Expo and TypeScript.
 
-## Get started
+## Prerequisites
 
-1. Install dependencies
+- Node.js 18+
+- Expo CLI
+- Expo Go app (for development)
+- Android Studio or Xcode (for native builds)
 
-   ```bash
-   npm install
-   ```
+## Getting Started
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+### 1. Clone the repository
 ```bash
-npm run reset-project
+git clone https://github.com/yourusername/HabitAI.git
+cd HabitAI/frontend
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Install dependencies
+```bash
+npm install
+```
 
-## Learn more
+### 3. Add Firebase config files
+- Download `google-services.json` from Firebase Console → Android app
+- Download `GoogleService-Info.plist` from Firebase Console → iOS app
+- Place both in the `frontend/` root directory
 
-To learn more about developing your project with Expo, look at the following resources:
+### 4. Update API base URL
+In `constants/api.ts`, update the IP address to your machine's local IP:
+```typescript
+case "ios":
+case "android":
+  return "http://YOUR_LOCAL_IP:8080";
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Find your local IP:
+```bash
+ifconfig | grep "inet " | grep -v 127.0.0.1
+```
 
-## Join the community
+### 5. Start the app
+```bash
+npx expo start
+```
 
-Join our community of developers creating universal apps.
+- Press `w` for web browser
+- Press `i` for iOS simulator
+- Press `a` for Android emulator
+- Scan QR code with Expo Go on physical device
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Project Structure
+```
+frontend/
+├── app/                    # Expo Router screens
+│   ├── index.tsx           # Login screen
+│   ├── auth/               # Auth screens
+│   │   └── register.tsx    # Register screen
+│   └── (tabs)/             # Tab navigation
+│       ├── home/           # Today's habits
+│       ├── habits/         # Habit management
+│       │   ├── create.tsx  # Create habit
+│       │   └── [habitId]/  # Habit detail
+│       │       ├── edit.tsx
+│       │       └── activity.tsx
+│       ├── calendar/       # Calendar view
+│       └── profile/        # Profile & stats
+├── components/             # Reusable components
+│   ├── FormInput.tsx
+│   ├── PrimaryButton.tsx
+│   ├── SecondaryButton.tsx
+│   ├── Chip.tsx
+│   └── HabitCard.tsx
+├── constants/              # App constants
+│   ├── colors.ts           # Color palette
+│   └── api.ts              # API endpoints
+├── services/               # API service layer
+│   ├── authService.ts      # Auth API calls
+│   └── habitService.ts     # Habit API calls
+├── types/                  # TypeScript types
+│   └── habit.ts
+└── utils/                  # Utility functions
+    ├── authStorage.ts      # Token storage
+    ├── formatters.ts       # Date/time formatters
+    ├── validation.ts       # Form validation
+    └── pushNotifications.ts # FCM registration
+```
+
+## App Flow
+
+### Authentication Flow
+```
+App Launch
+    ↓
+Check stored JWT token
+    ↓
+Token exists? → Home screen
+No token? → Login screen
+    ↓
+Login/Register → Save JWT → Home screen
+```
+
+### Habit Flow
+```
+Create Habit → Set frequency (Daily/Weekly/Monthly)
+    ↓
+Habit appears on Today screen
+    ↓
+Tap status badge → Mark COMPLETED
+    ↓
+Scheduler marks remaining habits MISSED after target time
+    ↓
+Activity screen shows history + heatmap
+```
+
+### Notification Flow
+```
+Login → Request notification permission
+    ↓
+Get FCM device token
+    ↓
+Save token to backend
+    ↓
+Backend scheduler sends reminders 15 mins before habit time
+    ↓
+Device receives push notification
+```
+
+## Screens
+
+| Screen | Path | Description |
+|--------|------|-------------|
+| Login | `/` | JWT login with validation |
+| Register | `/auth/register` | New user registration |
+| Today | `/home` | Today's habits with status |
+| Habits | `/habits` | All habits management |
+| Create Habit | `/habits/create` | Create new habit |
+| Edit Habit | `/habits/[id]/edit` | Edit existing habit |
+| Activity | `/habits/[id]/activity` | Heatmap + streak history |
+| Calendar | `/calendar` | Monthly calendar view |
+| Profile | `/profile` | Stats dashboard |
+
+## Environment Variables
+
+No `.env` file needed for frontend. Configure directly in:
+- `constants/api.ts` — API base URL
+- `app.json` — Firebase config file paths
+
+## Building for Production
+
+Using EAS Build:
+```bash
+npm install -g eas-cli
+eas login
+eas build --platform ios
+eas build --platform android
+```

@@ -1,16 +1,17 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Colors } from "../../constants/colors";
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#4f46e5",
+        tabBarActiveTintColor: Colors.primary,
       }}
     >
       <Tabs.Screen
-        name="home"
+        name="home/index"
         options={{
           title: "Today",
           tabBarIcon: ({ color, size }) => (
@@ -18,7 +19,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-
       <Tabs.Screen
         name="habits"
         options={{
@@ -28,9 +28,8 @@ export default function TabsLayout() {
           ),
         }}
       />
-
       <Tabs.Screen
-        name="calendar"
+        name="calendar/index"
         options={{
           title: "Calendar",
           tabBarIcon: ({ color, size }) => (
@@ -38,9 +37,8 @@ export default function TabsLayout() {
           ),
         }}
       />
-
       <Tabs.Screen
-        name="profile"
+        name="profile/index"
         options={{
           title: "Profile",
           tabBarIcon: ({ color, size }) => (

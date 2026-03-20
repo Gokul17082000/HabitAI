@@ -1,24 +1,34 @@
 package com.habitai.user;
 
+import com.habitai.notification.PushTokenRequest;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/user")
 public class UserController {
 
     private final UserService userService;
+    private final UserStatsService userStatsService;
 
-    public  UserController(UserService userService) {
+    public UserController(UserService userService, UserStatsService userStatsService) {
         this.userService = userService;
+        this.userStatsService = userStatsService;
     }
 
     @GetMapping
-    @ResponseStatus(HttpStatus.OK)
     public UserDTO getUserDetails() {
         return userService.getUserDetails();
+    }
+
+    @GetMapping("/stats")
+    public UserStatsResponse getStats() {
+        return userStatsService.getStats();
+    }
+
+    @PostMapping("/push-token")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void savePushToken(@RequestBody PushTokenRequest request) {
+        userService.savePushToken(request.token());
     }
 }

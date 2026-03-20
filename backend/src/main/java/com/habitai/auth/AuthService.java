@@ -1,5 +1,6 @@
 package com.habitai.auth;
 
+import com.habitai.exception.DatabaseException;
 import com.habitai.exception.PasswordDoesNotMatchException;
 import com.habitai.exception.UserAlreadyExistException;
 import com.habitai.exception.UserNotFoundException;
@@ -24,7 +25,7 @@ public class AuthService {
 
     public RegisterResponse register(AuthRequest authRequest){
         if(userRepository.findByEmail(authRequest.email()).isPresent()){
-            throw new UserAlreadyExistException("User Already Exists!");
+            throw new UserAlreadyExistException("User already exists!");
         }
 
         try {
@@ -33,7 +34,11 @@ public class AuthService {
             user.setPassword(passwordEncoder.encode(authRequest.password()));
             userRepository.save(user);
         } catch (DataIntegrityViolationException ex) {
-            throw new UserAlreadyExistException("User already exists");
+            String message = ex.getMostSpecificCause().getMessage().toLowerCase();
+            if (message.contains("unique") || message.contains("duplicate")) {
+                throw new UserAlreadyExistException("User already exists!");
+            }
+            throw new DatabaseException("A database error occurred. Please try again.");
         }
 
         return new RegisterResponse("User Successfully created!");

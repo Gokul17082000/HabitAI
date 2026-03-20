@@ -1,33 +1,31 @@
 import { useCallback, useState } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import { getToken, removeToken } from "../../../utils/authStorage";
+import { removeToken } from "../../../utils/authStorage";
+import { getHabitsForDateApi } from "../../../services/habitService";
+import { HabitResponse } from "../../../types/habit";
+import { formatDate } from "../../../utils/formatters";
+import { Colors } from "../../../constants/colors";
 import HabitCard from "../../../components/HabitCard";
 
 export default function HomeScreen() {
-  const [habits, setHabits] = useState<any[]>([]);
+  const [habits, setHabits] = useState<HabitResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   /* ---------------- Load habits ---------------- */
   const loadHabits = useCallback(async () => {
-    const token = await getToken();
-    if (!token) {
-      router.replace("/");
-      return;
-    }
-
-    const today = new Date().toLocaleDateString("en-CA");
+    setError("");
     try {
-      const res = await fetch(`http://localhost:8080/habits?date=${today}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
+      const today = formatDate(new Date());
+      const data = await getHabitsForDateApi(today);
       setHabits(data);
     } catch (e) {
-      console.log("Failed to load habits");
+      if (e instanceof Error && e.message === "Not authenticated") {
+        router.replace("/");
+        return;
+      }
+      setError("Failed to load habits. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -40,12 +38,6 @@ export default function HomeScreen() {
       loadHabits();
     }, [loadHabits])
   );
-
-  /* ---------------- Logout ---------------- */
-  const handleLogout = async () => {
-    await removeToken();
-    router.replace("/");
-  };
 
   /* ---------------- UI helpers ---------------- */
   const today = new Date().toLocaleDateString("en-US", {
@@ -77,9 +69,12 @@ export default function HomeScreen() {
 
       {/* Content */}
       {loading ? (
-        <Text style={{ color: "#666", textAlign: "center" }}>
-          Loading habits...
-        </Text>
+        <Text style={styles.loadingText}>Loading habits...</Text>
+      ) : error ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>Something went wrong</Text>
+          <Text style={styles.emptySubtitle}>{error}</Text>
+        </View>
       ) : habits.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>No habits yet 👋</Text>
@@ -90,7 +85,7 @@ export default function HomeScreen() {
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
           {habits.map((habit) => (
-            <HabitCard key={habit.id} habit={habit} onLogged={loadHabits}/>
+            <HabitCard key={habit.id} habit={habit} onLogged={loadHabits} />
           ))}
         </ScrollView>
       )}
@@ -110,52 +105,53 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: Colors.background,
     padding: 20,
   },
-
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 24,
   },
-
   greeting: {
     fontSize: 22,
     fontWeight: "600",
+    color: Colors.text,
   },
-
   today: {
     fontSize: 18,
     fontWeight: "600",
     marginBottom: 16,
+    color: Colors.text,
   },
-
+  loadingText: {
+    color: Colors.subtext,
+    textAlign: "center",
+    marginTop: 40,
+  },
   emptyState: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-
   emptyTitle: {
     fontSize: 20,
     fontWeight: "600",
     marginBottom: 8,
+    color: Colors.text,
   },
-
   emptySubtitle: {
     fontSize: 14,
-    color: "#6b7280",
+    color: Colors.subtext,
     textAlign: "center",
     maxWidth: 240,
   },
-
   addButton: {
     position: "absolute",
     right: 20,
     bottom: 30,
-    backgroundColor: "#4f46e5",
+    backgroundColor: Colors.primary,
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -163,17 +159,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     elevation: 4,
   },
-
   addButtonText: {
-    color: "#fff",
+    color: Colors.white,
     fontSize: 28,
     fontWeight: "bold",
   },
-
   divider: {
     height: 1,
     backgroundColor: "#e5e7eb",
     marginBottom: 16,
   },
-
 });

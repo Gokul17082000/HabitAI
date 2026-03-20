@@ -2,7 +2,6 @@ package com.habitai.scheduler;
 
 import com.habitai.habitlog.HabitLog;
 import com.habitai.habitlog.HabitLogRepository;
-import com.habitai.habitlog.HabitLogRequest;
 import com.habitai.habitlog.HabitStatus;
 import org.springframework.stereotype.Service;
 
@@ -18,15 +17,13 @@ public class HabitStatusSystemService {
     }
 
     public void updateTodayHabitStatus(long habitId, long userId) {
-
         LocalDate date = LocalDate.now();
-        HabitLog habitLog = habitLogRepository.findByHabitIdAndUserIdAndDate(habitId, userId, date);
 
-        if (habitLog != null) {
+        if (habitLogRepository.findByHabitIdAndUserIdAndDate(habitId, userId, date).isPresent()) {
             return;
         }
 
-        habitLog = new HabitLog();
+        HabitLog habitLog = new HabitLog();
         habitLog.setHabitId(habitId);
         habitLog.setUserId(userId);
         habitLog.setDate(date);

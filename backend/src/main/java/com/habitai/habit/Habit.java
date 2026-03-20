@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Set;
 
@@ -13,22 +14,22 @@ import java.util.Set;
 @Entity
 @Table(name = "habits",
         indexes = {
-            @Index(name = "idx_habit_user", columnList = "userId"),
-            @Index(name = "idx_habit_time", columnList = "targetTime")
+                @Index(name = "idx_habit_user", columnList = "userId"),
+                @Index(name = "idx_habit_time", columnList = "targetTime")
         })
 public class Habit {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
+    private Long id;
 
     @Column(nullable = false)
-    private long userId;
+    private Long userId;
 
     @Column(nullable = false, length = 100)
     private String title;
 
-    @Column(nullable = false, length = 100)
+    @Column(length = 100)
     private String description;
 
     @Column(nullable = false, length = 100)
@@ -38,7 +39,7 @@ public class Habit {
     @Column(nullable = false)
     private HabitFrequency frequency;
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
     @Enumerated(EnumType.STRING)
     @CollectionTable(
             name = "habit_days_of_week",
@@ -46,7 +47,7 @@ public class Habit {
     )
     private Set<DayOfWeek> daysOfWeek;
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(
             name = "habit_days_of_month",
             joinColumns = @JoinColumn(name = "habit_id")
@@ -55,4 +56,12 @@ public class Habit {
 
     @Column(nullable = false)
     private LocalTime targetTime;
+
+    @Column(nullable = false)
+    private LocalDate createdAt;
+
+    @PrePersist
+    public void prePersist() {
+        createdAt = LocalDate.now();
+    }
 }

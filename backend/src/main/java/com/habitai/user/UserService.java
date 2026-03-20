@@ -17,11 +17,16 @@ public class UserService {
 
     public UserDTO getUserDetails() {
         long id = currentUser.getId();
-        User user = userRepository.findById(id).orElse(null);
-        if (user == null) {
-            throw new UserNotFoundException("User not found");
-        }
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
         return new UserDTO(user.getEmail());
     }
 
+    public void savePushToken(String pushToken) {
+        long id = currentUser.getId();
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+        user.setPushToken(pushToken);
+        userRepository.save(user);
+    }
 }
