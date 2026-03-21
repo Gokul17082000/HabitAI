@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
-import { router } from "expo-router";
+import { useCallback, useState } from "react";
+import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { getHabitsForDateApi } from "../../../services/habitService";
 import { HabitResponse } from "../../../types/habit";
 import { formatDate, formatTime } from "../../../utils/formatters";
@@ -46,15 +46,13 @@ export default function CalendarScreen() {
   const isPast = selectedDate < today;
   const isToday = selectedDate === today;
 
-  /* ---------------- Load habits for selected date ---------------- */
-  useEffect(() => {
-    loadHabitsForDate(selectedDate);
-  }, [selectedDate]);
-
-  /* ---------------- Load month overview ---------------- */
-  useEffect(() => {
-    loadMonthOverview();
-  }, [currentYear, currentMonth]);
+  /* ---------------- Refresh on focus ---------------- */
+  useFocusEffect(
+    useCallback(() => {
+      loadHabitsForDate(selectedDate);
+      loadMonthOverview();
+    }, [selectedDate, currentYear, currentMonth])
+  );
 
   const loadHabitsForDate = async (date: string) => {
     setError("");
@@ -63,9 +61,7 @@ export default function CalendarScreen() {
       const data = await getHabitsForDateApi(date);
       setHabits(data);
     } catch (e) {
-      if (e instanceof UnauthorizedError) {
-        return;
-      }
+      if (e instanceof UnauthorizedError) return;
       setError("Failed to load habits.");
     } finally {
       setLoading(false);
@@ -76,7 +72,6 @@ export default function CalendarScreen() {
     const newMap = new Map<string, HabitStatus[]>();
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
 
-    // Load all days in parallel
     const promises = Array.from({ length: daysInMonth }, (_, i) => {
       const date = formatDate(new Date(currentYear, currentMonth, i + 1));
       return getHabitsForDateApi(date).then((habits) => {
@@ -124,7 +119,6 @@ export default function CalendarScreen() {
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
 
-  // Pad to complete last row
   while (calendarCells.length % 7 !== 0) {
     calendarCells.push(null);
   }
@@ -146,169 +140,179 @@ export default function CalendarScreen() {
 
   /* ---------------- Render ---------------- */
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header */}
-      <Text style={styles.header}>Calendar</Text>
-      <View style={styles.divider} />
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <Text style={styles.header}>Calendar</Text>
+        <View style={styles.divider} />
 
-      {/* Month navigation */}
-      <View style={styles.monthNav}>
-        <Pressable onPress={goToPrevMonth} style={styles.navBtn}>
-          <Text style={styles.navBtnText}>‹</Text>
-        </Pressable>
+        {/* Month navigation */}
+        <View style={styles.monthNav}>
+          <Pressable onPress={goToPrevMonth} style={styles.navBtn}>
+            <Text style={styles.navBtnText}>‹</Text>
+          </Pressable>
+          <Pressable onPress={goToToday}>
+            <Text style={styles.monthTitle}>{monthName}</Text>
+          </Pressable>
+          <Pressable onPress={goToNextMonth} style={styles.navBtn}>
+            <Text style={styles.navBtnText}>›</Text>
+          </Pressable>
+        </View>
 
-        <Pressable onPress={goToToday}>
-          <Text style={styles.monthTitle}>{monthName}</Text>
-        </Pressable>
+        {/* Week day headers */}
+        <View style={styles.weekRow}>
+          {WEEK_DAYS.map((day) => (
+            <Text key={day} style={styles.weekDay}>{day}</Text>
+          ))}
+        </View>
 
-        <Pressable onPress={goToNextMonth} style={styles.navBtn}>
-          <Text style={styles.navBtnText}>›</Text>
-        </Pressable>
-      </View>
+        {/* Calendar grid — proper rows of 7 */}
+        <View style={styles.grid}>
+          {Array.from({ length: Math.ceil(calendarCells.length / 7) }, (_, rowIndex) => (
+            <View key={rowIndex} style={styles.row}>
+              {calendarCells.slice(rowIndex * 7, rowIndex * 7 + 7).map((day, colIndex) => {
+                if (day === null) {
+                  return <View key={`empty-${colIndex}`} style={styles.cell} />;
+                }
 
-      {/* Week day headers */}
-      <View style={styles.weekRow}>
-        {WEEK_DAYS.map((day) => (
-          <Text key={day} style={styles.weekDay}>{day}</Text>
-        ))}
-      </View>
+                const dateStr = formatDate(new Date(currentYear, currentMonth, day));
+                const isSelected = dateStr === selectedDate;
+                const isTodayCell = dateStr === today;
+                const dotColor = getDotColor(dateStr);
 
-      {/* Calendar grid */}
-      <View style={styles.grid}>
-        {calendarCells.map((day, index) => {
-          if (day === null) {
-            return <View key={`empty-${index}`} style={styles.cell} />;
-          }
+                return (
+                  <Pressable
+                    key={dateStr}
+                    style={[
+                      styles.cell,
+                      isSelected && styles.selectedCell,
+                      isTodayCell && !isSelected && styles.todayCell,
+                    ]}
+                    onPress={() => {
+                      setSelectedDate(dateStr);
+                      loadHabitsForDate(dateStr);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.cellText,
+                        isSelected && styles.selectedCellText,
+                        isTodayCell && !isSelected && styles.todayCellText,
+                      ]}
+                    >
+                      {day}
+                    </Text>
+                    {dotColor && (
+                      <View style={[styles.dot, { backgroundColor: dotColor }]} />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
+        </View>
 
-          const dateStr = formatDate(new Date(currentYear, currentMonth, day));
-          const isSelected = dateStr === selectedDate;
-          const isTodayCell = dateStr === today;
-          const dotColor = getDotColor(dateStr);
+        <View style={styles.divider} />
 
-          return (
-            <Pressable
-              key={dateStr}
-              style={[
-                styles.cell,
-                isSelected && styles.selectedCell,
-                isTodayCell && !isSelected && styles.todayCell,
-              ]}
-              onPress={() => setSelectedDate(dateStr)}
-            >
-              <Text
+        {/* Selected date label */}
+        <View style={styles.selectedDateRow}>
+          <Text style={styles.selectedDateLabel}>
+            {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </Text>
+          {isFuture && (
+            <View style={[styles.badge, { backgroundColor: "#eff6ff" }]}>
+              <Text style={[styles.badgeText, { color: "#3b82f6" }]}>🔒 Future</Text>
+            </View>
+          )}
+          {isPast && (
+            <View style={[styles.badge, { backgroundColor: "#fef3c7" }]}>
+              <Text style={[styles.badgeText, { color: "#d97706" }]}>📅 Past</Text>
+            </View>
+          )}
+          {isToday && (
+            <View style={[styles.badge, { backgroundColor: "#f0fdf4" }]}>
+              <Text style={[styles.badgeText, { color: "#16a34a" }]}>Today</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Habits for selected date */}
+        {loading ? (
+          <Text style={styles.loadingText}>Loading habits...</Text>
+        ) : error ? (
+          <Text style={styles.errorText}>{error}</Text>
+        ) : habits.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>🗓️</Text>
+            <Text style={styles.emptyTitle}>No habits scheduled</Text>
+            <Text style={styles.emptySubtitle}>
+              There are no habits planned for this day.
+            </Text>
+          </View>
+        ) : (
+          habits.map((h) => {
+            const config = STATUS_CONFIG[h.habitStatus as HabitStatus] ?? STATUS_CONFIG.PENDING;
+            return (
+              <View
+                key={h.id}
                 style={[
-                  styles.cellText,
-                  isSelected && styles.selectedCellText,
-                  isTodayCell && !isSelected && styles.todayCellText,
+                  styles.card,
+                  { borderLeftColor: config.color },
+                  isFuture && styles.futureCard,
                 ]}
               >
-                {day}
-              </Text>
-              {dotColor && (
-                <View style={[styles.dot, { backgroundColor: dotColor }]} />
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <View style={styles.divider} />
-
-      {/* Selected date label */}
-      <View style={styles.selectedDateRow}>
-        <Text style={styles.selectedDateLabel}>
-          {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </Text>
-        {isFuture && (
-          <View style={[styles.badge, { backgroundColor: "#eff6ff" }]}>
-            <Text style={[styles.badgeText, { color: "#3b82f6" }]}>🔒 Future</Text>
-          </View>
-        )}
-        {isPast && (
-          <View style={[styles.badge, { backgroundColor: "#fef3c7" }]}>
-            <Text style={[styles.badgeText, { color: "#d97706" }]}>📅 Past</Text>
-          </View>
-        )}
-        {isToday && (
-          <View style={[styles.badge, { backgroundColor: "#f0fdf4" }]}>
-            <Text style={[styles.badgeText, { color: "#16a34a" }]}>Today</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Habits for selected date */}
-      {loading ? (
-        <Text style={styles.loadingText}>Loading habits...</Text>
-      ) : error ? (
-        <Text style={styles.errorText}>{error}</Text>
-      ) : habits.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>📆</Text>
-          <Text style={styles.emptyTitle}>No habits scheduled</Text>
-          <Text style={styles.emptySubtitle}>
-            There are no habits planned for this day.
-          </Text>
-        </View>
-      ) : (
-        habits.map((h) => {
-          const config = STATUS_CONFIG[h.habitStatus as HabitStatus] ?? STATUS_CONFIG.PENDING;
-          return (
-            <View
-              key={h.id}
-              style={[
-                styles.card,
-                { borderLeftColor: config.color },
-                isFuture && styles.futureCard,
-              ]}
-            >
-              <View style={styles.cardLeft}>
-                <Text style={styles.cardTitle}>{h.title}</Text>
-                <View style={styles.cardMeta}>
-                  <Text style={styles.cardCategory}>{h.category}</Text>
-                  <Text style={styles.cardDot}>·</Text>
-                  <Text style={styles.cardTime}>⏰ {formatTime(h.targetTime)}</Text>
+                <View style={styles.cardLeft}>
+                  <Text style={styles.cardTitle}>{h.title}</Text>
+                  <View style={styles.cardMeta}>
+                    <Text style={styles.cardCategory}>{h.category}</Text>
+                    <Text style={styles.cardDot}>·</Text>
+                    <Text style={styles.cardTime}>⏰ {formatTime(h.targetTime)}</Text>
+                  </View>
+                </View>
+                <View style={[styles.statusBadge, { backgroundColor: config.color + "20" }]}>
+                  <Text style={styles.statusEmoji}>{config.emoji}</Text>
+                  <Text style={[styles.statusLabel, { color: config.color }]}>
+                    {config.label}
+                  </Text>
                 </View>
               </View>
-              <View style={[styles.statusBadge, { backgroundColor: config.color + "20" }]}>
-                <Text style={styles.statusEmoji}>{config.emoji}</Text>
-                <Text style={[styles.statusLabel, { color: config.color }]}>
-                  {config.label}
-                </Text>
-              </View>
-            </View>
-          );
-        })
-      )}
+            );
+          })
+        )}
 
-      {/* Legend */}
-      <View style={styles.legend}>
-        {[
-          { color: "#16a34a", label: "All completed" },
-          { color: "#f97316", label: "Partial" },
-          { color: "#dc2626", label: "Missed" },
-          { color: "#f59e0b", label: "Pending" },
-        ].map((item) => (
-          <View key={item.label} style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-            <Text style={styles.legendLabel}>{item.label}</Text>
-          </View>
-        ))}
-      </View>
-    </ScrollView>
+        {/* Legend */}
+        <View style={styles.legend}>
+          {[
+            { color: "#16a34a", label: "All completed" },
+            { color: "#f97316", label: "Partial" },
+            { color: "#dc2626", label: "Missed" },
+            { color: "#f59e0b", label: "Pending" },
+          ].map((item) => (
+            <View key={item.label} style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+              <Text style={styles.legendLabel}>{item.label}</Text>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 /* ---------------- Styles ---------------- */
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: Colors.background,
   },
   header: {
     fontSize: 22,
@@ -358,12 +362,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     marginBottom: 16,
   },
+  row: {
+    flexDirection: "row",
+  },
   cell: {
-    width: `${100 / 7}%`,
+    flex: 1,
     height: 52,
     justifyContent: "center",
     alignItems: "center",

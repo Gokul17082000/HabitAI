@@ -39,7 +39,7 @@ public class Habit {
     @Column(nullable = false)
     private HabitFrequency frequency;
 
-    @ElementCollection(fetch = FetchType.LAZY)
+    @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
     @CollectionTable(
             name = "habit_days_of_week",
@@ -47,7 +47,7 @@ public class Habit {
     )
     private Set<DayOfWeek> daysOfWeek;
 
-    @ElementCollection(fetch = FetchType.LAZY)
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
             name = "habit_days_of_month",
             joinColumns = @JoinColumn(name = "habit_id")

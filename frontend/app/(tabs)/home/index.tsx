@@ -1,9 +1,8 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import { removeToken } from "../../../utils/authStorage";
 import { getHabitsForDateApi } from "../../../services/habitService";
-import { HabitResponse } from "../../../types/habit";
+import { HabitResponse, HabitStatus } from "../../../types/habit";
 import { formatDate } from "../../../utils/formatters";
 import { Colors } from "../../../constants/colors";
 import HabitCard from "../../../components/HabitCard";
@@ -22,9 +21,7 @@ export default function HomeScreen() {
       const data = await getHabitsForDateApi(today);
       setHabits(data);
     } catch (e) {
-      if (e instanceof UnauthorizedError) {
-        return;
-      }
+      if (e instanceof UnauthorizedError) return;
       setError("Failed to load habits. Please try again.");
     } finally {
       setLoading(false);
@@ -38,6 +35,15 @@ export default function HomeScreen() {
       loadHabits();
     }, [loadHabits])
   );
+
+  /* ---------------- Optimistic update ---------------- */
+  const handleLogged = useCallback((habitId: number, newStatus: HabitStatus) => {
+    setHabits(prev =>
+      prev.map(h =>
+        h.id === habitId ? { ...h, habitStatus: newStatus } : h
+      )
+    );
+  }, []);
 
   /* ---------------- UI helpers ---------------- */
   const today = new Date().toLocaleDateString("en-US", {
@@ -56,56 +62,65 @@ export default function HomeScreen() {
 
   /* ---------------- Render ---------------- */
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.greeting}>{greeting}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.greeting}>{greeting}</Text>
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* Date */}
+        <Text style={styles.today}>Today · {today}</Text>
+
+        {/* Content */}
+        {loading ? (
+          <Text style={styles.loadingText}>Loading habits...</Text>
+        ) : error ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>Something went wrong</Text>
+            <Text style={styles.emptySubtitle}>{error}</Text>
+          </View>
+        ) : habits.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>No habits yet 👋</Text>
+            <Text style={styles.emptySubtitle}>
+              Start by creating your first habit.
+            </Text>
+          </View>
+        ) : (
+          <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+            {habits.map((habit) => (
+              <HabitCard
+                key={habit.id}
+                habit={habit}
+                onLogged={handleLogged}
+              />
+            ))}
+          </ScrollView>
+        )}
+
+        {/* Floating Add Button */}
+        <Pressable
+          style={styles.addButton}
+          onPress={() => router.push("/(tabs)/habits/create")}
+        >
+          <Text style={styles.addButtonText}>＋</Text>
+        </Pressable>
       </View>
-
-      <View style={styles.divider} />
-
-      {/* Date */}
-      <Text style={styles.today}>Today · {today}</Text>
-
-      {/* Content */}
-      {loading ? (
-        <Text style={styles.loadingText}>Loading habits...</Text>
-      ) : error ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>Something went wrong</Text>
-          <Text style={styles.emptySubtitle}>{error}</Text>
-        </View>
-      ) : habits.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No habits yet 👋</Text>
-          <Text style={styles.emptySubtitle}>
-            Start by creating your first habit.
-          </Text>
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-          {habits.map((habit) => (
-            <HabitCard key={habit.id} habit={habit} onLogged={loadHabits} />
-          ))}
-        </ScrollView>
-      )}
-
-      {/* Floating Add Button */}
-      <Pressable
-        style={styles.addButton}
-        onPress={() => router.push("/(tabs)/habits/create")}
-      >
-        <Text style={styles.addButtonText}>＋</Text>
-      </Pressable>
-    </View>
+    </SafeAreaView>
   );
 }
 
 /* ---------------- Styles ---------------- */
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  container: {
+    flex: 1,
     padding: 20,
   },
   header: {

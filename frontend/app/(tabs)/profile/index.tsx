@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import { useCallback, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView } from "react-native";
 import { router } from "expo-router";
 import { removeToken } from "../../../utils/authStorage";
 import { getUserApi, getUserStatsApi, UserStats } from "../../../services/authService";
@@ -16,9 +17,11 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [])
+  );
 
   const loadProfile = async () => {
     setError("");
@@ -52,122 +55,124 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header */}
-      <Text style={styles.header}>Profile</Text>
-      <View style={styles.divider} />
+    <SafeAreaView style={styles.safeArea}>
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+          {/* Header */}
+          <Text style={styles.header}>Profile</Text>
+          <View style={styles.divider} />
 
-      {/* Profile Card */}
-      <View style={styles.profileCard}>
-        <Text style={styles.avatar}>👤</Text>
-        {loading ? (
-          <Text style={styles.email}>Loading...</Text>
-        ) : error ? (
-          <Text style={styles.errorText}>{error}</Text>
-        ) : (
-          <>
-            <Text style={styles.email}>{user?.email}</Text>
-            {stats && (
-              <Text style={styles.memberSince}>
-                Member since {formatMemberSince(stats.memberSince)}
-              </Text>
+          {/* Profile Card */}
+          <View style={styles.profileCard}>
+            <Text style={styles.avatar}>👤</Text>
+            {loading ? (
+              <Text style={styles.email}>Loading...</Text>
+            ) : error ? (
+              <Text style={styles.errorText}>{error}</Text>
+            ) : (
+              <>
+                <Text style={styles.email}>{user?.email}</Text>
+                {stats && (
+                  <Text style={styles.memberSince}>
+                    Member since {formatMemberSince(stats.memberSince)}
+                  </Text>
+                )}
+              </>
             )}
-          </>
-        )}
-      </View>
-
-      {!loading && stats && (
-        <>
-          {/* Overview */}
-          <View style={styles.overviewRow}>
-            <View style={styles.overviewCard}>
-              <Text style={styles.overviewValue}>{stats.totalHabits}</Text>
-              <Text style={styles.overviewLabel}>Total{"\n"}Habits</Text>
-            </View>
-            <View style={styles.overviewCard}>
-              <Text style={styles.overviewValue}>{stats.overallConsistency}%</Text>
-              <Text style={styles.overviewLabel}>Overall{"\n"}Consistency</Text>
-            </View>
-            <View style={styles.overviewCard}>
-              <Text style={styles.overviewValue}>{stats.totalDaysTracked}</Text>
-              <Text style={styles.overviewLabel}>Days{"\n"}Tracked</Text>
-            </View>
           </View>
 
-          {/* All Time */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>All Time</Text>
-            <View style={styles.allTimeRow}>
-              <View style={styles.allTimeItem}>
-                <Text style={styles.allTimeEmoji}>✅</Text>
-                <Text style={styles.allTimeValue}>{stats.totalCompleted}</Text>
-                <Text style={styles.allTimeLabel}>Completed</Text>
+          {!loading && stats && (
+            <>
+              {/* Overview */}
+              <View style={styles.overviewRow}>
+                <View style={styles.overviewCard}>
+                  <Text style={styles.overviewValue}>{stats.totalHabits}</Text>
+                  <Text style={styles.overviewLabel}>Total{"\n"}Habits</Text>
+                </View>
+                <View style={styles.overviewCard}>
+                  <Text style={styles.overviewValue}>{stats.overallConsistency}%</Text>
+                  <Text style={styles.overviewLabel}>Overall{"\n"}Consistency</Text>
+                </View>
+                <View style={styles.overviewCard}>
+                  <Text style={styles.overviewValue}>{stats.totalDaysTracked}</Text>
+                  <Text style={styles.overviewLabel}>Days{"\n"}Tracked</Text>
+                </View>
               </View>
-              <View style={styles.allTimeDivider} />
-              <View style={styles.allTimeItem}>
-                <Text style={styles.allTimeEmoji}>❌</Text>
-                <Text style={styles.allTimeValue}>{stats.totalMissed}</Text>
-                <Text style={styles.allTimeLabel}>Missed</Text>
-              </View>
-              <View style={styles.allTimeDivider} />
-              <View style={styles.allTimeItem}>
-                <Text style={styles.allTimeEmoji}>📅</Text>
-                <Text style={styles.allTimeValue}>{stats.totalDaysTracked}</Text>
-                <Text style={styles.allTimeLabel}>Days</Text>
-              </View>
-            </View>
-          </View>
 
-          {/* Streaks */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Streaks</Text>
-            <View style={styles.streakRow}>
-              <View style={styles.streakItem}>
-                <Text style={styles.streakEmoji}>🔥</Text>
-                <Text style={styles.streakValue}>{stats.currentStreak}</Text>
-                <Text style={styles.streakLabel}>Current Streak</Text>
-                <Text style={styles.streakSub}>days</Text>
-              </View>
-              <View style={styles.streakDivider} />
-              <View style={styles.streakItem}>
-                <Text style={styles.streakEmoji}>🏆</Text>
-                <Text style={styles.streakValue}>{stats.longestStreak}</Text>
-                <Text style={styles.streakLabel}>Longest Streak</Text>
-                <Text style={styles.streakSub}>days</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Top Habits */}
-          {stats.topHabits && stats.topHabits.length > 0 && (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>🏅 Top Habits</Text>
-              {stats.topHabits.map((habit, index) => {
-                const medals = ["🥇", "🥈", "🥉"];
-                return (
-                  <View key={habit.title} style={styles.topHabitRow}>
-                    <Text style={styles.topHabitMedal}>{medals[index]}</Text>
-                    <View style={styles.topHabitInfo}>
-                      <Text style={styles.topHabitTitle}>{habit.title}</Text>
-                      <Text style={styles.topHabitSub}>
-                        {habit.completions} completions · {habit.consistencyPercent}% consistency
-                      </Text>
-                    </View>
+              {/* All Time */}
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>All Time</Text>
+                <View style={styles.allTimeRow}>
+                  <View style={styles.allTimeItem}>
+                    <Text style={styles.allTimeEmoji}>✅</Text>
+                    <Text style={styles.allTimeValue}>{stats.totalCompleted}</Text>
+                    <Text style={styles.allTimeLabel}>Completed</Text>
                   </View>
-                );
-              })}
-            </View>
+                  <View style={styles.allTimeDivider} />
+                  <View style={styles.allTimeItem}>
+                    <Text style={styles.allTimeEmoji}>❌</Text>
+                    <Text style={styles.allTimeValue}>{stats.totalMissed}</Text>
+                    <Text style={styles.allTimeLabel}>Missed</Text>
+                  </View>
+                  <View style={styles.allTimeDivider} />
+                  <View style={styles.allTimeItem}>
+                    <Text style={styles.allTimeEmoji}>📅</Text>
+                    <Text style={styles.allTimeValue}>{stats.totalDaysTracked}</Text>
+                    <Text style={styles.allTimeLabel}>Days</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Streaks */}
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Streaks</Text>
+                <View style={styles.streakRow}>
+                  <View style={styles.streakItem}>
+                    <Text style={styles.streakEmoji}>🔥</Text>
+                    <Text style={styles.streakValue}>{stats.currentStreak}</Text>
+                    <Text style={styles.streakLabel}>Current Streak</Text>
+                    <Text style={styles.streakSub}>days</Text>
+                  </View>
+                  <View style={styles.streakDivider} />
+                  <View style={styles.streakItem}>
+                    <Text style={styles.streakEmoji}>🏆</Text>
+                    <Text style={styles.streakValue}>{stats.longestStreak}</Text>
+                    <Text style={styles.streakLabel}>Longest Streak</Text>
+                    <Text style={styles.streakSub}>days</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Top Habits */}
+              {stats.topHabits && stats.topHabits.length > 0 && (
+                <View style={styles.card}>
+                  <Text style={styles.cardTitle}>🏅 Top Habits</Text>
+                  {stats.topHabits.map((habit, index) => {
+                    const medals = ["🥇", "🥈", "🥉"];
+                    return (
+                      <View key={habit.title} style={styles.topHabitRow}>
+                        <Text style={styles.topHabitMedal}>{medals[index]}</Text>
+                        <View style={styles.topHabitInfo}>
+                          <Text style={styles.topHabitTitle}>{habit.title}</Text>
+                          <Text style={styles.topHabitSub}>
+                            {habit.completions} completions · {habit.consistencyPercent}% consistency
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </>
           )}
-        </>
-      )}
 
-      {/* Logout */}
-      <Pressable style={styles.logoutBtn} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </Pressable>
+          {/* Logout */}
+          <Pressable style={styles.logoutBtn} onPress={handleLogout}>
+            <Text style={styles.logoutText}>Logout</Text>
+          </Pressable>
 
-      <View style={{ height: 30 }} />
-    </ScrollView>
+          <View style={{ height: 30 }} />
+        </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -353,5 +358,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.subtext,
     marginTop: 2,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: Colors.background,
   },
 });

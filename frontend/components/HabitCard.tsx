@@ -7,7 +7,7 @@ import { Colors } from "../constants/colors";
 
 interface HabitCardProps {
   habit: HabitResponse;
-  onLogged?: () => void;
+  onLogged?: (habitId: number, newStatus: HabitStatus) => void;
 }
 
 const STATUS_COLORS: Record<HabitStatus, string> = {
@@ -20,11 +20,17 @@ const STATUS_COLORS: Record<HabitStatus, string> = {
 export default function HabitCard({ habit, onLogged }: HabitCardProps) {
   const [streak, setStreak] = useState<number | null>(null);
   const [logging, setLogging] = useState(false);
+  const [localStatus, setLocalStatus] = useState<HabitStatus>(habit.habitStatus);
 
-  const statusColor = STATUS_COLORS[habit.habitStatus] ?? STATUS_COLORS.PENDING;
+  // Sync local status when habit prop changes
+  useEffect(() => {
+    setLocalStatus(habit.habitStatus);
+  }, [habit.habitStatus]);
+
+  const statusColor = STATUS_COLORS[localStatus] ?? STATUS_COLORS.PENDING;
   const today = new Date().toISOString().split("T")[0];
-  const isCompleted = habit.habitStatus === "COMPLETED";
-  const isMissed = habit.habitStatus === "MISSED";
+  const isCompleted = localStatus === "COMPLETED";
+  const isMissed = localStatus === "MISSED";
 
   useEffect(() => {
     loadStreak();
@@ -42,13 +48,20 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
   const handleLog = async () => {
     if (isMissed || logging) return;
 
+    const newStatus: HabitStatus = isCompleted ? "PENDING" : "COMPLETED";
+
+    // Update UI immediately
+    setLocalStatus(newStatus);
+    onLogged?.(habit.id, newStatus);
+
     setLogging(true);
     try {
-      const newStatus = isCompleted ? "PENDING" : "COMPLETED";
       await logHabitApi(habit.id, today, newStatus);
-      onLogged?.();
       await loadStreak();
     } catch (error) {
+      // Revert on error
+      setLocalStatus(habit.habitStatus);
+      onLogged?.(habit.id, habit.habitStatus);
       console.error("Failed to log habit", error);
     } finally {
       setLogging(false);
@@ -81,7 +94,7 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
                 ? "..."
                 : isCompleted
                 ? "✓ DONE"
-                : habit.habitStatus ?? "PENDING"}
+                : localStatus ?? "PENDING"}
             </Text>
           </View>
         </Pressable>

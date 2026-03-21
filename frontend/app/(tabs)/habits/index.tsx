@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, SafeAreaView } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Alert } from "react-native";
 import { getAllHabitsApi, deleteHabitApi } from "../../../services/habitService";
@@ -75,92 +75,94 @@ export default function MasterHabitsScreen() {
 
   /* ---------------- Render ---------------- */
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Habits</Text>
-      <View style={styles.divider} />
+    <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Text style={styles.header}>Habits</Text>
+          <View style={styles.divider} />
 
-      {loading ? (
-        <Text style={styles.loadingText}>Loading habits...</Text>
-      ) : error ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>Something went wrong</Text>
-          <Text style={styles.emptySubtitle}>{error}</Text>
-        </View>
-      ) : habits.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>🧠</Text>
-          <Text style={styles.emptyTitle}>No habits yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Create habits to stay consistent and build better routines.
-          </Text>
-        </View>
-      ) : (
-        <ScrollView>
-          {habits.map((habit) => (
-            <View key={habit.id} style={styles.card}>
-              {/* Left */}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.title}>{habit.title}</Text>
-                <Text style={styles.meta}>
-                  {habit.category} • {habit.frequency}
-                </Text>
-                <Text style={styles.time}>
-                  ⏰ {formatTime(habit.targetTime)}
-                </Text>
-              </View>
-
-              {/* Actions */}
-              <View style={styles.actions}>
-                <Pressable
-                  disabled={deletingId === habit.id}
-                  onPress={() =>
-                    router.push(`/(tabs)/habits/${habit.id}/edit`)
-                  }
-                >
-                  <Text
-                    style={{ opacity: deletingId === habit.id ? 0.4 : 1 }}
-                  >
-                    ✏️
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  disabled={deletingId === habit.id}
-                  onPress={() => confirmDelete(habit.id)}
-                >
-                  <Text
-                    style={{ opacity: deletingId === habit.id ? 0.4 : 1 }}
-                  >
-                    {deletingId === habit.id ? "⏳" : "🗑️"}
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  disabled={deletingId === habit.id}
-                  onPress={() =>
-                    router.push(`/(tabs)/habits/${habit.id}/activity`)
-                  }
-                >
-                  <Text
-                    style={{ opacity: deletingId === habit.id ? 0.4 : 1 }}
-                  >
-                    📊
-                  </Text>
-                </Pressable>
-              </View>
+          {loading ? (
+            <Text style={styles.loadingText}>Loading habits...</Text>
+          ) : error ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>Something went wrong</Text>
+              <Text style={styles.emptySubtitle}>{error}</Text>
             </View>
-          ))}
-        </ScrollView>
-      )}
+          ) : habits.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyIcon}>🧠</Text>
+              <Text style={styles.emptyTitle}>No habits yet</Text>
+              <Text style={styles.emptySubtitle}>
+                Create habits to stay consistent and build better routines.
+              </Text>
+            </View>
+          ) : (
+            <ScrollView>
+              {habits.map((habit) => (
+                <View key={habit.id} style={styles.card}>
+                  {/* Left */}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.title}>{habit.title}</Text>
+                    <Text style={styles.meta}>
+                      {habit.category} • {habit.frequency}
+                    </Text>
+                    <Text style={styles.time}>
+                      ⏰ {formatTime(habit.targetTime)}
+                    </Text>
+                  </View>
 
-      {/* Floating Add Button */}
-      <Pressable
-        style={styles.addButton}
-        onPress={() => router.push("/(tabs)/habits/create")}
-      >
-        <Text style={styles.addButtonText}>＋</Text>
-      </Pressable>
-    </View>
+                  {/* Actions */}
+                  <View style={styles.actions}>
+                    <Pressable
+                      disabled={deletingId === habit.id}
+                      onPress={() =>
+                        router.push(`/(tabs)/habits/${habit.id}/edit`)
+                      }
+                    >
+                      <Text
+                        style={{ opacity: deletingId === habit.id ? 0.4 : 1 }}
+                      >
+                        ✏️
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      disabled={deletingId === habit.id}
+                      onPress={() => confirmDelete(habit.id)}
+                    >
+                      <Text
+                        style={{ opacity: deletingId === habit.id ? 0.4 : 1 }}
+                      >
+                        {deletingId === habit.id ? "⏳" : "🗑️"}
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      disabled={deletingId === habit.id}
+                      onPress={() =>
+                        router.push(`/(tabs)/habits/${habit.id}/activity`)
+                      }
+                    >
+                      <Text
+                        style={{ opacity: deletingId === habit.id ? 0.4 : 1 }}
+                      >
+                        📊
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+
+          {/* Floating Add Button */}
+          <Pressable
+            style={styles.addButton}
+            onPress={() => router.push("/(tabs)/habits/create")}
+          >
+            <Text style={styles.addButtonText}>＋</Text>
+          </Pressable>
+        </View>
+    </SafeAreaView>
   );
 }
 
@@ -253,5 +255,9 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 28,
     fontWeight: "bold",
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: Colors.background,
   },
 });

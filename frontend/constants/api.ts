@@ -7,7 +7,7 @@ const getBaseUrl = (): string => {
     }
     return "http://192.168.1.2:8080";
   }
-  return "https://your-production-url.com";
+  return "https://habitai-knma.onrender.com";
 };
 
 export const BASE_URL = getBaseUrl();
