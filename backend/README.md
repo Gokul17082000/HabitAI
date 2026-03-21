@@ -128,3 +128,17 @@ src/main/java/com/habitai/
 | `DDL_AUTO` | Hibernate DDL mode | `update` |
 | `CORS_ORIGIN_1` | Allowed CORS origin 1 | `http://localhost:8081` |
 | `FIREBASE_SERVICE_ACCOUNT` | Path to Firebase service account JSON | `src/main/resources/firebase-service-account.json` |
+
+## Important Files (Never Commit)
+
+The following files contain secrets and must NEVER be committed to GitHub:
+
+| File | Description |
+|---|---|
+| `.env` | Environment variables |
+| `src/main/resources/firebase-service-account.json` | Firebase Admin SDK credentials |
+
+Both are already in `.gitignore`. To set up locally:
+1. Create `.env` from the template below
+2. Download Firebase service account from Firebase Console → Project Settings → Service Accounts → Generate new private key
+3. Save as `src/main/resources/firebase-service-account.json`

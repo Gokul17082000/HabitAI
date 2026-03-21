@@ -156,3 +156,19 @@ eas login
 eas build --platform ios
 eas build --platform android
 ```
+
+## Important Files (Never Commit)
+
+The following files contain secrets and must NEVER be committed to GitHub:
+
+| File | Description |
+|---|---|
+| `.env` | Environment variables (if used) |
+| `google-services.json` | Firebase Android config |
+| `GoogleService-Info.plist` | Firebase iOS config |
+
+All are already in `.gitignore`. To set up locally:
+1. Go to Firebase Console → Project Settings
+2. Download `google-services.json` for Android app
+3. Download `GoogleService-Info.plist` for iOS app
+4. Place both in the `frontend/` root directory
