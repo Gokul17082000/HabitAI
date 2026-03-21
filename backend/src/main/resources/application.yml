@@ -7,6 +7,7 @@ spring:
     hibernate:
       ddl-auto: ${DDL_AUTO:update}
     show-sql: false
+    open-in-view: false
     properties:
       hibernate:
         format_sql: true
@@ -25,3 +26,9 @@ cors:
 
 firebase:
   service-account: ${FIREBASE_SERVICE_ACCOUNT:src/main/resources/firebase-service-account.json}
+
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
