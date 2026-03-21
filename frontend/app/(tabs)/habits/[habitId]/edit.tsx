@@ -14,6 +14,8 @@ import PrimaryButton from "../../../../components/PrimaryButton";
 import Chip from "../../../../components/Chip";
 import { getHabitByIdApi, updateHabitApi } from "../../../../services/habitService";
 import { formatTargetTime, parseTargetTime } from "../../../../utils/formatters";
+import { UnauthorizedError } from "../../../../utils/apiHandler";
+
 import {
   HabitCategory,
   HabitFrequency,
@@ -60,8 +62,7 @@ export default function EditHabitScreen() {
       setDaysOfMonth(habit.daysOfMonth ?? []);
       setTargetTime(parseTargetTime(habit.targetTime));
     } catch (e) {
-      if (e instanceof Error && e.message === "Not authenticated") {
-        router.replace("/");
+      if (e instanceof UnauthorizedError) {
         return;
       }
       setError("Failed to load habit.");

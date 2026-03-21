@@ -1,6 +1,6 @@
 import { API_ENDPOINTS } from "../constants/api";
 import { getToken } from "../utils/authStorage";
-import { handleResponse } from "../utils/apiHandler";
+import { handleResponse, UnauthorizedError } from "../utils/apiHandler";
 
 interface LoginResponse {
   token: string;
@@ -28,6 +28,17 @@ export interface UserStats {
   memberSince: string;
 }
 
+/* ---------------- Auth Header ---------------- */
+const getAuthHeaders = async (): Promise<Record<string, string>> => {
+  const token = await getToken();
+  if (!token) throw new UnauthorizedError();
+  return {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+};
+
+/* ---------------- APIs ---------------- */
 export const loginApi = async (email: string, password: string): Promise<LoginResponse> => {
   const response = await fetch(API_ENDPOINTS.login, {
     method: "POST",
@@ -47,27 +58,13 @@ export const registerApi = async (email: string, password: string): Promise<Regi
 };
 
 export const getUserApi = async (): Promise<{ email: string }> => {
-  const token = await getToken();
-  if (!token) throw new Error("Not authenticated");
-
-  const response = await fetch(API_ENDPOINTS.user, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
+  const headers = await getAuthHeaders();
+  const response = await fetch(API_ENDPOINTS.user, { headers });
   return handleResponse<{ email: string }>(response);
 };
 
 export const getUserStatsApi = async (): Promise<UserStats> => {
-  const token = await getToken();
-  if (!token) throw new Error("Not authenticated");
-
-  const response = await fetch(API_ENDPOINTS.userStats, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
+  const headers = await getAuthHeaders();
+  const response = await fetch(API_ENDPOINTS.userStats, { headers });
   return handleResponse<UserStats>(response);
 };

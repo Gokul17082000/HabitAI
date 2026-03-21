@@ -2,14 +2,10 @@ import { Platform } from "react-native";
 
 const getBaseUrl = (): string => {
   if (__DEV__) {
-    switch (Platform.OS) {
-      case "android":
-        return "http://192.168.1.2:8080";
-      case "ios":
-        return "http://192.168.1.2:8080";
-      default:
-        return "http://localhost:8080";
+    if (Platform.OS === "web") {
+      return "http://localhost:8080";
     }
+    return "http://192.168.1.2:8080";
   }
   return "https://your-production-url.com";
 };

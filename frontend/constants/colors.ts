@@ -6,6 +6,11 @@ export const Colors = {
   subtext: "#666666",
   placeholder: "#999999",
   border: "#cccccc",
-  error: "red",
+  error: "#ef4444",
   white: "#ffffff",
+  streak: "#f97316",
+  completed: "#16a34a",
+  missed: "#dc2626",
+  pending: "#f59e0b",
+  partial: "#f97316",
 };

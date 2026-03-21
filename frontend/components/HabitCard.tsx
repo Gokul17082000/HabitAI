@@ -11,10 +11,10 @@ interface HabitCardProps {
 }
 
 const STATUS_COLORS: Record<HabitStatus, string> = {
-  PENDING: "#f59e0b",
-  COMPLETED: "#16a34a",
-  MISSED: "#dc2626",
-  PARTIALLY_COMPLETED: "#f97316",
+  PENDING: Colors.pending,
+  COMPLETED: Colors.completed,
+  MISSED: Colors.missed,
+  PARTIALLY_COMPLETED: Colors.partial,
 };
 
 export default function HabitCard({ habit, onLogged }: HabitCardProps) {
@@ -44,7 +44,6 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
 
     setLogging(true);
     try {
-      // Toggle — if completed tap again to undo back to PENDING
       const newStatus = isCompleted ? "PENDING" : "COMPLETED";
       await logHabitApi(habit.id, today, newStatus);
       onLogged?.();
@@ -144,7 +143,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 12,
     fontWeight: "600",
-    color: "#f97316",
+    color: Colors.streak,
     textAlign: "center",
   },
   right: {

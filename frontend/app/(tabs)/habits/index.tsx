@@ -6,6 +6,7 @@ import { getAllHabitsApi, deleteHabitApi } from "../../../services/habitService"
 import { HabitDTO } from "../../../types/habit";
 import { formatTime } from "../../../utils/formatters";
 import { Colors } from "../../../constants/colors";
+import { UnauthorizedError } from "../../../utils/apiHandler";
 
 export default function MasterHabitsScreen() {
   const [habits, setHabits] = useState<HabitDTO[]>([]);
@@ -20,8 +21,7 @@ export default function MasterHabitsScreen() {
       const data = await getAllHabitsApi();
       setHabits(data);
     } catch (e) {
-      if (e instanceof Error && e.message === "Not authenticated") {
-        router.replace("/");
+      if (e instanceof UnauthorizedError) {
         return;
       }
       setError("Failed to load habits.");

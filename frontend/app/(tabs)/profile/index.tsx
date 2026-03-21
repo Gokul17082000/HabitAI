@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { removeToken } from "../../../utils/authStorage";
 import { getUserApi, getUserStatsApi, UserStats } from "../../../services/authService";
 import { Colors } from "../../../constants/colors";
+import { UnauthorizedError } from "../../../utils/apiHandler";
 
 type UserDTO = {
   email: string;
@@ -29,8 +30,7 @@ export default function ProfileScreen() {
       setUser(userData);
       setStats(statsData);
     } catch (e) {
-      if (e instanceof Error && e.message === "Not authenticated") {
-        router.replace("/");
+      if (e instanceof UnauthorizedError) {
         return;
       }
       setError("Failed to load profile.");

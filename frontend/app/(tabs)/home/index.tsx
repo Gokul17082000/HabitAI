@@ -7,6 +7,7 @@ import { HabitResponse } from "../../../types/habit";
 import { formatDate } from "../../../utils/formatters";
 import { Colors } from "../../../constants/colors";
 import HabitCard from "../../../components/HabitCard";
+import { UnauthorizedError } from "../../../utils/apiHandler";
 
 export default function HomeScreen() {
   const [habits, setHabits] = useState<HabitResponse[]>([]);
@@ -21,8 +22,7 @@ export default function HomeScreen() {
       const data = await getHabitsForDateApi(today);
       setHabits(data);
     } catch (e) {
-      if (e instanceof Error && e.message === "Not authenticated") {
-        router.replace("/");
+      if (e instanceof UnauthorizedError) {
         return;
       }
       setError("Failed to load habits. Please try again.");

@@ -5,6 +5,7 @@ import { getHabitsForDateApi } from "../../../services/habitService";
 import { HabitResponse } from "../../../types/habit";
 import { formatDate, formatTime } from "../../../utils/formatters";
 import { Colors } from "../../../constants/colors";
+import { UnauthorizedError } from "../../../utils/apiHandler";
 
 /* ---------------- Types ---------------- */
 type HabitStatus = "COMPLETED" | "MISSED" | "PENDING" | "PARTIALLY_COMPLETED";
@@ -62,8 +63,7 @@ export default function CalendarScreen() {
       const data = await getHabitsForDateApi(date);
       setHabits(data);
     } catch (e) {
-      if (e instanceof Error && e.message === "Not authenticated") {
-        router.replace("/");
+      if (e instanceof UnauthorizedError) {
         return;
       }
       setError("Failed to load habits.");

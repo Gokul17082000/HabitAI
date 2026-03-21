@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { getHabitActivityApi } from "../../../../services/habitService";
 import { ActivityItem } from "../../../../types/habit";
 import { formatDate, formatDisplayDate } from "../../../../utils/formatters";
 import { Colors } from "../../../../constants/colors";
-import { getHabitStreakApi, getLongestStreakApi } from "../../../../services/habitService";
+import { getHabitActivityApi, getHabitStreakApi, getLongestStreakApi } from "../../../../services/habitService";
+import { UnauthorizedError } from "../../../../utils/apiHandler";
 
 /* ---------------- Range Options ---------------- */
 type RangeOption = "1W" | "1M" | "3M" | "6M" | "1Y" | "ALL";
@@ -65,8 +65,7 @@ export default function HabitActivityScreen() {
       );
       setActivity(data);
     } catch (e) {
-      if (e instanceof Error && e.message === "Not authenticated") {
-        router.replace("/");
+      if (e instanceof UnauthorizedError) {
         return;
       }
       setError("Failed to load activity.");

@@ -22,6 +22,7 @@ export interface HabitDTO {
   daysOfWeek: DayOfWeek[] | null;
   daysOfMonth: number[] | null;
   targetTime: string;
+  createdAt: string;
 }
 
 export interface HabitResponse {

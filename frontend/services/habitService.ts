@@ -1,6 +1,6 @@
 import { API_ENDPOINTS } from "../constants/api";
 import { getToken, removeToken } from "../utils/authStorage";
-import { handleResponse } from "../utils/apiHandler";
+import { handleResponse, UnauthorizedError } from "../utils/apiHandler";
 import { router } from "expo-router";
 import {
   HabitDTO,
@@ -17,7 +17,7 @@ const authHeader = async (): Promise<Record<string, string>> => {
   if (!token) {
     await removeToken();
     router.replace("/");
-    throw new Error("Not authenticated");
+    throw new UnauthorizedError();
   }
   return {
     Authorization: `Bearer ${token}`,
@@ -64,10 +64,7 @@ export const updateHabitApi = async (
     headers,
     body: JSON.stringify(request),
   });
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.message || "Failed to update habit");
-  }
+  await handleResponse<void>(response);
 };
 
 export const deleteHabitApi = async (habitId: number): Promise<void> => {
@@ -76,9 +73,7 @@ export const deleteHabitApi = async (habitId: number): Promise<void> => {
     method: "DELETE",
     headers,
   });
-  if (!response.ok) {
-    throw new Error("Failed to delete habit");
-  }
+  await handleResponse<void>(response);
 };
 
 export const logHabitApi = async (
@@ -92,9 +87,7 @@ export const logHabitApi = async (
     headers,
     body: JSON.stringify({ date, habitStatus }),
   });
-  if (!response.ok) {
-    throw new Error("Failed to log habit");
-  }
+  await handleResponse<void>(response);
 };
 
 export const getHabitStreakApi = async (habitId: number): Promise<HabitStreakResponse> => {

@@ -10,10 +10,10 @@ import { Colors } from "../constants/colors";
 import { registerForPushNotifications } from "../utils/pushNotifications";
 
 export default function LoginScreen() {
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [apiError, setApiError] = useState("");
@@ -25,10 +25,15 @@ export default function LoginScreen() {
       const token = await getToken();
       if (token) {
         router.replace("/home");
+        return;
       }
+      setChecking(false);
     };
     autoLogin();
   }, []);
+
+  // Show nothing while checking token
+  if (checking) return null;
 
   const handleLogin = async () => {
     if (loading) return;
