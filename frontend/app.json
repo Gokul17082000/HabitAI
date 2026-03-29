@@ -8,6 +8,11 @@
     "scheme": "habitai",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#4f46e5"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.habitai.app",

@@ -6,6 +6,7 @@ import { HabitResponse } from "../../../types/habit";
 import { formatDate, formatTime } from "../../../utils/formatters";
 import { Colors } from "../../../constants/colors";
 import { UnauthorizedError } from "../../../utils/apiHandler";
+import { getToken } from "../../../utils/authStorage";
 
 /* ---------------- Types ---------------- */
 type HabitStatus = "COMPLETED" | "MISSED" | "PENDING" | "PARTIALLY_COMPLETED";
@@ -69,20 +70,33 @@ export default function CalendarScreen() {
   };
 
   const loadMonthOverview = async () => {
-    const newMap = new Map<string, HabitStatus[]>();
-    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+    try {
+      const token = await getToken();
+      if (!token) return;
 
-    const promises = Array.from({ length: daysInMonth }, (_, i) => {
-      const date = formatDate(new Date(currentYear, currentMonth, i + 1));
-      return getHabitsForDateApi(date).then((habits) => {
-        if (habits.length > 0) {
-          newMap.set(date, habits.map((h) => h.habitStatus as HabitStatus));
+      const response = await fetch(
+        `${API_ENDPOINTS.habitSummary}?year=${currentYear}&month=${currentMonth + 1}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         }
-      }).catch(() => {});
-    });
+      );
 
-    await Promise.all(promises);
-    setMonthStatusMap(new Map(newMap));
+      if (!response.ok) return;
+
+      const data: Record<string, string[]> = await response.json();
+      const newMap = new Map<string, HabitStatus[]>();
+
+      Object.entries(data).forEach(([date, statuses]) => {
+        newMap.set(date, statuses as HabitStatus[]);
+      });
+
+      setMonthStatusMap(newMap);
+    } catch (e) {
+      console.error("Failed to load month overview", e);
+    }
   };
 
   /* ---------------- Navigation ---------------- */

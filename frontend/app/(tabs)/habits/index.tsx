@@ -1,18 +1,19 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, SafeAreaView, StatusBar } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, SafeAreaView, StatusBar, RefreshControl, Alert } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import { Alert } from "react-native";
 import { getAllHabitsApi, deleteHabitApi } from "../../../services/habitService";
 import { HabitDTO } from "../../../types/habit";
 import { formatTime } from "../../../utils/formatters";
 import { Colors } from "../../../constants/colors";
 import { UnauthorizedError } from "../../../utils/apiHandler";
+import SkeletonCard from "../../../components/SkeletonCard";
 
 export default function MasterHabitsScreen() {
   const [habits, setHabits] = useState<HabitDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   /* ---------------- Load all habits ---------------- */
   const loadHabits = useCallback(async () => {
@@ -21,12 +22,11 @@ export default function MasterHabitsScreen() {
       const data = await getAllHabitsApi();
       setHabits(data);
     } catch (e) {
-      if (e instanceof UnauthorizedError) {
-        return;
-      }
+      if (e instanceof UnauthorizedError) return;
       setError("Failed to load habits.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -37,6 +37,12 @@ export default function MasterHabitsScreen() {
       loadHabits();
     }, [loadHabits])
   );
+
+  /* ---------------- Pull to refresh ---------------- */
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadHabits();
+  }, [loadHabits]);
 
   /* ---------------- Delete ---------------- */
   const handleDelete = async (habitId: number) => {
@@ -53,125 +59,140 @@ export default function MasterHabitsScreen() {
 
   const confirmDelete = (habitId: number) => {
     if (Platform.OS === "web") {
-        const confirmed = window.confirm("Delete Habit - This action cannot be undone.");
-        if (confirmed) {
-          handleDelete(habitId);
-        }
+      const confirmed = window.confirm("Delete Habit - This action cannot be undone.");
+      if (confirmed) handleDelete(habitId);
     } else {
-        Alert.alert(
-          "Delete Habit",
-          "This action cannot be undone.",
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Delete",
-              style: "destructive",
-              onPress: () => handleDelete(habitId),
-            },
-          ]
-        );
+      Alert.alert(
+        "Delete Habit",
+        "This action cannot be undone.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => handleDelete(habitId),
+          },
+        ]
+      );
     }
   };
 
   /* ---------------- Render ---------------- */
   return (
     <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
-          <Text style={styles.header}>Habits</Text>
-          <View style={styles.divider} />
+      <View style={styles.container}>
+        <Text style={styles.header}>Habits</Text>
+        <View style={styles.divider} />
 
-          {loading ? (
-            <Text style={styles.loadingText}>Loading habits...</Text>
-          ) : error ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>Something went wrong</Text>
-              <Text style={styles.emptySubtitle}>{error}</Text>
-            </View>
-          ) : habits.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>🧠</Text>
-              <Text style={styles.emptyTitle}>No habits yet</Text>
-              <Text style={styles.emptySubtitle}>
-                Create habits to stay consistent and build better routines.
-              </Text>
-            </View>
-          ) : (
-            <ScrollView>
-              {habits.map((habit) => (
-                <View key={habit.id} style={styles.card}>
-                  {/* Left */}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.title}>{habit.title}</Text>
-                    <Text style={styles.meta}>
-                      {habit.category} • {habit.frequency}
-                    </Text>
-                    <Text style={styles.time}>
-                      ⏰ {formatTime(habit.targetTime)}
-                    </Text>
-                  </View>
-
-                  {/* Actions */}
-                  <View style={styles.actions}>
-                    <Pressable
-                      disabled={deletingId === habit.id}
-                      onPress={() =>
-                        router.navigate(`/(tabs)/habits/${habit.id}/edit`)
-                      }
-                    >
-                      <Text
-                        style={{ opacity: deletingId === habit.id ? 0.4 : 1 }}
-                      >
-                        ✏️
-                      </Text>
-                    </Pressable>
-
-                    <Pressable
-                      disabled={deletingId === habit.id}
-                      onPress={() => confirmDelete(habit.id)}
-                    >
-                      <Text
-                        style={{ opacity: deletingId === habit.id ? 0.4 : 1 }}
-                      >
-                        {deletingId === habit.id ? "⏳" : "🗑️"}
-                      </Text>
-                    </Pressable>
-
-                    <Pressable
-                      disabled={deletingId === habit.id}
-                      onPress={() =>
-                        router.navigate(`/(tabs)/habits/${habit.id}/activity`)
-                      }
-                    >
-                      <Text
-                        style={{ opacity: deletingId === habit.id ? 0.4 : 1 }}
-                      >
-                        📊
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          )}
-
-          {/* Floating Add Button */}
-          <Pressable
-            style={styles.addButton}
-            onPress={() => router.navigate("/(tabs)/habits/create")}
+        {loading ? (
+          <View>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </View>
+        ) : error ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>Something went wrong</Text>
+            <Text style={styles.emptySubtitle}>{error}</Text>
+          </View>
+        ) : habits.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>🧠</Text>
+            <Text style={styles.emptyTitle}>No habits yet</Text>
+            <Text style={styles.emptySubtitle}>
+              Create habits to stay consistent and build better routines.
+            </Text>
+            <Pressable
+              style={styles.createBtn}
+              onPress={() => router.navigate("/(tabs)/habits/create")}
+            >
+              <Text style={styles.createBtnText}>Create your first habit →</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <ScrollView
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[Colors.primary]}
+                tintColor={Colors.primary}
+              />
+            }
           >
-            <Text style={styles.addButtonText}>＋</Text>
-          </Pressable>
-        </View>
+            {habits.map((habit) => (
+              <View key={habit.id} style={styles.card}>
+                {/* Left */}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.title}>{habit.title}</Text>
+                  <Text style={styles.meta}>
+                    {habit.category} • {habit.frequency}
+                  </Text>
+                  <Text style={styles.time}>
+                    ⏰ {formatTime(habit.targetTime)}
+                  </Text>
+                </View>
+
+                {/* Actions */}
+                <View style={styles.actions}>
+                  <Pressable
+                    disabled={deletingId === habit.id}
+                    onPress={() =>
+                      router.navigate(`/(tabs)/habits/${habit.id}/edit`)
+                    }
+                  >
+                    <Text style={{ opacity: deletingId === habit.id ? 0.4 : 1 }}>
+                      ✏️
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    disabled={deletingId === habit.id}
+                    onPress={() => confirmDelete(habit.id)}
+                  >
+                    <Text style={{ opacity: deletingId === habit.id ? 0.4 : 1 }}>
+                      {deletingId === habit.id ? "⏳" : "🗑️"}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    disabled={deletingId === habit.id}
+                    onPress={() =>
+                      router.navigate(`/(tabs)/habits/${habit.id}/activity`)
+                    }
+                  >
+                    <Text style={{ opacity: deletingId === habit.id ? 0.4 : 1 }}>
+                      📊
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* Floating Add Button */}
+        <Pressable
+          style={styles.addButton}
+          onPress={() => router.navigate("/(tabs)/habits/create")}
+        >
+          <Text style={styles.addButtonText}>＋</Text>
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }
 
 /* ---------------- Styles ---------------- */
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    paddingTop: StatusBar.currentHeight ?? 12,
+  },
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: Colors.background,
   },
   header: {
     fontSize: 22,
@@ -210,6 +231,17 @@ const styles = StyleSheet.create({
     color: Colors.subtext,
     textAlign: "center",
     marginBottom: 20,
+  },
+  createBtn: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  createBtnText: {
+    color: Colors.white,
+    fontWeight: "600",
+    fontSize: 14,
   },
   card: {
     backgroundColor: Colors.card,
@@ -255,10 +287,5 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 28,
     fontWeight: "bold",
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    paddingTop: StatusBar.currentHeight ?? 12,
   },
 });

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView, StatusBar } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView, StatusBar, RefreshControl } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { getHabitsForDateApi } from "../../../services/habitService";
 import { HabitResponse, HabitStatus } from "../../../types/habit";
@@ -7,11 +7,13 @@ import { formatDate } from "../../../utils/formatters";
 import { Colors } from "../../../constants/colors";
 import HabitCard from "../../../components/HabitCard";
 import { UnauthorizedError } from "../../../utils/apiHandler";
+import SkeletonCard from "../../../components/SkeletonCard";
 
 export default function HomeScreen() {
   const [habits, setHabits] = useState<HabitResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   /* ---------------- Load habits ---------------- */
   const loadHabits = useCallback(async () => {
@@ -25,6 +27,7 @@ export default function HomeScreen() {
       setError("Failed to load habits. Please try again.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -35,6 +38,12 @@ export default function HomeScreen() {
       loadHabits();
     }, [loadHabits])
   );
+
+  /* ---------------- Pull to refresh ---------------- */
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadHabits();
+  }, [loadHabits]);
 
   /* ---------------- Optimistic update ---------------- */
   const handleLogged = useCallback((habitId: number, newStatus: HabitStatus) => {
@@ -76,7 +85,11 @@ export default function HomeScreen() {
 
         {/* Content */}
         {loading ? (
-          <Text style={styles.loadingText}>Loading habits...</Text>
+          <View>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </View>
         ) : error ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>Something went wrong</Text>
@@ -88,9 +101,25 @@ export default function HomeScreen() {
             <Text style={styles.emptySubtitle}>
               Start by creating your first habit.
             </Text>
+            <Pressable
+              style={styles.createBtn}
+              onPress={() => router.push("/(tabs)/habits/create")}
+            >
+              <Text style={styles.createBtnText}>Create your first habit →</Text>
+            </Pressable>
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+          <ScrollView
+            contentContainerStyle={{ paddingBottom: 100 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[Colors.primary]}
+                tintColor={Colors.primary}
+              />
+            }
+          >
             {habits.map((habit) => (
               <HabitCard
                 key={habit.id}
@@ -162,6 +191,18 @@ const styles = StyleSheet.create({
     color: Colors.subtext,
     textAlign: "center",
     maxWidth: 240,
+    marginBottom: 20,
+  },
+  createBtn: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  createBtnText: {
+    color: Colors.white,
+    fontWeight: "600",
+    fontSize: 14,
   },
   addButton: {
     position: "absolute",

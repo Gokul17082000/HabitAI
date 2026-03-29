@@ -19,4 +19,5 @@ export const API_ENDPOINTS = {
   userStats: `${BASE_URL}/user/stats`,
   pushToken: `${BASE_URL}/user/push-token`,
   habits: `${BASE_URL}/habits`,
+  habitSummary: `${BASE_URL}/habits/summary`,
 };

@@ -8,6 +8,7 @@ import { loginApi } from "../services/authService";
 import { isValidEmail } from "../utils/validation";
 import { Colors } from "../constants/colors";
 import { registerForPushNotifications } from "../utils/pushNotifications";
+import { isOnboardingComplete } from "../utils/onboardingStorage";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -21,7 +22,13 @@ export default function LoginScreen() {
   const passwordRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    const autoLogin = async () => {
+    const checkOnboarding = async () => {
+      const onboardingDone = await isOnboardingComplete();
+      if (!onboardingDone) {
+        router.replace("/onboarding");
+        return;
+      }
+
       const token = await getToken();
       if (token) {
         router.replace("/home");
@@ -29,7 +36,7 @@ export default function LoginScreen() {
       }
       setChecking(false);
     };
-    autoLogin();
+    checkOnboarding();
   }, []);
 
   // Show nothing while checking token

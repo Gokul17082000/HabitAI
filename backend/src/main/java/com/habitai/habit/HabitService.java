@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -181,5 +182,53 @@ public class HabitService {
             case WEEKLY -> habit.setDaysOfMonth(null);
             case MONTHLY -> habit.setDaysOfWeek(null);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, List<String>> getMonthSummary(int year, int month) {
+        long userId = currentUser.getId();
+
+        LocalDate startDate = LocalDate.of(year, month, 1);
+        LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+
+        List<HabitLog> logs = habitLogRepository
+                .findByUserIdAndDateBetween(userId, startDate, endDate);
+
+        List<Habit> habits = habitRepository.findByUserId(userId);
+
+        Map<String, List<String>> result = new HashMap<>();
+
+        LocalDate current = startDate;
+        LocalDate today = LocalDate.now();
+
+        while (!current.isAfter(endDate) && !current.isAfter(today)) {
+            final LocalDate date = current;
+
+            List<Habit> scheduledHabits = habits.stream()
+                    .filter(h -> isScheduledForDate(h, date))
+                    .filter(h -> !date.isBefore(h.getCreatedAt()))
+                    .toList();
+
+            if (!scheduledHabits.isEmpty()) {
+                Map<Long, HabitStatus> dayLogs = logs.stream()
+                        .filter(l -> l.getDate().equals(date))
+                        .collect(Collectors.toMap(HabitLog::getHabitId, HabitLog::getStatus));
+
+                List<String> statuses = scheduledHabits.stream()
+                        .map(h -> {
+                            HabitStatus status = dayLogs.get(h.getId());
+                            if (status != null) return status.name();
+                            if (date.isBefore(today)) return HabitStatus.MISSED.name();
+                            return HabitStatus.PENDING.name();
+                        })
+                        .toList();
+
+                result.put(date.toString(), statuses);
+            }
+
+            current = current.plusDays(1);
+        }
+
+        return result;
     }
 }

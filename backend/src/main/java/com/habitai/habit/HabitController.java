@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/habits")
@@ -50,5 +51,10 @@ public class HabitController {
     public ResponseEntity<Void> deleteHabit(@PathVariable Long habitId){
         habitService.deleteHabit(habitId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/summary")
+    public Map<String, List<String>> getMonthSummary(@RequestParam int year, @RequestParam int month) {
+        return habitService.getMonthSummary(year, month);
     }
 }
