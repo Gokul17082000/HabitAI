@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   Platform,
+  StatusBar
 } from "react-native";
 import { router } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -105,8 +106,15 @@ export default function CreateHabitScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.replace("/habits")}>
-          <Text style={styles.close}>Close</Text>
+        <Pressable
+          onPress={() => {
+            router.dismissAll();
+            router.replace("/(tabs)/habits");
+          }}
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+          style={styles.closeBtn}
+        >
+          <Text style={styles.close}>✕ Close</Text>
         </Pressable>
       </View>
 
@@ -261,11 +269,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     marginBottom: 10,
+    paddingTop: StatusBar.currentHeight ?? 20,
   },
   close: {
-    color: Colors.subtext,
+    color: Colors.primary,
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   title: {
     fontSize: 24,
@@ -317,5 +326,9 @@ const styles = StyleSheet.create({
     color: Colors.error,
     textAlign: "center",
     marginBottom: 10,
+  },
+  closeBtn: {
+    padding: 12,
+    borderRadius: 8,
   },
 });

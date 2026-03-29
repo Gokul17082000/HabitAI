@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView, StatusBar } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { getHabitsForDateApi } from "../../../services/habitService";
 import { HabitResponse, HabitStatus } from "../../../types/habit";
@@ -118,6 +118,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.background,
+    paddingTop: StatusBar.currentHeight ?? 12,
   },
   container: {
     flex: 1,

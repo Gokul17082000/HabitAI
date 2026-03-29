@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, SafeAreaView } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, SafeAreaView, StatusBar } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Alert } from "react-native";
 import { getAllHabitsApi, deleteHabitApi } from "../../../services/habitService";
@@ -115,7 +115,7 @@ export default function MasterHabitsScreen() {
                     <Pressable
                       disabled={deletingId === habit.id}
                       onPress={() =>
-                        router.push(`/(tabs)/habits/${habit.id}/edit`)
+                        router.navigate(`/(tabs)/habits/${habit.id}/edit`)
                       }
                     >
                       <Text
@@ -139,7 +139,7 @@ export default function MasterHabitsScreen() {
                     <Pressable
                       disabled={deletingId === habit.id}
                       onPress={() =>
-                        router.push(`/(tabs)/habits/${habit.id}/activity`)
+                        router.navigate(`/(tabs)/habits/${habit.id}/activity`)
                       }
                     >
                       <Text
@@ -157,7 +157,7 @@ export default function MasterHabitsScreen() {
           {/* Floating Add Button */}
           <Pressable
             style={styles.addButton}
-            onPress={() => router.push("/(tabs)/habits/create")}
+            onPress={() => router.navigate("/(tabs)/habits/create")}
           >
             <Text style={styles.addButtonText}>＋</Text>
           </Pressable>
@@ -259,5 +259,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.background,
+    paddingTop: StatusBar.currentHeight ?? 12,
   },
 });

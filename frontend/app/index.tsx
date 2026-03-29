@@ -57,6 +57,9 @@ export default function LoginScreen() {
     if (!password.trim()) {
       setPasswordError("Password is required");
       valid = false;
+    } else if (password.length < 8) {
+      setPasswordError("Password must be at least 8 characters");
+      valid = false;
     }
 
     if (!valid) return;

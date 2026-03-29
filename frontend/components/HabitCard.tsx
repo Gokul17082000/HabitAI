@@ -70,14 +70,12 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
 
   return (
     <View style={styles.card}>
-      {/* Left */}
       <View style={styles.left}>
         <Text style={styles.title}>{habit.title}</Text>
         <Text style={styles.category}>{habit.category}</Text>
         <Text style={styles.time}>⏰ {formatTime(habit.targetTime)}</Text>
       </View>
 
-      {/* Right */}
       <View style={styles.right}>
         <Pressable
           disabled={isMissed || logging}

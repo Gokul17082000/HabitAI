@@ -3,6 +3,11 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/habitai}
     username: ${DB_USERNAME:gokulbj}
     password: ${DB_PASSWORD:}
+    hikari:
+      minimum-idle: 1
+      maximum-pool-size: 3
+      connection-timeout: 30000
+      idle-timeout: 600000
   jpa:
     hibernate:
       ddl-auto: ${DDL_AUTO:update}

@@ -45,7 +45,7 @@ export const loginApi = async (email: string, password: string): Promise<LoginRe
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email: email.trim(), password }),
   });
-  return handleResponse<LoginResponse>(response);
+  return handleResponse<LoginResponse>(response, true);
 };
 
 export const registerApi = async (email: string, password: string): Promise<RegisterResponse> => {
@@ -54,7 +54,7 @@ export const registerApi = async (email: string, password: string): Promise<Regi
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email: email.trim(), password }),
   });
-  return handleResponse<RegisterResponse>(response);
+  return handleResponse<RegisterResponse>(response, true);
 };
 
 export const getUserApi = async (): Promise<{ email: string }> => {

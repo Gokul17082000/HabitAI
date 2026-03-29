@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, StatusBar } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { ActivityItem } from "../../../../types/habit";
 import { formatDate, formatDisplayDate } from "../../../../utils/formatters";
@@ -110,8 +110,15 @@ export default function HabitActivityScreen() {
       {/* Header */}
       <View style={styles.headerRow}>
         <Text style={styles.header}>Activity</Text>
-        <Pressable onPress={() => router.replace("/habits")}>
-          <Text style={styles.close}>Close</Text>
+        <Pressable
+          onPress={() => {
+            router.dismissAll();
+            router.replace("/(tabs)/habits");
+          }}
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+          style={styles.closeBtn}
+        >
+          <Text style={styles.close}>✕ Close</Text>
         </Pressable>
       </View>
       <View style={styles.divider} />
@@ -224,39 +231,60 @@ function GitHubHeatmap({ activity }: { activity: ActivityItem[] }) {
   const statusMap = new Map(activity.map((a) => [a.date, a.habitStatus]));
 
   const today = new Date();
-  const dayOfWeek = (today.getDay() + 6) % 7;
-  const startDate = new Date(today);
-  startDate.setDate(today.getDate() - activity.length - dayOfWeek);
+  const todayStr = formatDate(today);
 
+  // Get day of week for today (Monday = 0, Sunday = 6)
+  const dayOfWeek = (today.getDay() + 6) % 7;
+
+  // Go back enough days to show all activity
+  // Add dayOfWeek to align to Monday
+  const totalDays = activity.length + dayOfWeek;
+
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - totalDays + 1);
+
+  // Build all days from start to today
   const allDays: Date[] = [];
   const current = new Date(startDate);
-  while (current <= today) {
+  while (formatDate(current) <= todayStr) {
     allDays.push(new Date(current));
     current.setDate(current.getDate() + 1);
   }
 
+  // Pad start to align to Monday
+  const firstDayOfWeek = (allDays[0].getDay() + 6) % 7;
+  for (let i = 0; i < firstDayOfWeek; i++) {
+    const padDay = new Date(allDays[0]);
+    padDay.setDate(allDays[0].getDate() - (firstDayOfWeek - i));
+    allDays.unshift(padDay);
+  }
+
+  // Group into weeks of 7
   const weeks: Date[][] = [];
   for (let i = 0; i < allDays.length; i += 7) {
     weeks.push(allDays.slice(i, i + 7));
   }
 
-  // Show year only in January (year boundary)
+  // Month labels
   const monthLabels: { label: string; colIndex: number }[] = [];
   weeks.forEach((week, i) => {
     const firstDay = week[0];
-    if (firstDay && (i === 0 || firstDay.getDate() <= 7)) {
+    if (firstDay) {
       const isJanuary = firstDay.getMonth() === 0;
       const label = firstDay.toLocaleDateString("en-US", {
         month: "short",
         year: isJanuary ? "numeric" : undefined,
       });
-      monthLabels.push({ label, colIndex: i });
+      const lastLabel = monthLabels[monthLabels.length - 1];
+      if (!lastLabel || lastLabel.label !== label) {
+        monthLabels.push({ label, colIndex: i });
+      }
     }
   });
 
-  const cellSize = 13;
+  const cellSize = 12;
   const cellGap = 3;
-  const dayLabelWidth = 36;
+  const dayLabelWidth = 32;
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -316,7 +344,8 @@ function GitHubHeatmap({ activity }: { activity: ActivityItem[] }) {
                 }
                 const dateStr = formatDate(day);
                 const status = statusMap.get(dateStr);
-                const isToday = dateStr === formatDate(new Date());
+                const isToday = dateStr === todayStr;
+                const isFuture = dateStr > todayStr;
 
                 return (
                   <View
@@ -324,9 +353,10 @@ function GitHubHeatmap({ activity }: { activity: ActivityItem[] }) {
                     style={[
                       styles.heatCell,
                       { width: cellSize, height: cellSize, marginBottom: cellGap },
-                      status === "COMPLETED" && styles.cellCompleted,
-                      status === "MISSED" && styles.cellMissed,
+                      !isFuture && status === "COMPLETED" && styles.cellCompleted,
+                      !isFuture && status === "MISSED" && styles.cellMissed,
                       isToday && styles.cellToday,
+                      isFuture && { backgroundColor: "transparent" },
                     ]}
                   />
                 );
@@ -373,6 +403,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
+    paddingTop: StatusBar.currentHeight ?? 20,
   },
   header: {
     fontSize: 22,
@@ -435,8 +466,9 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   monthLabel: {
-    fontSize: 10,
+    fontSize: 9,
     color: Colors.subtext,
+    width: 28,
   },
   dayLabel: {
     fontSize: 10,
@@ -527,5 +559,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.subtext,
     marginTop: 4,
+  },
+  closeBtn: {
+    padding: 12,
+    borderRadius: 8,
   },
 });

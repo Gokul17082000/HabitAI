@@ -10,7 +10,7 @@ export function formatTime(time: string): string {
 }
 
 export function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0];
+  return date.toLocaleDateString("en-CA");
 }
 
 export function formatDisplayDate(date: string): string {

@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
-import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView, StatusBar } from "react-native";
 import { router } from "expo-router";
 import { removeToken } from "../../../utils/authStorage";
 import { getUserApi, getUserStatsApi, UserStats } from "../../../services/authService";
@@ -362,5 +362,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.background,
+    paddingTop: StatusBar.currentHeight ?? 12,
   },
 });

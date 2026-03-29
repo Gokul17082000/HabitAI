@@ -7,16 +7,29 @@ export class UnauthorizedError extends Error {
   }
 }
 
-export const handleResponse = async <T>(response: Response): Promise<T> => {
-  if (response.status === 401) {
+export const handleResponse = async <T>(
+  response: Response,
+  skipAuthRedirect = false
+): Promise<T> => {
+  if (response.status === 401 && !skipAuthRedirect) {
     await removeToken();
     router.replace("/");
     throw new UnauthorizedError();
   }
 
-  const data = await response.json();
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const text = await response.text();
+  if (!text) return undefined as T;
+
+  const data = JSON.parse(text);
   if (!response.ok) {
-    throw new Error(data.message || "Something went wrong");
+    const message = data.message
+      || (data.errors && data.errors[0])
+      || "Something went wrong";
+    throw new Error(message);
   }
   return data as T;
 };
