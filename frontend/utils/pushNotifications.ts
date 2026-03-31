@@ -1,38 +1,36 @@
-import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { getToken } from "./authStorage";
 import { API_ENDPOINTS } from "../constants/api";
 
 export async function registerForPushNotifications(): Promise<void> {
+  if (Platform.OS === "web") return;
 
-  if (Platform.OS === "web") {
-      console.log("Push notifications not supported on web — skipping");
-      return;
-  }
   try {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+    const messaging = (await import("@react-native-firebase/messaging")).default;
 
-    if (existingStatus !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
+    // Request permission
+    const authStatus = await messaging().requestPermission();
+    const enabled =
+      authStatus === 1 || // AUTHORIZED
+      authStatus === 2;   // PROVISIONAL
 
-    if (finalStatus !== "granted") {
+    if (!enabled) {
       console.log("Push notification permission denied");
       return;
     }
 
-    const tokenData = await Notifications.getExpoPushTokenAsync();
-    await savePushToken(tokenData.data);
+    // Get FCM token directly
+    const fcmToken = await messaging().getToken();
+    console.log("FCM Token:", fcmToken);
+    await savePushToken(fcmToken);
 
     if (Platform.OS === "android") {
-      await Notifications.setNotificationChannelAsync("default", {
-        name: "default",
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
+      const { default: notifee } = await import("@react-native-firebase/messaging");
+      await messaging().setBackgroundMessageHandler(async remoteMessage => {
+        console.log("Background message:", remoteMessage);
       });
     }
+
   } catch (e) {
     console.error("Failed to register for push notifications", e);
   }
@@ -51,6 +49,7 @@ async function savePushToken(pushToken: string): Promise<void> {
       },
       body: JSON.stringify({ token: pushToken }),
     });
+    console.log("Push token saved successfully");
   } catch (e) {
     console.error("Failed to save push token", e);
   }

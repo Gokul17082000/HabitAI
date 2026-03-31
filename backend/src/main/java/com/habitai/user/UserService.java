@@ -2,17 +2,22 @@ package com.habitai.user;
 
 import com.habitai.common.security.CurrentUser;
 import com.habitai.exception.UserNotFoundException;
+import com.habitai.notification.NotificationService;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalTime;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
     private final CurrentUser currentUser;
+    private final NotificationService notificationService;
 
-    public UserService(UserRepository userRepository, CurrentUser currentUser) {
+    public UserService(UserRepository userRepository, CurrentUser currentUser, NotificationService notificationService) {
         this.userRepository = userRepository;
         this.currentUser = currentUser;
+        this.notificationService = notificationService;
     }
 
     public UserDTO getUserDetails() {
@@ -28,5 +33,10 @@ public class UserService {
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
         user.setPushToken(pushToken);
         userRepository.save(user);
+    }
+
+    public void notifyUser() {
+        long userId = currentUser.getId();
+        notificationService.notify(userId, "Test Habit", LocalTime.now().plusMinutes(1));
     }
 }
