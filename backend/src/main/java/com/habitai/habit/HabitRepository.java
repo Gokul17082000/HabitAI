@@ -10,5 +10,4 @@ public interface HabitRepository extends JpaRepository<Habit, Long> {
     List<Habit> findByTargetTimeBetween(LocalTime startTime, LocalTime endTime);
     List<Habit> findByTargetTimeAfter(LocalTime startTime);
     List<Habit> findByTargetTimeBefore(LocalTime endTime);
-
 }

@@ -23,19 +23,9 @@ public class NotificationService {
         this.userRepository = userRepository;
     }
 
-    public void notify(Long userId, String habitTitle, LocalTime time) {
-        Optional<User> userOpt = userRepository.findById(userId);
-        if (userOpt.isEmpty()) return;
-
-        String pushToken = userOpt.get().getPushToken();
-        if (pushToken == null || pushToken.isBlank()) {
-            logger.info("No push token for user {}", userId);
-            return;
-        }
-
+    public void notify(String pushToken, String habitTitle, LocalTime time) {
         try {
             String formattedTime = time.format(DateTimeFormatter.ofPattern("hh:mm a"));
-
             Message message = Message.builder()
                     .setToken(pushToken)
                     .setNotification(Notification.builder()
@@ -43,11 +33,9 @@ public class NotificationService {
                             .setBody("Time for: " + habitTitle + " at " + formattedTime)
                             .build())
                     .build();
-
-            String response = FirebaseMessaging.getInstance().send(message);
-            logger.info("Notification sent for habit '{}': {}", habitTitle, response);
+            FirebaseMessaging.getInstance().send(message);
         } catch (Exception e) {
-            logger.error("Failed to send notification for habit '{}': {}", habitTitle, e.getMessage());
+            logger.error("Failed to send notification for '{}': {}", habitTitle, e.getMessage());
         }
     }
 }

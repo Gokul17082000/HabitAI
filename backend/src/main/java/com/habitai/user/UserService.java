@@ -34,9 +34,4 @@ public class UserService {
         user.setPushToken(pushToken);
         userRepository.save(user);
     }
-
-    public void notifyUser() {
-        long userId = currentUser.getId();
-        notificationService.notify(userId, "Test Habit", LocalTime.now().plusMinutes(1));
-    }
 }

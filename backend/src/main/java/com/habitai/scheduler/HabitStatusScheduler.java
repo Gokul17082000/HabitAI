@@ -3,14 +3,19 @@ package com.habitai.scheduler;
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitRepository;
 import com.habitai.habit.HabitService;
+import com.habitai.habitlog.HabitLog;
 import com.habitai.habitlog.HabitLogRepository;
+import com.habitai.habitlog.HabitStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class HabitStatusScheduler {
@@ -18,13 +23,11 @@ public class HabitStatusScheduler {
     private final HabitService habitService;
     private final HabitRepository habitRepository;
     private final HabitLogRepository habitLogRepository;
-    private final HabitStatusSystemService habitStatusSystemService;
 
-    public HabitStatusScheduler(HabitService habitService, HabitRepository habitRepository, HabitLogRepository habitLogRepository, HabitStatusSystemService habitStatusSystemService) {
+    public HabitStatusScheduler(HabitService habitService, HabitRepository habitRepository, HabitLogRepository habitLogRepository) {
         this.habitService = habitService;
         this.habitRepository = habitRepository;
         this.habitLogRepository = habitLogRepository;
-        this.habitStatusSystemService = habitStatusSystemService;
     }
 
     @Transactional
@@ -34,19 +37,31 @@ public class HabitStatusScheduler {
         LocalTime now = LocalTime.now();
 
         List<Habit> overdueHabits = habitRepository.findByTargetTimeBefore(now);
+        if (overdueHabits.isEmpty()) return;
+
+        Set<String> alreadyLoggedKeys = habitLogRepository.findByDate(today)
+                .stream()
+                .map(log -> log.getHabitId() + ":" + log.getUserId())
+                .collect(Collectors.toSet());
+
+        List<HabitLog> toInsert = new ArrayList<>();
 
         for (Habit habit : overdueHabits) {
-            if (!habitService.isScheduledForDate(habit, today)) {
-                continue;
-            }
+            if (!habitService.isScheduledForDate(habit, today)) continue;
 
-            boolean alreadyLogged = habitLogRepository
-                    .findByHabitIdAndUserIdAndDate(habit.getId(), habit.getUserId(), today)
-                    .isPresent();
+            String key = habit.getId() + ":" + habit.getUserId();
+            if (alreadyLoggedKeys.contains(key)) continue;
 
-            if (!alreadyLogged) {
-                habitStatusSystemService.updateTodayHabitStatus(habit.getId(), habit.getUserId());
-            }
+            HabitLog log = new HabitLog();
+            log.setHabitId(habit.getId());
+            log.setUserId(habit.getUserId());
+            log.setDate(today);
+            log.setStatus(HabitStatus.MISSED);
+            toInsert.add(log);
+        }
+
+        if (!toInsert.isEmpty()) {
+            habitLogRepository.saveAll(toInsert);
         }
     }
 }

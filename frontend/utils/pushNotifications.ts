@@ -25,7 +25,7 @@ export async function registerForPushNotifications(): Promise<void> {
     await savePushToken(fcmToken);
 
     if (Platform.OS === "android") {
-      const { default: notifee } = await import("@react-native-firebase/messaging");
+      const { default: notifee } = await import("@notifee/react-native");
       await messaging().setBackgroundMessageHandler(async remoteMessage => {
         console.log("Background message:", remoteMessage);
       });
@@ -41,7 +41,7 @@ async function savePushToken(pushToken: string): Promise<void> {
     const authToken = await getToken();
     if (!authToken) return;
 
-    await fetch(API_ENDPOINTS.pushToken, {
+    const res = await fetch(API_ENDPOINTS.pushToken, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${authToken}`,
@@ -49,8 +49,13 @@ async function savePushToken(pushToken: string): Promise<void> {
       },
       body: JSON.stringify({ token: pushToken }),
     });
-    console.log("Push token saved successfully");
+
+    if (!res.ok) {
+      console.error("Push token save failed, status:", res.status);
+    } else {
+      console.log("Push token saved successfully");
+    }
   } catch (e) {
-    console.error("Failed to save push token", e);
+    console.error("Network error saving push token:", e);
   }
 }

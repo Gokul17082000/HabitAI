@@ -31,9 +31,4 @@ public class UserController {
     public void savePushToken(@RequestBody PushTokenRequest request) {
         userService.savePushToken(request.token());
     }
-
-    @PostMapping("/notify")
-    public void testNotification() {
-        userService.notifyUser();
-    }
 }
