@@ -1,15 +1,43 @@
-import { Platform } from "react-native";
+import { PermissionsAndroid, Platform, Alert, Linking } from "react-native";
 import { getToken } from "./authStorage";
 import { API_ENDPOINTS } from "../constants/api";
+
+if (Platform.OS === "android") {
+  import("@react-native-firebase/messaging").then(({ default: messaging }) => {
+    messaging().setBackgroundMessageHandler(async remoteMessage => {
+      console.log("Background message:", remoteMessage);
+    });
+  });
+}
 
 export async function registerForPushNotifications(): Promise<void> {
   if (Platform.OS === "web") return;
 
   try {
+    if (Platform.OS === "android") {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+      );
+
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        Alert.alert(
+          "Notifications Disabled",
+          "Please enable notifications for HabitAI in your phone settings to receive habit reminders.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() }
+          ]
+        );
+        return;
+      }
+    }
+
     const messaging = (await import("@react-native-firebase/messaging")).default;
 
     const authStatus = await messaging().requestPermission();
-    const enabled = authStatus === 1 || authStatus === 2;
+    const enabled =
+      authStatus === 1 || // AUTHORIZED
+      authStatus === 2;   // PROVISIONAL
 
     if (!enabled) {
       console.log("Push notification permission denied");
@@ -17,19 +45,19 @@ export async function registerForPushNotifications(): Promise<void> {
     }
 
     const fcmToken = await messaging().getToken();
-    console.log("FCM Token:", fcmToken);
     await savePushToken(fcmToken);
 
     messaging().onTokenRefresh(async (newToken) => {
-      console.log("FCM token refreshed");
       await savePushToken(newToken);
     });
 
-    if (Platform.OS === "android") {
-      await messaging().setBackgroundMessageHandler(async remoteMessage => {
-        console.log("Background message:", remoteMessage);
-      });
-    }
+    messaging().onMessage(async remoteMessage => {
+      Alert.alert(
+        remoteMessage.notification?.title ?? "HabitAI Reminder 🔔",
+        remoteMessage.notification?.body ?? "You have a habit reminder",
+        [{ text: "OK" }]
+      );
+    });
 
   } catch (e) {
     console.error("Failed to register for push notifications", e);
@@ -52,8 +80,6 @@ async function savePushToken(pushToken: string): Promise<void> {
 
     if (!res.ok) {
       console.error("Push token save failed, status:", res.status);
-    } else {
-      console.log("Push token saved successfully");
     }
   } catch (e) {
     console.error("Network error saving push token:", e);

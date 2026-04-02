@@ -3,29 +3,20 @@ package com.habitai.notification;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
-import com.habitai.user.User;
-import com.habitai.user.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Optional;
 
 @Service
 public class NotificationService {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationService.class);
-    private final UserRepository userRepository;
-
-    public NotificationService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
 
     public void notify(String pushToken, String habitTitle, LocalTime time) {
         try {
-            logger.info("Attempting to send notification for habit: {}", habitTitle);
             String formattedTime = time.format(DateTimeFormatter.ofPattern("hh:mm a"));
             Message message = Message.builder()
                     .setToken(pushToken)
@@ -34,8 +25,7 @@ public class NotificationService {
                             .setBody("Time for: " + habitTitle + " at " + formattedTime)
                             .build())
                     .build();
-            String response = FirebaseMessaging.getInstance().send(message);
-            logger.info("Notification sent for habit '{}': {}", habitTitle, response);
+            FirebaseMessaging.getInstance().send(message);
         } catch (Exception e) {
             logger.error("Failed to send notification for '{}': {}", habitTitle, e.getMessage());
         }

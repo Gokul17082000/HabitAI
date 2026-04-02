@@ -5,8 +5,6 @@ import com.habitai.exception.UserNotFoundException;
 import com.habitai.notification.NotificationService;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalTime;
-
 @Service
 public class UserService {
 
