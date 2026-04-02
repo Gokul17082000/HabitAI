@@ -7,10 +7,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 import jakarta.annotation.PostConstruct;
+import org.springframework.context.annotation.Lazy;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 
+@Lazy(false)
 @Configuration
 public class FirebaseConfig {
 

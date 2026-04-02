@@ -8,24 +8,24 @@ export async function registerForPushNotifications(): Promise<void> {
   try {
     const messaging = (await import("@react-native-firebase/messaging")).default;
 
-    // Request permission
     const authStatus = await messaging().requestPermission();
-    const enabled =
-      authStatus === 1 || // AUTHORIZED
-      authStatus === 2;   // PROVISIONAL
+    const enabled = authStatus === 1 || authStatus === 2;
 
     if (!enabled) {
       console.log("Push notification permission denied");
       return;
     }
 
-    // Get FCM token directly
     const fcmToken = await messaging().getToken();
     console.log("FCM Token:", fcmToken);
     await savePushToken(fcmToken);
 
+    messaging().onTokenRefresh(async (newToken) => {
+      console.log("FCM token refreshed");
+      await savePushToken(newToken);
+    });
+
     if (Platform.OS === "android") {
-      const { default: notifee } = await import("@notifee/react-native");
       await messaging().setBackgroundMessageHandler(async remoteMessage => {
         console.log("Background message:", remoteMessage);
       });
