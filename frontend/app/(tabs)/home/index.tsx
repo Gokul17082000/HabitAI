@@ -15,7 +15,6 @@ export default function HomeScreen() {
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
-  /* ---------------- Load habits ---------------- */
   const loadHabits = useCallback(async () => {
     setError("");
     try {
@@ -31,7 +30,6 @@ export default function HomeScreen() {
     }
   }, []);
 
-  /* ---------------- Refresh on focus ---------------- */
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
@@ -39,13 +37,11 @@ export default function HomeScreen() {
     }, [loadHabits])
   );
 
-  /* ---------------- Pull to refresh ---------------- */
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadHabits();
   }, [loadHabits]);
 
-  /* ---------------- Optimistic update ---------------- */
   const handleLogged = useCallback((habitId: number, newStatus: HabitStatus) => {
     setHabits(prev =>
       prev.map(h =>
@@ -54,7 +50,6 @@ export default function HomeScreen() {
     );
   }, []);
 
-  /* ---------------- UI helpers ---------------- */
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
@@ -63,16 +58,25 @@ export default function HomeScreen() {
 
   const hour = new Date().getHours();
   const greeting =
-    hour < 12
-      ? "Good Morning 👋"
-      : hour < 18
-      ? "Good Afternoon 👋"
-      : "Good Evening 👋";
+    hour < 12 ? "Good Morning 👋"
+    : hour < 18 ? "Good Afternoon 👋"
+    : "Good Evening 👋";
 
-  /* ---------------- Render ---------------- */
+  const completed = habits.filter(h => h.habitStatus === "COMPLETED").length;
+  const total = habits.length;
+  const progress = total > 0 ? completed / total : 0;
+  const progressPercent = Math.round(progress * 100);
+
+  const progressMessage =
+    progressPercent === 100 ? "All done! Great work 🎉"
+    : progressPercent >= 50 ? "Keep going 💪"
+    : progressPercent > 0 ? "Good start! 🌱"
+    : "Let's get started! 🚀";
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
+
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.greeting}>{greeting}</Text>
@@ -82,6 +86,18 @@ export default function HomeScreen() {
 
         {/* Date */}
         <Text style={styles.today}>Today · {today}</Text>
+
+        {!loading && !error && total > 0 && (
+          <View style={styles.progressContainer}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressLabel}>{progressMessage}</Text>
+              <Text style={styles.progressCount}>{completed}/{total}</Text>
+            </View>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+            </View>
+          </View>
+        )}
 
         {/* Content */}
         {loading ? (
@@ -142,7 +158,6 @@ export default function HomeScreen() {
   );
 }
 
-/* ---------------- Styles ---------------- */
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -170,11 +185,42 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     color: Colors.text,
   },
-  loadingText: {
-    color: Colors.subtext,
-    textAlign: "center",
-    marginTop: 40,
+  divider: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
+    marginBottom: 16,
   },
+  progressContainer: {
+    marginBottom: 16,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  progressLabel: {
+    fontSize: 13,
+    color: Colors.subtext,
+    fontWeight: "500",
+  },
+  progressCount: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.text,
+  },
+  progressTrack: {
+    height: 8,
+    backgroundColor: "#e5e7eb",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: 8,
+    backgroundColor: Colors.primary,
+    borderRadius: 4,
+  },
+
   emptyState: {
     flex: 1,
     justifyContent: "center",
@@ -220,10 +266,5 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 28,
     fontWeight: "bold",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#e5e7eb",
-    marginBottom: 16,
   },
 });
