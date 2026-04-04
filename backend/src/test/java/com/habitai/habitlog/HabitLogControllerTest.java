@@ -461,13 +461,13 @@ class HabitLogControllerTest {
 
     @Test
     void testGetHabitActivityLongDateRange() throws Exception {
-        // Arrange
+        // Arrange — API allows at most 90 days between start and end (inclusive span)
         long habitId = 1L;
-        LocalDate startDate = today.minusDays(99);
+        LocalDate startDate = today.minusDays(89);
         LocalDate endDate = today;
 
         List<HabitActivityStatus> activities = new ArrayList<>();
-        for (int i = 99; i >= 0; i--) {
+        for (int i = 89; i >= 0; i--) {
             activities.add(new HabitActivityStatus(today.minusDays(i), HabitStatus.COMPLETED));
         }
 
@@ -479,7 +479,7 @@ class HabitLogControllerTest {
                 .param("startDate", startDate.toString())
                 .param("endDate", endDate.toString()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(100)));
+                .andExpect(jsonPath("$", hasSize(90)));
 
         verify(habitLogService).getHabitActivity(habitId, startDate, endDate);
     }

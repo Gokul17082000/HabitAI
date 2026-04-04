@@ -11,6 +11,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import com.habitai.common.AppConstants;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -18,7 +19,7 @@ public class GlobalExceptionHandler {
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     private ApiErrorResponse error(String message, HttpStatus status) {
-        return new ApiErrorResponse(message, status.value(), LocalDateTime.now(ZoneId.of("Asia/Kolkata")));
+        return new ApiErrorResponse(message, status.value(), LocalDateTime.now(AppConstants.APP_ZONE));
     }
 
     @ExceptionHandler(UserAlreadyExistException.class)
@@ -68,7 +69,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(ex.getMessage(), HttpStatus.BAD_REQUEST));
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
+                .orElse("Validation failed");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(message, HttpStatus.BAD_REQUEST));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

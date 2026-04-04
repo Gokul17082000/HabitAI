@@ -1,12 +1,12 @@
 package com.habitai.user;
 
+import com.habitai.common.AppConstants;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 
 @Getter
 @Setter
@@ -33,6 +33,6 @@ public class User {
 
     @PrePersist
     public void prePersist(){
-        createdAt = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
+        createdAt = LocalDateTime.now(AppConstants.APP_ZONE);
     }
 }

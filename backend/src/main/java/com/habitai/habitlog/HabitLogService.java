@@ -1,5 +1,6 @@
 package com.habitai.habitlog;
 
+import com.habitai.common.AppConstants;
 import com.habitai.common.security.CurrentUser;
 import com.habitai.common.validation.HabitAccessValidator;
 import com.habitai.habit.Habit;
@@ -7,7 +8,6 @@ import com.habitai.habit.HabitScheduleService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -34,7 +34,7 @@ public class HabitLogService {
     public void updateTodayHabitStatus(long habitId, HabitLogRequest habitLogRequest) {
         Habit habit = habitAccessValidator.getAndValidate(habitId);
         long userId = currentUser.getId();
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
 
         if (!habitLogRequest.date().isEqual(today)) {
             throw new IllegalStateException("Cannot update past or future habits");
@@ -106,7 +106,7 @@ public class HabitLogService {
                 .map(HabitLog::getDate)
                 .collect(java.util.stream.Collectors.toSet());
 
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
         LocalDate cursor = today;
         int streak = 0;
 
@@ -143,7 +143,7 @@ public class HabitLogService {
         if (completedDates.isEmpty()) return new HabitStreakResponse(0);
 
         // Build ordered list of scheduled days from habit creation up to today
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
         List<LocalDate> scheduledDays = new ArrayList<>();
         LocalDate cursor = habit.getCreatedAt();
         while (!cursor.isAfter(today)) {
@@ -181,7 +181,7 @@ public class HabitLogService {
                 .findByHabitIdAndUserIdAndDateBetweenOrderByDateAsc(habitId, userId, effectiveStart, endDate);
 
         List<HabitActivityStatus> habitActivityStatusList = new ArrayList<>();
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
         LocalDate currentDate = effectiveStart;
         LocalDate effectiveEndDate = endDate.isAfter(today) ? today : endDate;
 

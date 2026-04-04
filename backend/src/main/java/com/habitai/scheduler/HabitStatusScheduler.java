@@ -1,5 +1,6 @@
 package com.habitai.scheduler;
 
+import com.habitai.common.AppConstants;
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitRepository;
 import com.habitai.habit.HabitScheduleService;
@@ -12,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -34,8 +34,8 @@ public class HabitStatusScheduler {
     @Transactional
     @Scheduled(cron = "0 */5 * * * *")
     public void updateMissedHabits() {
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
-        LocalTime now = LocalTime.now(ZoneId.of("Asia/Kolkata"));
+        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
+        LocalTime now = LocalTime.now(AppConstants.APP_ZONE);
 
         List<Habit> overdueHabits = habitRepository.findByTargetTimeBefore(now);
         if (overdueHabits.isEmpty()) return;

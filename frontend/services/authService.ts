@@ -1,9 +1,9 @@
 import { API_ENDPOINTS } from "../constants/api";
-import { getToken } from "../utils/authStorage";
-import { handleResponse, UnauthorizedError } from "../utils/apiHandler";
+import { buildAuthHeaders, handleResponse, UnauthorizedError } from "../utils/apiHandler";
 
 interface LoginResponse {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
 }
 
 interface RegisterResponse {
@@ -28,18 +28,12 @@ export interface UserStats {
   memberSince: string;
 }
 
-/* ---------------- Auth Header ---------------- */
-const getAuthHeaders = async (): Promise<Record<string, string>> => {
-  const token = await getToken();
-  if (!token) throw new UnauthorizedError();
-  return {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  };
-};
+/* ---------------- Auth APIs (no token needed) ---------------- */
 
-/* ---------------- APIs ---------------- */
-export const loginApi = async (email: string, password: string): Promise<LoginResponse> => {
+export const loginApi = async (
+  email: string,
+  password: string
+): Promise<LoginResponse> => {
   const response = await fetch(API_ENDPOINTS.login, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -48,7 +42,10 @@ export const loginApi = async (email: string, password: string): Promise<LoginRe
   return handleResponse<LoginResponse>(response, true);
 };
 
-export const registerApi = async (email: string, password: string): Promise<RegisterResponse> => {
+export const registerApi = async (
+  email: string,
+  password: string
+): Promise<RegisterResponse> => {
   const response = await fetch(API_ENDPOINTS.register, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -57,14 +54,27 @@ export const registerApi = async (email: string, password: string): Promise<Regi
   return handleResponse<RegisterResponse>(response, true);
 };
 
+export const refreshTokenApi = async (
+  refreshToken: string
+): Promise<LoginResponse> => {
+  const response = await fetch(API_ENDPOINTS.refresh, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken }),
+  });
+  return handleResponse<LoginResponse>(response, true);
+};
+
+/* ---------------- Authenticated user APIs ---------------- */
+
 export const getUserApi = async (): Promise<{ email: string }> => {
-  const headers = await getAuthHeaders();
+  const headers = await buildAuthHeaders();
   const response = await fetch(API_ENDPOINTS.user, { headers });
   return handleResponse<{ email: string }>(response);
 };
 
 export const getUserStatsApi = async (): Promise<UserStats> => {
-  const headers = await getAuthHeaders();
+  const headers = await buildAuthHeaders();
   const response = await fetch(API_ENDPOINTS.userStats, { headers });
   return handleResponse<UserStats>(response);
 };

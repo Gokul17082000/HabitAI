@@ -9,7 +9,7 @@ public record HabitDTO(
         Long id,
         String title,
         String description,
-        String category,
+        HabitCategory category,
         HabitFrequency frequency,
         Set<DayOfWeek> daysOfWeek,
         Set<Integer> daysOfMonth,

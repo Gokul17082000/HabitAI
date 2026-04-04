@@ -14,10 +14,10 @@ import {
 import { router, useFocusEffect } from "expo-router";
 import { getAllHabitsApi, deleteHabitApi, pauseHabitApi, resumeHabitApi } from "../../../services/habitService";
 import { HabitDTO } from "../../../types/habit";
-import { formatTime } from "../../../utils/formatters";
 import { Colors } from "../../../constants/colors";
 import { UnauthorizedError } from "../../../utils/apiHandler";
 import SkeletonCard from "../../../components/SkeletonCard";
+import ManageHabitCard from "../../../components/ManageHabitCard";
 
 export default function MasterHabitsScreen() {
   const [habits, setHabits] = useState<HabitDTO[]>([]);
@@ -27,7 +27,6 @@ export default function MasterHabitsScreen() {
   const [pausingId, setPausingId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  /* ---------------- Derived state ---------------- */
   const activeHabits = habits.filter((h) => !h.paused);
   const pausedHabits = habits.filter((h) => h.paused);
 
@@ -46,7 +45,6 @@ export default function MasterHabitsScreen() {
     }
   }, []);
 
-  /* ---------------- Refresh on focus ---------------- */
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
@@ -54,7 +52,6 @@ export default function MasterHabitsScreen() {
     }, [loadHabits])
   );
 
-  /* ---------------- Pull to refresh ---------------- */
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadHabits();
@@ -75,21 +72,14 @@ export default function MasterHabitsScreen() {
 
   const confirmDelete = (habitId: number) => {
     if (Platform.OS === "web") {
-      const confirmed = window.confirm("Delete Habit - This action cannot be undone.");
-      if (confirmed) handleDelete(habitId);
+      if (window.confirm("Delete Habit — This action cannot be undone.")) {
+        handleDelete(habitId);
+      }
     } else {
-      Alert.alert(
-        "Delete Habit",
-        "This action cannot be undone.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Delete",
-            style: "destructive",
-            onPress: () => handleDelete(habitId),
-          },
-        ]
-      );
+      Alert.alert("Delete Habit", "This action cannot be undone.", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => handleDelete(habitId) },
+      ]);
     }
   };
 
@@ -98,17 +88,12 @@ export default function MasterHabitsScreen() {
     setPausingId(habitId);
     try {
       await pauseHabitApi(habitId, days);
-      // Optimistically update local state
       setHabits((prev) =>
         prev.map((h) => {
           if (h.id !== habitId) return h;
           const pausedUntil = new Date();
           pausedUntil.setDate(pausedUntil.getDate() + days);
-          return {
-            ...h,
-            paused: true,
-            pausedUntil: pausedUntil.toISOString().split("T")[0],
-          };
+          return { ...h, paused: true, pausedUntil: pausedUntil.toISOString().split("T")[0] };
         })
       );
     } catch {
@@ -123,8 +108,8 @@ export default function MasterHabitsScreen() {
       "Pause Habit",
       "How long do you want to pause this habit? It will auto-resume after the selected period.",
       [
-        { text: "3 days",  onPress: () => handlePause(habitId, 3)  },
-        { text: "7 days",  onPress: () => handlePause(habitId, 7)  },
+        { text: "3 days",  onPress: () => handlePause(habitId, 3) },
+        { text: "7 days",  onPress: () => handlePause(habitId, 7) },
         { text: "14 days", onPress: () => handlePause(habitId, 14) },
         { text: "30 days", onPress: () => handlePause(habitId, 30) },
         { text: "Cancel",  style: "cancel" },
@@ -137,11 +122,8 @@ export default function MasterHabitsScreen() {
     setPausingId(habitId);
     try {
       await resumeHabitApi(habitId);
-      // Optimistically update local state
       setHabits((prev) =>
-        prev.map((h) =>
-          h.id === habitId ? { ...h, paused: false, pausedUntil: null } : h
-        )
+        prev.map((h) => (h.id === habitId ? { ...h, paused: false, pausedUntil: null } : h))
       );
     } catch {
       loadHabits();
@@ -150,102 +132,10 @@ export default function MasterHabitsScreen() {
     }
   };
 
-  /* ---------------- Helpers ---------------- */
-  const formatPausedUntil = (dateStr: string | null): string => {
-    if (!dateStr) return "";
-    return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-  };
-
   const isActioning = (habitId: number) =>
     deletingId === habitId || pausingId === habitId;
 
-  /* ---------------- Render habit card ---------------- */
-  const renderCard = (habit: HabitDTO) => (
-    <View
-      key={habit.id}
-      style={[styles.card, habit.paused && styles.cardPaused]}
-    >
-      {/* Left */}
-      <View style={{ flex: 1 }}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>{habit.title}</Text>
-          {habit.paused && (
-            <View style={styles.pausedBadge}>
-              <Text style={styles.pausedBadgeText}>⏸ Paused</Text>
-            </View>
-          )}
-        </View>
-
-        <Text style={styles.meta}>
-          {habit.category} • {habit.frequency}
-          {habit.isCountable ? ` • Target: ${habit.targetCount}` : ""}
-        </Text>
-
-        <Text style={styles.time}>⏰ {formatTime(habit.targetTime)}</Text>
-
-        {habit.paused && habit.pausedUntil && (
-          <Text style={styles.pausedUntilText}>
-            Resumes on {formatPausedUntil(habit.pausedUntil)}
-          </Text>
-        )}
-      </View>
-
-      {/* Actions */}
-      <View style={styles.actions}>
-        {/* Edit */}
-        <Pressable
-          disabled={isActioning(habit.id)}
-          onPress={() => router.navigate(`/(tabs)/habits/${habit.id}/edit`)}
-        >
-          <Text style={{ opacity: isActioning(habit.id) ? 0.4 : 1 }}>✏️</Text>
-        </Pressable>
-
-        {/* Delete */}
-        <Pressable
-          disabled={isActioning(habit.id)}
-          onPress={() => confirmDelete(habit.id)}
-        >
-          <Text style={{ opacity: isActioning(habit.id) ? 0.4 : 1 }}>
-            {deletingId === habit.id ? "⏳" : "🗑️"}
-          </Text>
-        </Pressable>
-
-        {/* Activity */}
-        <Pressable
-          disabled={isActioning(habit.id)}
-          onPress={() => router.navigate(`/(tabs)/habits/${habit.id}/activity`)}
-        >
-          <Text style={{ opacity: isActioning(habit.id) ? 0.4 : 1 }}>📊</Text>
-        </Pressable>
-
-        {/* Pause / Resume */}
-        {habit.paused ? (
-          <Pressable
-            disabled={isActioning(habit.id)}
-            onPress={() => handleResume(habit.id)}
-          >
-            <Text style={{ opacity: isActioning(habit.id) ? 0.4 : 1 }}>
-              {pausingId === habit.id ? "⏳" : "▶️"}
-            </Text>
-          </Pressable>
-        ) : (
-          <Pressable
-            disabled={isActioning(habit.id)}
-            onPress={() => confirmPause(habit.id)}
-          >
-            <Text style={{ opacity: isActioning(habit.id) ? 0.4 : 1 }}>
-              {pausingId === habit.id ? "⏳" : "⏸️"}
-            </Text>
-          </Pressable>
-        )}
-      </View>
-    </View>
-  );
-
-  /* ---------------- Main render ---------------- */
+  /* ---------------- Render ---------------- */
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -289,29 +179,46 @@ export default function MasterHabitsScreen() {
               />
             }
           >
-            {/* Active habits */}
             {activeHabits.length > 0 && (
               <>
-                <Text style={styles.sectionTitle}>
-                  Active ({activeHabits.length})
-                </Text>
-                {activeHabits.map(renderCard)}
+                <Text style={styles.sectionTitle}>Active ({activeHabits.length})</Text>
+                {activeHabits.map((habit) => (
+                  <ManageHabitCard
+                    key={habit.id}
+                    habit={habit}
+                    isActioning={isActioning(habit.id)}
+                    isDeleting={deletingId === habit.id}
+                    isPausing={pausingId === habit.id}
+                    onDelete={confirmDelete}
+                    onPause={confirmPause}
+                    onResume={handleResume}
+                  />
+                ))}
               </>
             )}
 
-            {/* Paused habits — only shown when at least one is paused */}
             {pausedHabits.length > 0 && (
               <>
                 <Text style={[styles.sectionTitle, styles.sectionTitlePaused]}>
                   Paused ({pausedHabits.length})
                 </Text>
-                {pausedHabits.map(renderCard)}
+                {pausedHabits.map((habit) => (
+                  <ManageHabitCard
+                    key={habit.id}
+                    habit={habit}
+                    isActioning={isActioning(habit.id)}
+                    isDeleting={deletingId === habit.id}
+                    isPausing={pausingId === habit.id}
+                    onDelete={confirmDelete}
+                    onPause={confirmPause}
+                    onResume={handleResume}
+                  />
+                ))}
               </>
             )}
           </ScrollView>
         )}
 
-        {/* Floating Add Button */}
         <Pressable
           style={styles.addButton}
           onPress={() => router.navigate("/(tabs)/habits/create")}
@@ -323,129 +230,23 @@ export default function MasterHabitsScreen() {
   );
 }
 
-/* ---------------- Styles ---------------- */
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: Colors.background,
     paddingTop: StatusBar.currentHeight ?? 12,
   },
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  header: {
-    fontSize: 22,
-    fontWeight: "600",
-    marginBottom: 8,
-    color: Colors.text,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#e5e7eb",
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.text,
-    marginBottom: 10,
-    marginTop: 4,
-  },
-  sectionTitlePaused: {
-    color: Colors.subtext,
-    marginTop: 20,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    marginBottom: 6,
-    color: Colors.text,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: Colors.subtext,
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  createBtn: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  createBtnText: {
-    color: Colors.white,
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  card: {
-    backgroundColor: Colors.card,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  cardPaused: {
-    opacity: 0.6,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderStyle: "dashed",
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    flexWrap: "wrap",
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: Colors.text,
-  },
-  pausedBadge: {
-    backgroundColor: Colors.border,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  pausedBadgeText: {
-    fontSize: 11,
-    color: Colors.subtext,
-    fontWeight: "600",
-  },
-  meta: {
-    fontSize: 12,
-    color: Colors.subtext,
-    marginTop: 4,
-  },
-  time: {
-    fontSize: 13,
-    color: Colors.primary,
-    marginTop: 6,
-  },
-  pausedUntilText: {
-    fontSize: 12,
-    color: Colors.subtext,
-    marginTop: 4,
-    fontStyle: "italic",
-  },
-  actions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
+  container: { flex: 1, padding: 20 },
+  header: { fontSize: 22, fontWeight: "600", marginBottom: 8, color: Colors.text },
+  divider: { height: 1, backgroundColor: "#e5e7eb", marginBottom: 16 },
+  sectionTitle: { fontSize: 14, fontWeight: "600", color: Colors.text, marginBottom: 10, marginTop: 4 },
+  sectionTitlePaused: { color: Colors.subtext, marginTop: 20 },
+  emptyState: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 20 },
+  emptyIcon: { fontSize: 48, marginBottom: 12 },
+  emptyTitle: { fontSize: 20, fontWeight: "600", marginBottom: 6, color: Colors.text },
+  emptySubtitle: { fontSize: 14, color: Colors.subtext, textAlign: "center", marginBottom: 20 },
+  createBtn: { backgroundColor: Colors.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 },
+  createBtnText: { color: Colors.white, fontWeight: "600", fontSize: 14 },
   addButton: {
     position: "absolute",
     right: 20,
@@ -458,9 +259,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     elevation: 4,
   },
-  addButtonText: {
-    color: Colors.white,
-    fontSize: 28,
-    fontWeight: "bold",
-  },
+  addButtonText: { color: Colors.white, fontSize: 28, fontWeight: "bold" },
 });

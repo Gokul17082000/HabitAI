@@ -1,12 +1,12 @@
 package com.habitai.habit;
 
+import com.habitai.common.AppConstants;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
@@ -27,7 +27,7 @@ public class HabitController {
 
     @GetMapping
     public List<HabitResponse> getHabitsForDate(@RequestParam(required = false) LocalDate date) {
-        LocalDate targetDate = (date == null) ? LocalDate.now(ZoneId.of("Asia/Kolkata")) : date;
+        LocalDate targetDate = (date == null) ? LocalDate.now(AppConstants.APP_ZONE) : date;
         return habitService.getHabitsForDate(targetDate);
     }
 

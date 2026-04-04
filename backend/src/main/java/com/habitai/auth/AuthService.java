@@ -23,11 +23,10 @@ public class AuthService {
         this.jwtService = jwtService;
     }
 
-    public RegisterResponse register(AuthRequest authRequest){
-        if(userRepository.findByEmail(authRequest.email()).isPresent()){
+    public RegisterResponse register(AuthRequest authRequest) {
+        if (userRepository.findByEmail(authRequest.email()).isPresent()) {
             throw new UserAlreadyExistException("User already exists!");
         }
-
         try {
             User user = new User();
             user.setEmail(authRequest.email());
@@ -40,18 +39,35 @@ public class AuthService {
             }
             throw new DatabaseException("A database error occurred. Please try again.");
         }
-
         return new RegisterResponse("User Successfully created!");
     }
 
     public LoginResponse login(AuthRequest authRequest) {
-        User user = userRepository.findByEmail(authRequest.email()).orElseThrow(() -> new UserNotFoundException("User Not Found!"));
+        User user = userRepository.findByEmail(authRequest.email())
+                .orElseThrow(() -> new UserNotFoundException("User Not Found!"));
 
-        if(!passwordEncoder.matches(authRequest.password(), user.getPassword())){
+        if (!passwordEncoder.matches(authRequest.password(), user.getPassword())) {
             throw new PasswordDoesNotMatchException("Invalid credentials!");
         }
 
-        String jwtToken = jwtService.generateToken(user);
-        return new LoginResponse(jwtToken);
+        return new LoginResponse(
+                jwtService.generateToken(user),
+                jwtService.generateRefreshToken(user)
+        );
+    }
+
+    public LoginResponse refresh(RefreshRequest request) {
+        String token = request.refreshToken();
+        if (!jwtService.isValidRefreshToken(token)) {
+            throw new IllegalStateException("Invalid or expired refresh token.");
+        }
+        String userId = jwtService.extractUserId(token);
+        User user = userRepository.findById(Long.parseLong(userId))
+                .orElseThrow(() -> new UserNotFoundException("User Not Found!"));
+
+        return new LoginResponse(
+                jwtService.generateToken(user),
+                jwtService.generateRefreshToken(user)
+        );
     }
 }

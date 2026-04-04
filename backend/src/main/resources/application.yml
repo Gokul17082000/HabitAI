@@ -26,7 +26,10 @@ spring:
 security:
   jwt:
     secret: ${JWT_SECRET}
-    expiration: ${JWT_EXPIRATION:86400000}
+    # Access token TTL — default 15 minutes (900000 ms). Set via JWT_EXPIRATION env var.
+    expiration: ${JWT_EXPIRATION:900000}
+    # Refresh token TTL — default 7 days (604800000 ms). Set via JWT_REFRESH_EXPIRATION env var.
+    refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
 
 cors:
   allowed-origins:

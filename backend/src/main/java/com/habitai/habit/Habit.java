@@ -8,7 +8,7 @@ import lombok.Setter;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.ZoneId;
+import com.habitai.common.AppConstants;
 import java.util.Set;
 
 @Getter
@@ -35,8 +35,9 @@ public class Habit {
     @Column(length = 100)
     private String description;
 
-    @Column(nullable = false, length = 100)
-    private String category;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    private HabitCategory category;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -77,6 +78,6 @@ public class Habit {
 
     @PrePersist
     public void prePersist() {
-        createdAt = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        createdAt = LocalDate.now(AppConstants.APP_ZONE);
     }
 }

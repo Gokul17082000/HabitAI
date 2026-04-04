@@ -8,7 +8,7 @@ public record HabitResponse(
         long id,
         String title,
         String description,
-        String category,
+        HabitCategory category,
         LocalTime targetTime,
         int targetCount,
         boolean isCountable,

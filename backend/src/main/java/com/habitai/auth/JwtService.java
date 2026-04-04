@@ -22,14 +22,26 @@ public class JwtService {
     @Value("${security.jwt.expiration}")
     private long expiration;
 
-    public String generateToken(User user){
+    @Value("${security.jwt.refresh-expiration}")
+    private long refreshExpiration;
+
+    public String generateToken(User user) {
+        return buildToken(user, expiration, "access");
+    }
+
+    public String generateRefreshToken(User user) {
+        return buildToken(user, refreshExpiration, "refresh");
+    }
+
+    private String buildToken(User user, long expiryMs, String tokenType) {
         return Jwts.builder()
                 .setSubject(String.valueOf(user.getId()))
                 .claim("email", user.getEmail())
                 .claim("role", List.of("USER"))
+                .claim("type", tokenType)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(getSignKey())  // HS256 inferred from key type
+                .setExpiration(new Date(System.currentTimeMillis() + expiryMs))
+                .signWith(getSignKey())
                 .compact();
     }
 
@@ -38,10 +50,19 @@ public class JwtService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public boolean isValidJwtToken(String token){
+    public boolean isValidJwtToken(String token) {
         try {
             Claims claims = extractAllClaims(token);
-            return !isTokenExpired(claims);
+            return !isTokenExpired(claims) && "access".equals(claims.get("type"));
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    public boolean isValidRefreshToken(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            return !isTokenExpired(claims) && "refresh".equals(claims.get("type"));
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }

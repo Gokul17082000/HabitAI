@@ -9,7 +9,7 @@ import java.util.Set;
 public record HabitRequest(
         @NotBlank @Size(max = 100) String title,
         @NotBlank @Size(max = 100) String description,
-        @NotBlank @Size(max = 100) String category,
+        @NotNull HabitCategory category,
         @NotNull HabitFrequency frequency,
         Set<DayOfWeek> daysOfWeek,
         Set<Integer> daysOfMonth,

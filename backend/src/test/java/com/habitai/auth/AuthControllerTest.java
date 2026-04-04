@@ -47,15 +47,16 @@ class AuthControllerTest {
     @Test
     void login_WithValidRequest_ShouldReturnOk() throws Exception {
         AuthRequest validRequest = new AuthRequest("test@habitai.com", "password123");
-        LoginResponse mockResponse = new LoginResponse("mock.jwt.token");
-        
+        LoginResponse mockResponse = new LoginResponse("mock.access.token", "mock.refresh.token");
+
         when(authService.login(any(AuthRequest.class))).thenReturn(mockResponse);
 
         mockMvc.perform(post("/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(validRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("mock.jwt.token"));
+                .andExpect(jsonPath("$.accessToken").value("mock.access.token"))
+                .andExpect(jsonPath("$.refreshToken").value("mock.refresh.token"));
     }
 
     @Test

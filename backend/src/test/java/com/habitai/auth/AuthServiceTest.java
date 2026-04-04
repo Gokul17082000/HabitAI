@@ -105,12 +105,14 @@ class AuthServiceTest {
     void login_WithValidCredentials_ShouldReturnJwtToken() {
         when(userRepository.findByEmail(authRequest.email())).thenReturn(Optional.of(mockUser));
         when(passwordEncoder.matches(authRequest.password(), mockUser.getPassword())).thenReturn(true);
-        when(jwtService.generateToken(mockUser)).thenReturn("mock.jwt.token");
-        
+        when(jwtService.generateToken(mockUser)).thenReturn("mock.access.token");
+        when(jwtService.generateRefreshToken(mockUser)).thenReturn("mock.refresh.token");
+
         LoginResponse response = authService.login(authRequest);
-        
+
         assertNotNull(response);
-        assertEquals("mock.jwt.token", response.token());
+        assertEquals("mock.access.token", response.accessToken());
+        assertEquals("mock.refresh.token", response.refreshToken());
     }
 
     @Test

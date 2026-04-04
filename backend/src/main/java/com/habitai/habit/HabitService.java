@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import com.habitai.common.AppConstants;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,8 +44,8 @@ public class HabitService {
 
     public List<HabitResponse> getHabitsForDate(LocalDate date) {
         long userId = currentUser.getId();
-        LocalTime now = LocalTime.now(ZoneId.of("Asia/Kolkata"));
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        LocalTime now = LocalTime.now(AppConstants.APP_ZONE);
+        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
 
         List<Habit> habits = habitRepository.findByUserId(userId)
                 .stream()
@@ -116,8 +117,8 @@ public class HabitService {
         habit.setDaysOfMonth(habitRequest.daysOfMonth());
         habit.setUserId(currentUser.getId());
         habit.setTargetTime(habitRequest.targetTime());
-        habit.setCountable(habitRequest.isCountable());          // ← new
-        habit.setTargetCount(habitRequest.targetCount());        // ← new
+        habit.setCountable(habitRequest.isCountable());
+        habit.setTargetCount(habitRequest.targetCount());
 
         normalizeSchedule(habit);
 
@@ -135,7 +136,7 @@ public class HabitService {
         if (habit.isCountable() && habitRequest.isCountable()
                 && habit.getTargetCount() != habitRequest.targetCount()) {
 
-            LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+            LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
             habitLogRepository
                     .findByHabitIdAndUserIdAndDate(habitId, habit.getUserId(), today)
                     .ifPresent(log -> {
@@ -156,8 +157,8 @@ public class HabitService {
         habit.setDaysOfWeek(habitRequest.daysOfWeek());
         habit.setDaysOfMonth(habitRequest.daysOfMonth());
         habit.setTargetTime(habitRequest.targetTime());
-        habit.setCountable(habitRequest.isCountable());          // ← new
-        habit.setTargetCount(habitRequest.targetCount());        // ← new
+        habit.setCountable(habitRequest.isCountable());
+        habit.setTargetCount(habitRequest.targetCount());
 
         normalizeSchedule(habit);
         habitRepository.save(habit);
@@ -183,7 +184,9 @@ public class HabitService {
                 habit.getTargetTime(),
                 habit.getCreatedAt(),
                 habit.isCountable(),
-                habit.getTargetCount()
+                habit.getTargetCount(),
+                habit.isPaused(),
+                habit.getPausedUntil()
         );
     }
 
@@ -232,7 +235,7 @@ public class HabitService {
         Map<String, List<String>> result = new HashMap<>();
 
         LocalDate current = startDate;
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
 
         while (!current.isAfter(endDate) && !current.isAfter(today)) {
             final LocalDate date = current;
@@ -269,7 +272,7 @@ public class HabitService {
     public void pauseHabit(long habitId, PauseRequest request) {
         Habit habit = habitAccessValidator.getAndValidate(habitId);
         habit.setPaused(true);
-        habit.setPausedUntil(LocalDate.now(ZoneId.of("Asia/Kolkata")).plusDays(request.days()));
+        habit.setPausedUntil(LocalDate.now(AppConstants.APP_ZONE).plusDays(request.days()));
         habitRepository.save(habit);
     }
 

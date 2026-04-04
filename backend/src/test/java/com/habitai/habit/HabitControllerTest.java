@@ -48,8 +48,8 @@ class HabitControllerTest {
     void getAllHabits_ShouldReturnListOfHabits() throws Exception {
         // Arrange
         List<HabitDTO> habits = List.of(
-                new HabitDTO(1L, "Morning Run", "30 min run", "Exercise", HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now()),
-                new HabitDTO(2L, "Gym", "Workout", "Exercise", HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY), null, LocalTime.of(18, 0), LocalDate.now())
+                new HabitDTO(1L, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null),
+                new HabitDTO(2L, "Gym", "Workout", HabitCategory.FITNESS, HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY), null, LocalTime.of(18, 0), LocalDate.now(), false, 1, false, null)
         );
         when(habitService.getAllHabits()).thenReturn(habits);
 
@@ -80,7 +80,7 @@ class HabitControllerTest {
         // Arrange
         LocalDate date = LocalDate.of(2026, 4, 6);
         List<HabitResponse> habits = List.of(
-                new HabitResponse(1L, "Morning Run", "30 min run", "Exercise", LocalTime.of(6, 0), 1, false, 1, HabitStatus.COMPLETED)
+                new HabitResponse(1L, "Morning Run", "30 min run", HabitCategory.FITNESS, LocalTime.of(6, 0), 1, false, 1, HabitStatus.COMPLETED)
         );
         when(habitService.getHabitsForDate(date)).thenReturn(habits);
 
@@ -109,7 +109,7 @@ class HabitControllerTest {
     void getHabitById_WithValidId_ShouldReturnHabit() throws Exception {
         // Arrange
         long habitId = 1L;
-        HabitDTO habit = new HabitDTO(habitId, "Morning Run", "30 min run", "Exercise", HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now());
+        HabitDTO habit = new HabitDTO(habitId, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null);
         when(habitService.getHabitById(habitId)).thenReturn(habit);
 
         // Act & Assert
@@ -117,7 +117,7 @@ class HabitControllerTest {
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("Morning Run"))
-                .andExpect(jsonPath("$.category").value("Exercise"));
+                .andExpect(jsonPath("$.category").value("FITNESS"));
     }
 
     @Test
@@ -126,7 +126,7 @@ class HabitControllerTest {
         HabitRequest request = new HabitRequest(
                 "Morning Run",
                 "30 min run",
-                "Exercise",
+                HabitCategory.FITNESS,
                 HabitFrequency.DAILY,
                 null,
                 null,
@@ -134,7 +134,7 @@ class HabitControllerTest {
                 1,
                 false
         );
-        HabitDTO response = new HabitDTO(1L, "Morning Run", "30 min run", "Exercise", HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now());
+        HabitDTO response = new HabitDTO(1L, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null);
         when(habitService.createHabit(any(HabitRequest.class))).thenReturn(response);
 
         // Act & Assert
@@ -152,7 +152,7 @@ class HabitControllerTest {
         HabitRequest request = new HabitRequest(
                 "Gym Day",
                 "Workout",
-                "Exercise",
+                HabitCategory.FITNESS,
                 HabitFrequency.WEEKLY,
                 Set.of(DayOfWeek.MONDAY, DayOfWeek.FRIDAY),
                 null,
@@ -160,7 +160,7 @@ class HabitControllerTest {
                 1,
                 false
         );
-        HabitDTO response = new HabitDTO(2L, "Gym Day", "Workout", "Exercise", HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), null, LocalTime.of(18, 0), LocalDate.now());
+        HabitDTO response = new HabitDTO(2L, "Gym Day", "Workout", HabitCategory.FITNESS, HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), null, LocalTime.of(18, 0), LocalDate.now(), false, 1, false, null);
         when(habitService.createHabit(any(HabitRequest.class))).thenReturn(response);
 
         // Act & Assert
@@ -178,7 +178,7 @@ class HabitControllerTest {
                 {
                     "title": "",
                     "description": "30 min run",
-                    "category": "Exercise",
+                    "category": "FITNESS",
                     "frequency": "DAILY",
                     "targetTime": "06:00:00",
                     "targetCount": 1,
@@ -195,12 +195,11 @@ class HabitControllerTest {
 
     @Test
     void createHabit_WithMissingCategory_ShouldReturnBadRequest() throws Exception {
-        // Arrange - Category is required
+        // Arrange - @NotNull category (omit field; empty string is invalid enum JSON → 500)
         String jsonRequest = """
                 {
                     "title": "Morning Run",
                     "description": "30 min run",
-                    "category": "",
                     "frequency": "DAILY",
                     "targetTime": "06:00:00",
                     "targetCount": 1,
@@ -222,7 +221,7 @@ class HabitControllerTest {
                 {
                     "title": "Morning Run",
                     "description": "30 min run",
-                    "category": "Exercise",
+                    "category": "FITNESS",
                     "targetTime": "06:00:00",
                     "targetCount": 1,
                     "isCountable": false
@@ -243,7 +242,7 @@ class HabitControllerTest {
         HabitRequest request = new HabitRequest(
                 "Updated Run",
                 "Updated description",
-                "Exercise",
+                HabitCategory.FITNESS,
                 HabitFrequency.DAILY,
                 null,
                 null,
@@ -268,7 +267,7 @@ class HabitControllerTest {
                 {
                     "title": "",
                     "description": "30 min run",
-                    "category": "Exercise",
+                    "category": "FITNESS",
                     "frequency": "DAILY",
                     "targetTime": "06:00:00",
                     "targetCount": 1,

@@ -16,12 +16,17 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public RegisterResponse register(@Valid @RequestBody AuthRequest authRequest){
+    public RegisterResponse register(@Valid @RequestBody AuthRequest authRequest) {
         return authService.register(authRequest);
     }
 
     @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody AuthRequest authRequest){
+    public LoginResponse login(@Valid @RequestBody AuthRequest authRequest) {
         return authService.login(authRequest);
+    }
+
+    @PostMapping("/refresh")
+    public LoginResponse refresh(@Valid @RequestBody RefreshRequest request) {
+        return authService.refresh(request);
     }
 }

@@ -1,19 +1,19 @@
 package com.habitai.user;
 
+import com.habitai.common.AppConstants;
 import com.habitai.common.security.CurrentUser;
 import com.habitai.exception.UserNotFoundException;
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitRepository;
-import com.habitai.habitlog.HabitLog;
 import com.habitai.habitlog.HabitLogRepository;
 import com.habitai.habitlog.HabitStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class UserStatsService {
@@ -23,49 +23,38 @@ public class UserStatsService {
     private final CurrentUser currentUser;
     private final UserRepository userRepository;
 
-    public UserStatsService(HabitRepository habitRepository, HabitLogRepository habitLogRepository, CurrentUser currentUser, UserRepository userRepository) {
+    public UserStatsService(HabitRepository habitRepository,
+                            HabitLogRepository habitLogRepository,
+                            CurrentUser currentUser,
+                            UserRepository userRepository) {
         this.habitRepository = habitRepository;
         this.habitLogRepository = habitLogRepository;
         this.currentUser = currentUser;
         this.userRepository = userRepository;
     }
 
+    @Transactional(readOnly = true)
     public UserStatsResponse getStats() {
         long userId = currentUser.getId();
 
         List<Habit> allHabits = habitRepository.findByUserId(userId);
         int totalHabits = allHabits.size();
 
-        List<HabitLog> allLogs = habitLogRepository.findByUserId(userId);
+        // Aggregate queries — no full table scan into memory
+        int totalCompleted = (int) habitLogRepository.countByUserIdAndStatus(userId, HabitStatus.COMPLETED);
+        int totalMissed    = (int) habitLogRepository.countByUserIdAndStatus(userId, HabitStatus.MISSED);
+        int totalDaysTracked = (int) habitLogRepository.countDistinctDatesByUserId(userId);
 
-        // All time stats
-        int totalCompleted = (int) allLogs.stream()
-                .filter(l -> l.getStatus() == HabitStatus.COMPLETED)
-                .count();
-
-        int totalMissed = (int) allLogs.stream()
-                .filter(l -> l.getStatus() == HabitStatus.MISSED)
-                .count();
-
-        int totalDaysTracked = (int) allLogs.stream()
-                .map(HabitLog::getDate)
-                .distinct()
-                .count();
-
-        // Overall consistency
         int totalLogs = totalCompleted + totalMissed;
         int overallConsistency = totalLogs > 0
                 ? (int) Math.round((totalCompleted * 100.0) / totalLogs)
                 : 0;
 
-        // Streaks
-        int currentStreak = calculateCurrentStreak(allLogs);
-        int longestStreak = calculateLongestStreak(allLogs);
+        int currentStreak = calculateCurrentStreak(userId);
+        int longestStreak = calculateLongestStreak(userId);
 
-        // Top habits
-        List<UserStatsResponse.TopHabit> topHabits = getTopHabits(allHabits, allLogs);
+        List<UserStatsResponse.TopHabit> topHabits = getTopHabits(allHabits, userId);
 
-        // Member since
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
         LocalDate memberSince = user.getCreatedAt().toLocalDate();
@@ -83,35 +72,32 @@ public class UserStatsService {
         );
     }
 
-    private int calculateCurrentStreak(List<HabitLog> allLogs) {
-        Map<LocalDate, Long> completedPerDay = allLogs.stream()
-                .filter(l -> l.getStatus() == HabitStatus.COMPLETED)
-                .collect(Collectors.groupingBy(HabitLog::getDate, Collectors.counting()));
+    private int calculateCurrentStreak(long userId) {
+        // Fetch only distinct completed dates descending — stops as soon as streak breaks
+        List<LocalDate> completedDates = habitLogRepository.findDistinctCompletedDatesDescByUserId(userId);
+        if (completedDates.isEmpty()) return 0;
 
-        LocalDate date = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        LocalDate cursor = LocalDate.now(AppConstants.APP_ZONE);
         int streak = 0;
 
-        while (completedPerDay.containsKey(date) && completedPerDay.get(date) > 0) {
-            streak++;
-            date = date.minusDays(1);
+        for (LocalDate date : completedDates) {
+            if (date.equals(cursor) || date.equals(cursor.minusDays(1))) {
+                // Allow today being incomplete without breaking streak
+                streak++;
+                cursor = date.minusDays(1);
+            } else {
+                break;
+            }
         }
-
         return streak;
     }
 
-    private int calculateLongestStreak(List<HabitLog> allLogs) {
-        List<LocalDate> completedDates = allLogs.stream()
-                .filter(l -> l.getStatus() == HabitStatus.COMPLETED)
-                .map(HabitLog::getDate)
-                .distinct()
-                .sorted()
-                .toList();
-
+    private int calculateLongestStreak(long userId) {
+        List<LocalDate> completedDates = habitLogRepository.findDistinctCompletedDatesByUserId(userId);
         if (completedDates.isEmpty()) return 0;
 
         int longest = 1;
         int current = 1;
-
         for (int i = 1; i < completedDates.size(); i++) {
             if (completedDates.get(i).equals(completedDates.get(i - 1).plusDays(1))) {
                 current++;
@@ -120,31 +106,34 @@ public class UserStatsService {
                 current = 1;
             }
         }
-
         return longest;
     }
 
-    private List<UserStatsResponse.TopHabit> getTopHabits(List<Habit> habits, List<HabitLog> allLogs) {
+    private List<UserStatsResponse.TopHabit> getTopHabits(List<Habit> habits, long userId) {
         if (habits.isEmpty()) return List.of();
 
-        Map<Long, Long> completedPerHabit = allLogs.stream()
-                .filter(l -> l.getStatus() == HabitStatus.COMPLETED)
-                .collect(Collectors.groupingBy(HabitLog::getHabitId, Collectors.counting()));
+        // Single aggregate query — no row-by-row streaming
+        List<Object[]> rows = habitLogRepository.findHabitCompletionStatsByUserId(userId);
 
-        Map<Long, Long> totalPerHabit = allLogs.stream()
-                .filter(l -> l.getStatus() == HabitStatus.COMPLETED || l.getStatus() == HabitStatus.MISSED)
-                .collect(Collectors.groupingBy(HabitLog::getHabitId, Collectors.counting()));
+        Map<Long, long[]> statsByHabitId = new HashMap<>();
+        for (Object[] row : rows) {
+            long habitId   = ((Number) row[0]).longValue();
+            long completed = ((Number) row[1]).longValue();
+            long total     = ((Number) row[2]).longValue();
+            statsByHabitId.put(habitId, new long[]{completed, total});
+        }
 
         return habits.stream()
                 .sorted((a, b) -> {
-                    long countA = completedPerHabit.getOrDefault(a.getId(), 0L);
-                    long countB = completedPerHabit.getOrDefault(b.getId(), 0L);
+                    long countA = statsByHabitId.getOrDefault(a.getId(), new long[]{0, 0})[0];
+                    long countB = statsByHabitId.getOrDefault(b.getId(), new long[]{0, 0})[0];
                     return Long.compare(countB, countA);
                 })
                 .limit(3)
                 .map(h -> {
-                    int completions = completedPerHabit.getOrDefault(h.getId(), 0L).intValue();
-                    int total = totalPerHabit.getOrDefault(h.getId(), 0L).intValue();
+                    long[] stats = statsByHabitId.getOrDefault(h.getId(), new long[]{0, 0});
+                    int completions = (int) stats[0];
+                    int total       = (int) stats[1];
                     int consistency = total > 0 ? (int) Math.round((completions * 100.0) / total) : 0;
                     return new UserStatsResponse.TopHabit(h.getTitle(), completions, consistency);
                 })

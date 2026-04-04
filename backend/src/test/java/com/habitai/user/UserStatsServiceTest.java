@@ -1,9 +1,9 @@
 package com.habitai.user;
 
+import com.habitai.common.AppConstants;
 import com.habitai.common.security.CurrentUser;
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitRepository;
-import com.habitai.habitlog.HabitLog;
 import com.habitai.habitlog.HabitLogRepository;
 import com.habitai.habitlog.HabitStatus;
 import com.habitai.exception.UserNotFoundException;
@@ -21,6 +21,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,26 +57,21 @@ class UserStatsServiceTest {
 
         when(habitRepository.findByUserId(userId)).thenReturn(List.of(habit1, habit2));
 
-        LocalDate today = LocalDate.now();
-        HabitLog day1Completed = new HabitLog();
-        day1Completed.setHabitId(10L);
-        day1Completed.setUserId(userId);
-        day1Completed.setDate(today);
-        day1Completed.setStatus(HabitStatus.COMPLETED);
+        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
 
-        HabitLog day2Completed = new HabitLog();
-        day2Completed.setHabitId(20L);
-        day2Completed.setUserId(userId);
-        day2Completed.setDate(today.minusDays(1));
-        day2Completed.setStatus(HabitStatus.COMPLETED);
+        when(habitLogRepository.countByUserIdAndStatus(userId, HabitStatus.COMPLETED)).thenReturn(2L);
+        when(habitLogRepository.countByUserIdAndStatus(userId, HabitStatus.MISSED)).thenReturn(1L);
+        when(habitLogRepository.countDistinctDatesByUserId(userId)).thenReturn(2L);
 
-        HabitLog day2Missed = new HabitLog();
-        day2Missed.setHabitId(10L);
-        day2Missed.setUserId(userId);
-        day2Missed.setDate(today.minusDays(1));
-        day2Missed.setStatus(HabitStatus.MISSED);
+        when(habitLogRepository.findDistinctCompletedDatesDescByUserId(userId))
+                .thenReturn(List.of(today, today.minusDays(1)));
+        when(habitLogRepository.findDistinctCompletedDatesByUserId(userId))
+                .thenReturn(List.of(today.minusDays(1), today));
 
-        when(habitLogRepository.findByUserId(userId)).thenReturn(List.of(day1Completed, day2Completed, day2Missed));
+        when(habitLogRepository.findHabitCompletionStatsByUserId(userId)).thenReturn(List.of(
+                new Object[]{10L, 1L, 2L},
+                new Object[]{20L, 1L, 1L}
+        ));
 
         User user = new User();
         user.setId(userId);
@@ -110,7 +106,11 @@ class UserStatsServiceTest {
         when(currentUser.getId()).thenReturn(userId);
 
         when(habitRepository.findByUserId(userId)).thenReturn(List.of());
-        when(habitLogRepository.findByUserId(userId)).thenReturn(List.of());
+        when(habitLogRepository.countByUserIdAndStatus(eq(userId), eq(HabitStatus.COMPLETED))).thenReturn(0L);
+        when(habitLogRepository.countByUserIdAndStatus(eq(userId), eq(HabitStatus.MISSED))).thenReturn(0L);
+        when(habitLogRepository.countDistinctDatesByUserId(userId)).thenReturn(0L);
+        when(habitLogRepository.findDistinctCompletedDatesDescByUserId(userId)).thenReturn(List.of());
+        when(habitLogRepository.findDistinctCompletedDatesByUserId(userId)).thenReturn(List.of());
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userStatsService.getStats())

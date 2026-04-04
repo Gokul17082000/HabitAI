@@ -15,6 +15,7 @@ export const BASE_URL = getBaseUrl();
 export const API_ENDPOINTS = {
   login: `${BASE_URL}/auth/login`,
   register: `${BASE_URL}/auth/register`,
+  refresh: `${BASE_URL}/auth/refresh`,
   user: `${BASE_URL}/user`,
   userStats: `${BASE_URL}/user/stats`,
   pushToken: `${BASE_URL}/user/push-token`,
