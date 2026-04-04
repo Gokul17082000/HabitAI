@@ -32,6 +32,9 @@ public class HabitLog {
     @Column(nullable = false)
     private LocalDate date;
 
+    @Column(nullable = false)
+    private int currentCount = 0;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private HabitStatus status;

@@ -14,5 +14,9 @@ public record HabitDTO(
         Set<DayOfWeek> daysOfWeek,
         Set<Integer> daysOfMonth,
         LocalTime targetTime,
-        LocalDate createdAt
+        LocalDate createdAt,
+        boolean isCountable,
+        int targetCount,
+        boolean paused,
+        LocalDate pausedUntil
 ) {}

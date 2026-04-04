@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
@@ -26,7 +27,7 @@ public class HabitController {
 
     @GetMapping
     public List<HabitResponse> getHabitsForDate(@RequestParam(required = false) LocalDate date) {
-        LocalDate targetDate = (date == null) ? LocalDate.now() : date;
+        LocalDate targetDate = (date == null) ? LocalDate.now(ZoneId.of("Asia/Kolkata")) : date;
         return habitService.getHabitsForDate(targetDate);
     }
 
@@ -56,5 +57,17 @@ public class HabitController {
     @GetMapping("/summary")
     public Map<String, List<String>> getMonthSummary(@RequestParam int year, @RequestParam int month) {
         return habitService.getMonthSummary(year, month);
+    }
+
+    @PatchMapping("/{habitId}/pause")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void pauseHabit(@PathVariable long habitId, @RequestBody PauseRequest request) {
+        habitService.pauseHabit(habitId, request);
+    }
+
+    @PatchMapping("/{habitId}/resume")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resumeHabit(@PathVariable long habitId) {
+        habitService.resumeHabit(habitId);
     }
 }

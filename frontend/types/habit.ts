@@ -23,6 +23,10 @@ export interface HabitDTO {
   daysOfMonth: number[] | null;
   targetTime: string;
   createdAt: string;
+  isCountable: boolean;
+  targetCount: number;
+  paused: boolean;
+  pausedUntil: string | null;
 }
 
 export interface HabitResponse {
@@ -31,6 +35,9 @@ export interface HabitResponse {
   description: string;
   category: HabitCategory;
   targetTime: string;
+  targetCount: number;
+  isCountable: boolean;
+  currentCount: number;
   habitStatus: HabitStatus;
 }
 
@@ -51,6 +58,8 @@ export interface CreateHabitRequest {
   daysOfWeek: DayOfWeek[] | null;
   daysOfMonth: number[] | null;
   targetTime: string;
+  targetCount: number;
+  isCountable: boolean;
 }
 
 export type UpdateHabitRequest = CreateHabitRequest;

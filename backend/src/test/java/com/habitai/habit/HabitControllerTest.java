@@ -80,7 +80,7 @@ class HabitControllerTest {
         // Arrange
         LocalDate date = LocalDate.of(2026, 4, 6);
         List<HabitResponse> habits = List.of(
-                new HabitResponse(1L, "Morning Run", "30 min run", "Exercise", LocalTime.of(6, 0), HabitStatus.COMPLETED)
+                new HabitResponse(1L, "Morning Run", "30 min run", "Exercise", LocalTime.of(6, 0), 1, false, 1, HabitStatus.COMPLETED)
         );
         when(habitService.getHabitsForDate(date)).thenReturn(habits);
 
@@ -130,7 +130,9 @@ class HabitControllerTest {
                 HabitFrequency.DAILY,
                 null,
                 null,
-                LocalTime.of(6, 0)
+                LocalTime.of(6, 0),
+                1,
+                false
         );
         HabitDTO response = new HabitDTO(1L, "Morning Run", "30 min run", "Exercise", HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now());
         when(habitService.createHabit(any(HabitRequest.class))).thenReturn(response);
@@ -154,7 +156,9 @@ class HabitControllerTest {
                 HabitFrequency.WEEKLY,
                 Set.of(DayOfWeek.MONDAY, DayOfWeek.FRIDAY),
                 null,
-                LocalTime.of(18, 0)
+                LocalTime.of(18, 0),
+                1,
+                false
         );
         HabitDTO response = new HabitDTO(2L, "Gym Day", "Workout", "Exercise", HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), null, LocalTime.of(18, 0), LocalDate.now());
         when(habitService.createHabit(any(HabitRequest.class))).thenReturn(response);
@@ -176,7 +180,9 @@ class HabitControllerTest {
                     "description": "30 min run",
                     "category": "Exercise",
                     "frequency": "DAILY",
-                    "targetTime": "06:00:00"
+                    "targetTime": "06:00:00",
+                    "targetCount": 1,
+                    "isCountable": false
                 }
                 """;
 
@@ -196,7 +202,9 @@ class HabitControllerTest {
                     "description": "30 min run",
                     "category": "",
                     "frequency": "DAILY",
-                    "targetTime": "06:00:00"
+                    "targetTime": "06:00:00",
+                    "targetCount": 1,
+                    "isCountable": false
                 }
                 """;
 
@@ -209,13 +217,15 @@ class HabitControllerTest {
 
     @Test
     void createHabit_WithMissingFrequency_ShouldReturnBadRequest() throws Exception {
-        // Arrange - Frequency is required
+        // Arrange - Frequency is required (omit field so @NotNull fails after JSON binds)
         String jsonRequest = """
                 {
                     "title": "Morning Run",
                     "description": "30 min run",
                     "category": "Exercise",
-                    "targetTime": "06:00:00"
+                    "targetTime": "06:00:00",
+                    "targetCount": 1,
+                    "isCountable": false
                 }
                 """;
 
@@ -237,7 +247,9 @@ class HabitControllerTest {
                 HabitFrequency.DAILY,
                 null,
                 null,
-                LocalTime.of(7, 0)
+                LocalTime.of(7, 0),
+                1,
+                false
         );
         doNothing().when(habitService).updateHabit(eq(habitId), any(HabitRequest.class));
 
@@ -250,12 +262,17 @@ class HabitControllerTest {
 
     @Test
     void updateHabit_WithInvalidRequest_ShouldReturnBadRequest() throws Exception {
-        // Arrange - Missing required field
+        // Arrange - @NotBlank title; include all fields so Jackson can bind (primitives cannot be null in JSON)
         long habitId = 1L;
         String jsonRequest = """
                 {
                     "title": "",
-                    "category": "Exercise"
+                    "description": "30 min run",
+                    "category": "Exercise",
+                    "frequency": "DAILY",
+                    "targetTime": "06:00:00",
+                    "targetCount": 1,
+                    "isCountable": false
                 }
                 """;
 

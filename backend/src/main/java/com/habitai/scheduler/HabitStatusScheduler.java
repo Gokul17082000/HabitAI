@@ -2,7 +2,7 @@ package com.habitai.scheduler;
 
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitRepository;
-import com.habitai.habit.HabitService;
+import com.habitai.habit.HabitScheduleService;
 import com.habitai.habitlog.HabitLog;
 import com.habitai.habitlog.HabitLogRepository;
 import com.habitai.habitlog.HabitStatus;
@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -20,12 +21,12 @@ import java.util.stream.Collectors;
 @Service
 public class HabitStatusScheduler {
 
-    private final HabitService habitService;
+    private final HabitScheduleService habitScheduleService;
     private final HabitRepository habitRepository;
     private final HabitLogRepository habitLogRepository;
 
-    public HabitStatusScheduler(HabitService habitService, HabitRepository habitRepository, HabitLogRepository habitLogRepository) {
-        this.habitService = habitService;
+    public HabitStatusScheduler(HabitScheduleService habitScheduleService, HabitRepository habitRepository, HabitLogRepository habitLogRepository) {
+        this.habitScheduleService = habitScheduleService;
         this.habitRepository = habitRepository;
         this.habitLogRepository = habitLogRepository;
     }
@@ -33,8 +34,8 @@ public class HabitStatusScheduler {
     @Transactional
     @Scheduled(cron = "0 */5 * * * *")
     public void updateMissedHabits() {
-        LocalDate today = LocalDate.now();
-        LocalTime now = LocalTime.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        LocalTime now = LocalTime.now(ZoneId.of("Asia/Kolkata"));
 
         List<Habit> overdueHabits = habitRepository.findByTargetTimeBefore(now);
         if (overdueHabits.isEmpty()) return;
@@ -47,7 +48,8 @@ public class HabitStatusScheduler {
         List<HabitLog> toInsert = new ArrayList<>();
 
         for (Habit habit : overdueHabits) {
-            if (!habitService.isScheduledForDate(habit, today)) continue;
+            if (habit.isPaused()) continue;
+            if (!habitScheduleService.isScheduledForDate(habit, today)) continue;
 
             String key = habit.getId() + ":" + habit.getUserId();
             if (alreadyLoggedKeys.contains(key)) continue;

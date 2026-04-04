@@ -79,13 +79,14 @@ export const deleteHabitApi = async (habitId: number): Promise<void> => {
 export const logHabitApi = async (
   habitId: number,
   date: string,
-  habitStatus: string
+  habitStatus: string,
+  currentCount: number = 0
 ): Promise<void> => {
   const headers = await authHeader();
   const response = await fetch(`${API_ENDPOINTS.habits}/${habitId}/log`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ date, habitStatus }),
+    body: JSON.stringify({ date, habitStatus, currentCount }),
   });
   await handleResponse<void>(response);
 };
@@ -113,4 +114,23 @@ export const getHabitActivityApi = async (
     { headers }
   );
   return handleResponse<ActivityItem[]>(response);
+};
+
+export const pauseHabitApi = async (habitId: number, days: number): Promise<void> => {
+  const headers = await authHeader();
+  const response = await fetch(`${API_ENDPOINTS.habits}/${habitId}/pause`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify({ days }),
+  });
+  await handleResponse<void>(response);
+};
+
+export const resumeHabitApi = async (habitId: number): Promise<void> => {
+  const headers = await authHeader();
+  const response = await fetch(`${API_ENDPOINTS.habits}/${habitId}/resume`, {
+    method: "PATCH",
+    headers,
+  });
+  await handleResponse<void>(response);
 };

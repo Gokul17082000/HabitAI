@@ -10,6 +10,7 @@ import com.habitai.habitlog.HabitStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -87,7 +88,7 @@ public class UserStatsService {
                 .filter(l -> l.getStatus() == HabitStatus.COMPLETED)
                 .collect(Collectors.groupingBy(HabitLog::getDate, Collectors.counting()));
 
-        LocalDate date = LocalDate.now();
+        LocalDate date = LocalDate.now(ZoneId.of("Asia/Kolkata"));
         int streak = 0;
 
         while (completedPerDay.containsKey(date) && completedPerDay.get(date) > 0) {

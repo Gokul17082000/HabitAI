@@ -2,7 +2,7 @@ package com.habitai.scheduler;
 
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitRepository;
-import com.habitai.habit.HabitService;
+import com.habitai.habit.HabitScheduleService;
 import com.habitai.habitlog.HabitLog;
 import com.habitai.habitlog.HabitLogRepository;
 import com.habitai.habitlog.HabitStatus;
@@ -28,13 +28,13 @@ import static org.mockito.Mockito.*;
 class HabitStatusSchedulerTest {
 
     @Mock
-    private HabitService habitService;
-
-    @Mock
     private HabitRepository habitRepository;
 
     @Mock
     private HabitLogRepository habitLogRepository;
+
+    @Mock
+    private HabitScheduleService habitScheduleService;
 
     @InjectMocks
     private HabitStatusScheduler habitStatusScheduler;
@@ -46,6 +46,7 @@ class HabitStatusSchedulerTest {
     void setUp() {
         today = LocalDate.now();
         now = LocalTime.now();
+        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class))).thenReturn(true);
     }
 
     // updateMissedHabits - No Habits Tests
@@ -90,7 +91,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());
-        when(habitService.isScheduledForDate(habit, today))
+        when(habitScheduleService.isScheduledForDate(habit, today))
                 .thenReturn(true);
 
         // Act
@@ -108,7 +109,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());
-        when(habitService.isScheduledForDate(habit, today))
+        when(habitScheduleService.isScheduledForDate(habit, today))
                 .thenReturn(false);
 
         // Act
@@ -132,7 +133,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(List.of(existingLog));
-        when(habitService.isScheduledForDate(habit, today))
+        when(habitScheduleService.isScheduledForDate(habit, today))
                 .thenReturn(true);
 
         // Act
@@ -155,7 +156,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit1, habit2, habit3));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());
-        when(habitService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
+        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
                 .thenReturn(true);
 
         // Act
@@ -177,11 +178,11 @@ class HabitStatusSchedulerTest {
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());
 
-        when(habitService.isScheduledForDate(scheduledHabit1, today))
+        when(habitScheduleService.isScheduledForDate(scheduledHabit1, today))
                 .thenReturn(true);
-        when(habitService.isScheduledForDate(unscheduledHabit, today))
+        when(habitScheduleService.isScheduledForDate(unscheduledHabit, today))
                 .thenReturn(false);
-        when(habitService.isScheduledForDate(scheduledHabit2, today))
+        when(habitScheduleService.isScheduledForDate(scheduledHabit2, today))
                 .thenReturn(true);
 
         // Act
@@ -208,7 +209,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit1, habit2, habit3));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(List.of(log2));
-        when(habitService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
+        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
                 .thenReturn(true);
 
         // Act
@@ -231,7 +232,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit1User1, habit2User2, habit3User1));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());
-        when(habitService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
+        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
                 .thenReturn(true);
 
         // Act
@@ -257,7 +258,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit1User1, habit1User2));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(List.of(log1User1));
-        when(habitService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
+        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
                 .thenReturn(true);
 
         // Act
@@ -279,7 +280,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(earlyHabit));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());
-        when(habitService.isScheduledForDate(earlyHabit, today))
+        when(habitScheduleService.isScheduledForDate(earlyHabit, today))
                 .thenReturn(true);
 
         // Act
@@ -298,7 +299,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());
-        when(habitService.isScheduledForDate(habit, today))
+        when(habitScheduleService.isScheduledForDate(habit, today))
                 .thenReturn(true);
 
         // Act
@@ -316,7 +317,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());
-        when(habitService.isScheduledForDate(habit, today))
+        when(habitScheduleService.isScheduledForDate(habit, today))
                 .thenReturn(true);
 
         // Act
@@ -342,7 +343,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(List.of(existingLog));
-        when(habitService.isScheduledForDate(habit, today))
+        when(habitScheduleService.isScheduledForDate(habit, today))
                 .thenReturn(true);
 
         // Act
@@ -372,7 +373,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit1, habit2));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(List.of(log1, log2));
-        when(habitService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
+        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
                 .thenReturn(true);
 
         // Act
@@ -390,7 +391,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());
-        when(habitService.isScheduledForDate(habit, today))
+        when(habitScheduleService.isScheduledForDate(habit, today))
                 .thenReturn(true);
 
         // Act
@@ -410,7 +411,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());
-        when(habitService.isScheduledForDate(habit, today))
+        when(habitScheduleService.isScheduledForDate(habit, today))
                 .thenReturn(true);
 
         // Act - The method is @Transactional, so this verifies it completes without error
@@ -436,7 +437,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit1, habit2));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());
-        when(habitService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
+        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
                 .thenReturn(true);
 
         // Act
@@ -458,7 +459,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(habits);
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());
-        when(habitService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
+        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
                 .thenReturn(true);
 
         // Act
@@ -480,7 +481,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit1, habit2, habit3, habit4));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());
-        when(habitService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
+        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
                 .thenReturn(true);
 
         // Act
@@ -500,7 +501,7 @@ class HabitStatusSchedulerTest {
                 .thenReturn(List.of(habit1, habit2));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());
-        when(habitService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
+        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
                 .thenReturn(false);
 
         // Act

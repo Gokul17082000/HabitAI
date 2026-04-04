@@ -2,6 +2,7 @@ package com.habitai.scheduler;
 
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitRepository;
+import com.habitai.habit.HabitScheduleService;
 import com.habitai.notification.NotificationService;
 import com.habitai.user.User;
 import com.habitai.user.UserRepository;
@@ -15,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +38,9 @@ class SchedulerServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private HabitScheduleService habitScheduleService;
+
     @InjectMocks
     private SchedulerService schedulerService;
 
@@ -50,6 +55,7 @@ class SchedulerServiceTest {
 
         schedulerService = spy(schedulerService);
         doReturn(now).when(schedulerService).getCurrentTime();
+        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class))).thenReturn(true);
     }
 
     // sendHabitReminder - No Habits Tests

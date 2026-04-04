@@ -49,7 +49,7 @@ class HabitLogControllerTest {
     void testUpdateTodayHabitStatusCompleted() throws Exception {
         // Arrange
         long habitId = 1L;
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.COMPLETED);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.COMPLETED, 1);
 
         // Act & Assert
         mockMvc.perform(post("/habits/{habitId}/log", habitId)
@@ -64,7 +64,7 @@ class HabitLogControllerTest {
     void testUpdateTodayHabitStatusMissed() throws Exception {
         // Arrange
         long habitId = 1L;
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.MISSED);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.MISSED, 0);
 
         // Act & Assert
         mockMvc.perform(post("/habits/{habitId}/log", habitId)
@@ -79,7 +79,7 @@ class HabitLogControllerTest {
     void testUpdateTodayHabitStatusPartiallyCompleted() throws Exception {
         // Arrange
         long habitId = 1L;
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PARTIALLY_COMPLETED);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PARTIALLY_COMPLETED, 1);
 
         // Act & Assert
         mockMvc.perform(post("/habits/{habitId}/log", habitId)
@@ -94,7 +94,7 @@ class HabitLogControllerTest {
     void testUpdateTodayHabitStatusPending() throws Exception {
         // Arrange
         long habitId = 1L;
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PENDING);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PENDING, 1);
 
         // Act & Assert
         mockMvc.perform(post("/habits/{habitId}/log", habitId)
@@ -107,9 +107,11 @@ class HabitLogControllerTest {
 
     @Test
     void testUpdateTodayHabitStatusInvalidRequest() throws Exception {
-        // Arrange
+        // Arrange - valid JSON; @Min(0) violated on currentCount (null/missing count causes parse errors → 500)
         long habitId = 1L;
-        String invalidJson = "{\"date\": null, \"habitStatus\": \"COMPLETED\"}";
+        String invalidJson = String.format(
+                "{\"date\": \"%s\", \"habitStatus\": \"COMPLETED\", \"currentCount\": -1}",
+                today);
 
         // Act & Assert
         mockMvc.perform(post("/habits/{habitId}/log", habitId)
@@ -124,7 +126,7 @@ class HabitLogControllerTest {
     void testUpdateTodayHabitStatusPastDateCausesBadRequest() throws Exception {
         // Arrange
         long habitId = 1L;
-        HabitLogRequest request = new HabitLogRequest(today.minusDays(1), HabitStatus.COMPLETED);
+        HabitLogRequest request = new HabitLogRequest(today.minusDays(1), HabitStatus.COMPLETED, 1);
         
         // Since the service is mocked, we can simulate the exception it would throw
         doThrow(new IllegalStateException("Cannot update past or future habits"))

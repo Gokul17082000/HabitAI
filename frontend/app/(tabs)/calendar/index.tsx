@@ -7,6 +7,7 @@ import { formatDate, formatTime } from "../../../utils/formatters";
 import { Colors } from "../../../constants/colors";
 import { UnauthorizedError } from "../../../utils/apiHandler";
 import { getToken } from "../../../utils/authStorage";
+import { API_ENDPOINTS } from "../../../constants/api"
 
 /* ---------------- Types ---------------- */
 type HabitStatus = "COMPLETED" | "MISSED" | "PENDING" | "PARTIALLY_COMPLETED";

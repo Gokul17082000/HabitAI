@@ -14,7 +14,7 @@ export function formatDate(date: Date): string {
 }
 
 export function formatDisplayDate(date: string): string {
-  return new Date(date).toLocaleDateString("en-US", {
+  return new Date(date + "T00:00:00").toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",

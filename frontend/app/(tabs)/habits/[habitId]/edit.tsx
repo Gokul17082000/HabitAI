@@ -45,6 +45,8 @@ export default function EditHabitScreen() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
+  const [isCountable, setIsCountable] = useState(false);
+  const [targetCount, setTargetCount] = useState(1);
 
   /* -------------------- Load Habit -------------------- */
   useEffect(() => {
@@ -62,6 +64,8 @@ export default function EditHabitScreen() {
       setDaysOfWeek((habit.daysOfWeek as DayOfWeek[]) ?? []);
       setDaysOfMonth(habit.daysOfMonth ?? []);
       setTargetTime(parseTargetTime(habit.targetTime));
+      setIsCountable(habit.isCountable);
+      setTargetCount(habit.targetCount);
     } catch (e) {
       if (e instanceof UnauthorizedError) {
         return;
@@ -111,6 +115,10 @@ export default function EditHabitScreen() {
       setError("Select at least one day of month");
       return;
     }
+    if (isCountable && (targetCount < 1 || targetCount > 100)) {
+      setError("Target count must be between 1 and 100");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -122,6 +130,8 @@ export default function EditHabitScreen() {
         daysOfWeek: frequency === "WEEKLY" ? daysOfWeek : null,
         daysOfMonth: frequency === "MONTHLY" ? daysOfMonth : null,
         targetTime: formatTargetTime(targetTime),
+        isCountable,
+        targetCount: isCountable ? targetCount : 1,
       };
 
       await updateHabitApi(Number(habitId), request);
@@ -230,6 +240,46 @@ export default function EditHabitScreen() {
                   onPress={() => toggleDayOfMonth(day)}
                 />
               ))}
+            </View>
+          </>
+        )}
+
+        {/* Countable Toggle */}
+        <Text style={styles.label}>Habit Type</Text>
+        <View style={styles.row}>
+          <Chip
+            label="Simple (Yes/No)"
+            active={!isCountable}
+            onPress={() => {
+              setIsCountable(false);
+              setTargetCount(1);
+            }}
+          />
+          <Chip
+            label="Countable"
+            active={isCountable}
+            onPress={() => setIsCountable(true)}
+          />
+        </View>
+
+        {/* Target Count — only shown when countable */}
+        {isCountable && (
+          <>
+            <Text style={styles.label}>Daily Target</Text>
+            <View style={styles.counterRow}>
+              <Pressable
+                style={styles.counterBtn}
+                onPress={() => setTargetCount(prev => Math.max(1, prev - 1))}
+              >
+                <Text style={styles.counterBtnText}>−</Text>
+              </Pressable>
+              <Text style={styles.counterValue}>{targetCount}</Text>
+              <Pressable
+                style={styles.counterBtn}
+                onPress={() => setTargetCount(prev => Math.min(100, prev + 1))}
+              >
+                <Text style={styles.counterBtnText}>+</Text>
+              </Pressable>
             </View>
           </>
         )}
@@ -379,5 +429,31 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: 12,
     borderRadius: 8,
+  },
+  counterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 12,
+  },
+  counterBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  counterBtnText: {
+    color: Colors.white,
+    fontSize: 20,
+    fontWeight: "600",
+  },
+  counterValue: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: Colors.text,
+    minWidth: 40,
+    textAlign: "center",
   },
 });

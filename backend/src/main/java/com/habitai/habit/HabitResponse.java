@@ -10,5 +10,8 @@ public record HabitResponse(
         String description,
         String category,
         LocalTime targetTime,
+        int targetCount,
+        boolean isCountable,
+        int currentCount,
         HabitStatus habitStatus
 ) {}

@@ -3,6 +3,7 @@ package com.habitai.habitlog;
 import com.habitai.common.security.CurrentUser;
 import com.habitai.common.validation.HabitAccessValidator;
 import com.habitai.habit.Habit;
+import com.habitai.habit.HabitScheduleService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +34,9 @@ class HabitLogServiceTest {
     @Mock
     private CurrentUser currentUser;
 
+    @Mock
+    private HabitScheduleService habitScheduleService;
+
     @InjectMocks
     private HabitLogService habitLogService;
 
@@ -44,6 +48,7 @@ class HabitLogServiceTest {
     void setUp() {
         today = LocalDate.now();
         when(currentUser.getId()).thenReturn(USER_ID);
+        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class))).thenReturn(true);
     }
 
     // updateTodayHabitStatus Tests
@@ -57,7 +62,7 @@ class HabitLogServiceTest {
         when(habitLogRepository.findByHabitIdAndUserIdAndDate(HABIT_ID, USER_ID, today))
                 .thenReturn(Optional.empty());
 
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.COMPLETED);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.COMPLETED, 1);
 
         // Act
         habitLogService.updateTodayHabitStatus(HABIT_ID, request);
@@ -80,7 +85,7 @@ class HabitLogServiceTest {
         when(habitLogRepository.findByHabitIdAndUserIdAndDate(HABIT_ID, USER_ID, today))
                 .thenReturn(Optional.empty());
 
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.MISSED);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.MISSED, 0);
 
         // Act
         habitLogService.updateTodayHabitStatus(HABIT_ID, request);
@@ -100,7 +105,7 @@ class HabitLogServiceTest {
         when(habitLogRepository.findByHabitIdAndUserIdAndDate(HABIT_ID, USER_ID, today))
                 .thenReturn(Optional.empty());
 
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PARTIALLY_COMPLETED);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PARTIALLY_COMPLETED, 1);
 
         // Act
         habitLogService.updateTodayHabitStatus(HABIT_ID, request);
@@ -123,7 +128,7 @@ class HabitLogServiceTest {
         when(habitLogRepository.findByHabitIdAndUserIdAndDate(HABIT_ID, USER_ID, today))
                 .thenReturn(Optional.of(existingLog));
 
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PENDING);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PENDING, 1);
 
         // Act
         habitLogService.updateTodayHabitStatus(HABIT_ID, request);
@@ -145,7 +150,7 @@ class HabitLogServiceTest {
         when(habitLogRepository.findByHabitIdAndUserIdAndDate(HABIT_ID, USER_ID, today))
                 .thenReturn(Optional.of(existingLog));
 
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.MISSED);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.MISSED, 0);
 
         // Act
         habitLogService.updateTodayHabitStatus(HABIT_ID, request);
@@ -162,7 +167,7 @@ class HabitLogServiceTest {
         Habit mockHabit = new Habit();
         when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(mockHabit);
 
-        HabitLogRequest request = new HabitLogRequest(pastDate, HabitStatus.COMPLETED);
+        HabitLogRequest request = new HabitLogRequest(pastDate, HabitStatus.COMPLETED, 1);
 
         // Act & Assert
         assertThrows(IllegalStateException.class, () ->
@@ -177,7 +182,7 @@ class HabitLogServiceTest {
         Habit mockHabit = new Habit();
         when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(mockHabit);
 
-        HabitLogRequest request = new HabitLogRequest(futureDate, HabitStatus.COMPLETED);
+        HabitLogRequest request = new HabitLogRequest(futureDate, HabitStatus.COMPLETED, 1);
 
         // Act & Assert
         assertThrows(IllegalStateException.class, () ->
@@ -190,7 +195,7 @@ class HabitLogServiceTest {
     @Test
     void testGetCurrentStreakZero() {
         // Arrange
-        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(new Habit());
+        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(createHabitWithCreatedAt(today.minusDays(10)));
         when(habitLogRepository.findByHabitIdAndUserIdAndStatusOrderByDateDesc(
                 HABIT_ID, USER_ID, HabitStatus.COMPLETED))
                 .thenReturn(new ArrayList<>());
@@ -209,7 +214,7 @@ class HabitLogServiceTest {
         log.setDate(today);
         log.setStatus(HabitStatus.COMPLETED);
 
-        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(new Habit());
+        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(createHabitWithCreatedAt(today.minusDays(10)));
         when(habitLogRepository.findByHabitIdAndUserIdAndStatusOrderByDateDesc(
                 HABIT_ID, USER_ID, HabitStatus.COMPLETED))
                 .thenReturn(List.of(log));
@@ -236,7 +241,7 @@ class HabitLogServiceTest {
         log3.setDate(today.minusDays(2));
         log3.setStatus(HabitStatus.COMPLETED);
 
-        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(new Habit());
+        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(createHabitWithCreatedAt(today.minusDays(10)));
         when(habitLogRepository.findByHabitIdAndUserIdAndStatusOrderByDateDesc(
                 HABIT_ID, USER_ID, HabitStatus.COMPLETED))
                 .thenReturn(List.of(log1, log2, log3));
@@ -259,7 +264,7 @@ class HabitLogServiceTest {
         log2.setDate(today.minusDays(2)); // Gap of 1 day
         log2.setStatus(HabitStatus.COMPLETED);
 
-        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(new Habit());
+        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(createHabitWithCreatedAt(today.minusDays(10)));
         when(habitLogRepository.findByHabitIdAndUserIdAndStatusOrderByDateDesc(
                 HABIT_ID, USER_ID, HabitStatus.COMPLETED))
                 .thenReturn(List.of(log1, log2));
@@ -278,7 +283,7 @@ class HabitLogServiceTest {
         log.setDate(today.minusDays(1));
         log.setStatus(HabitStatus.COMPLETED);
 
-        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(new Habit());
+        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(createHabitWithCreatedAt(today));
         when(habitLogRepository.findByHabitIdAndUserIdAndStatusOrderByDateDesc(
                 HABIT_ID, USER_ID, HabitStatus.COMPLETED))
                 .thenReturn(List.of(log));
@@ -295,7 +300,7 @@ class HabitLogServiceTest {
     @Test
     void testGetLongestStreakZero() {
         // Arrange
-        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(new Habit());
+        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(createHabitWithCreatedAt(today.minusDays(10)));
         when(habitLogRepository.findByHabitIdAndUserIdAndStatusOrderByDateDesc(
                 HABIT_ID, USER_ID, HabitStatus.COMPLETED))
                 .thenReturn(new ArrayList<>());
@@ -314,7 +319,7 @@ class HabitLogServiceTest {
         log.setDate(today);
         log.setStatus(HabitStatus.COMPLETED);
 
-        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(new Habit());
+        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(createHabitWithCreatedAt(today.minusDays(10)));
         when(habitLogRepository.findByHabitIdAndUserIdAndStatusOrderByDateDesc(
                 HABIT_ID, USER_ID, HabitStatus.COMPLETED))
                 .thenReturn(List.of(log));
@@ -341,7 +346,7 @@ class HabitLogServiceTest {
         log3.setDate(today);
         log3.setStatus(HabitStatus.COMPLETED);
 
-        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(new Habit());
+        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(createHabitWithCreatedAt(today.minusDays(10)));
         when(habitLogRepository.findByHabitIdAndUserIdAndStatusOrderByDateDesc(
                 HABIT_ID, USER_ID, HabitStatus.COMPLETED))
                 .thenReturn(List.of(log3, log2, log1));
@@ -376,7 +381,7 @@ class HabitLogServiceTest {
         log5.setDate(today.minusDays(4));
         log5.setStatus(HabitStatus.COMPLETED);
 
-        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(new Habit());
+        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(createHabitWithCreatedAt(today.minusDays(10)));
         when(habitLogRepository.findByHabitIdAndUserIdAndStatusOrderByDateDesc(
                 HABIT_ID, USER_ID, HabitStatus.COMPLETED))
                 .thenReturn(List.of(log5, log4, log3, log2, log1));
@@ -411,7 +416,7 @@ class HabitLogServiceTest {
         log5.setDate(today);
         log5.setStatus(HabitStatus.COMPLETED);
 
-        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(new Habit());
+        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(createHabitWithCreatedAt(today.minusDays(10)));
         when(habitLogRepository.findByHabitIdAndUserIdAndStatusOrderByDateDesc(
                 HABIT_ID, USER_ID, HabitStatus.COMPLETED))
                 .thenReturn(List.of(log5, log4, log3, log2, log1));
@@ -421,6 +426,12 @@ class HabitLogServiceTest {
 
         // Assert
         assertEquals(3, response.streak());
+    }
+
+    private Habit createHabitWithCreatedAt(LocalDate createdAt) {
+        Habit habit = new Habit();
+        habit.setCreatedAt(createdAt);
+        return habit;
     }
 
     // getHabitActivity Tests

@@ -8,6 +8,7 @@ import lombok.Setter;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.Set;
 
 @Getter
@@ -60,10 +61,22 @@ public class Habit {
     private LocalTime targetTime;
 
     @Column(nullable = false)
+    private int targetCount = 1;
+
+    @Column(nullable = false)
+    private boolean isCountable = false;
+
+    @Column(nullable = false)
+    private boolean paused = false;
+
+    @Column
+    private LocalDate pausedUntil;
+
+    @Column(nullable = false)
     private LocalDate createdAt;
 
     @PrePersist
     public void prePersist() {
-        createdAt = LocalDate.now();
+        createdAt = LocalDate.now(ZoneId.of("Asia/Kolkata"));
     }
 }
