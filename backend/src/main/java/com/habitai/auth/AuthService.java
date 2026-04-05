@@ -9,6 +9,9 @@ import com.habitai.user.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
 
 @Service
 public class AuthService {
@@ -16,11 +19,16 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final RefreshTokenRepository refreshTokenRepository;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthService(UserRepository userRepository,
+                       PasswordEncoder passwordEncoder,
+                       JwtService jwtService,
+                       RefreshTokenRepository refreshTokenRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.refreshTokenRepository = refreshTokenRepository;
     }
 
     public RegisterResponse register(AuthRequest authRequest) {
@@ -42,6 +50,7 @@ public class AuthService {
         return new RegisterResponse("User Successfully created!");
     }
 
+    @Transactional
     public LoginResponse login(AuthRequest authRequest) {
         User user = userRepository.findByEmail(authRequest.email())
                 .orElseThrow(() -> new UserNotFoundException("User Not Found!"));
@@ -50,24 +59,53 @@ public class AuthService {
             throw new PasswordDoesNotMatchException("Invalid credentials!");
         }
 
-        return new LoginResponse(
-                jwtService.generateToken(user),
-                jwtService.generateRefreshToken(user)
-        );
+        // Invalidate any existing refresh tokens for this user on new login
+        refreshTokenRepository.deleteByUserId(user.getId());
+
+        String rawRefreshToken = jwtService.generateRefreshToken(user);
+        persistRefreshToken(rawRefreshToken, user.getId());
+
+        return new LoginResponse(jwtService.generateToken(user), rawRefreshToken);
     }
 
+    @Transactional
     public LoginResponse refresh(RefreshRequest request) {
-        String token = request.refreshToken();
-        if (!jwtService.isValidRefreshToken(token)) {
+        String incomingToken = request.refreshToken();
+
+        // Validate JWT signature and expiry first (cheap, no DB hit)
+        if (!jwtService.isValidRefreshToken(incomingToken)) {
             throw new IllegalStateException("Invalid or expired refresh token.");
         }
-        String userId = jwtService.extractUserId(token);
-        User user = userRepository.findById(Long.parseLong(userId))
+
+        RefreshToken stored = refreshTokenRepository.findByToken(incomingToken)
+                .orElseThrow(() -> new IllegalStateException("Refresh token not recognised."));
+
+        if (stored.isUsed()) {
+            // Token reuse detected — possible theft; invalidate all tokens for this user
+            refreshTokenRepository.deleteByUserId(stored.getUserId());
+            throw new IllegalStateException("Refresh token already used. Please log in again.");
+        }
+
+        if (stored.isExpired()) {
+            refreshTokenRepository.delete(stored);
+            throw new IllegalStateException("Refresh token expired. Please log in again.");
+        }
+
+        // Mark old token as used (rotation — one-time use)
+        stored.setUsed(true);
+        refreshTokenRepository.save(stored);
+
+        User user = userRepository.findById(stored.getUserId())
                 .orElseThrow(() -> new UserNotFoundException("User Not Found!"));
 
-        return new LoginResponse(
-                jwtService.generateToken(user),
-                jwtService.generateRefreshToken(user)
-        );
+        String newRawRefreshToken = jwtService.generateRefreshToken(user);
+        persistRefreshToken(newRawRefreshToken, user.getId());
+
+        return new LoginResponse(jwtService.generateToken(user), newRawRefreshToken);
+    }
+
+    private void persistRefreshToken(String rawToken, Long userId) {
+        Instant expiresAt = Instant.now().plusMillis(jwtService.getRefreshExpiration());
+        refreshTokenRepository.save(new RefreshToken(rawToken, userId, expiresAt));
     }
 }

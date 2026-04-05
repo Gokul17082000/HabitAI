@@ -47,10 +47,8 @@ public class WeeklyDigestScheduler {
         LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
         LocalDate weekStart = today.minusDays(6); // Mon–Sun
 
-        // Load all users who have a push token
-        List<User> users = userRepository.findAll().stream()
-                .filter(u -> u.getPushToken() != null && !u.getPushToken().isBlank())
-                .toList();
+        // Only load users who have a push token — avoids a full table scan
+        List<User> users = userRepository.findByPushTokenNotNull();
 
         if (users.isEmpty()) return;
 

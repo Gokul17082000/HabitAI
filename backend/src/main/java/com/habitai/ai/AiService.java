@@ -27,6 +27,7 @@ public class AiService {
     private final CurrentUser currentUser;
     private final UserStatsService userStatsService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final RestClient restClient = RestClient.create();
 
     public AiService(HabitRepository habitRepository,
                      CurrentUser currentUser,
@@ -58,12 +59,13 @@ public class AiService {
             """, goal, existingTitles.isEmpty() ? "none" : String.join(", ", existingTitles));
 
         String response = callGrok(systemPrompt, userMessage);
+        String json = stripMarkdownFences(response);
 
         try {
-            return objectMapper.readValue(response,
+            return objectMapper.readValue(json,
                     objectMapper.getTypeFactory().constructCollectionType(List.class, HabitRequest.class));
         } catch (Exception e) {
-            throw new RuntimeException("Failed to parse Grok response: " + e.getMessage());
+            throw new RuntimeException("AI returned an unexpected response format. Please try again.");
         }
     }
 
@@ -96,8 +98,6 @@ public class AiService {
     }
 
     private String callGrok(String systemPrompt, String userMessage) {
-        RestClient client = RestClient.create();
-
         Map<String, Object> body = Map.of(
                 "model", "grok-3-mini",
                 "max_tokens", 1000,
@@ -107,7 +107,7 @@ public class AiService {
                 )
         );
 
-        String responseBody = client.post()
+        String responseBody = restClient.post()
                 .uri(apiUrl)
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
@@ -143,5 +143,23 @@ public class AiService {
         """, habitSummary, totalCompleted, totalScheduled, overallPct);
 
         return callGrok(systemPrompt, userMessage);
+    }
+
+    /**
+     * LLMs sometimes wrap JSON in markdown code fences (```json ... ```) despite being told not to.
+     * Strip them before parsing to avoid a JsonParseException.
+     */
+    private String stripMarkdownFences(String text) {
+        if (text == null) return "";
+        String trimmed = text.strip();
+        if (trimmed.startsWith("```")) {
+            // Remove opening fence (```json or just ```)
+            trimmed = trimmed.replaceFirst("^```[a-zA-Z]*\\n?", "");
+            // Remove closing fence
+            if (trimmed.endsWith("```")) {
+                trimmed = trimmed.substring(0, trimmed.lastIndexOf("```")).stripTrailing();
+            }
+        }
+        return trimmed;
     }
 }

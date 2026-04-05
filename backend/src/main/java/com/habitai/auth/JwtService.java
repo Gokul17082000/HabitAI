@@ -84,4 +84,8 @@ public class JwtService {
     public String extractUserId(String token) {
         return extractAllClaims(token).getSubject();
     }
+
+    public long getRefreshExpiration() {
+        return refreshExpiration;
+    }
 }

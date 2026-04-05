@@ -11,4 +11,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /** Batch-loads users by a set of IDs — avoids N+1 in the notification scheduler. */
     List<User> findByIdIn(Collection<Long> ids);
+
+    /** Only loads users with a registered push token — used by the weekly digest scheduler. */
+    List<User> findByPushTokenNotNull();
 }

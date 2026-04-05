@@ -58,9 +58,11 @@ public class SecurityConfig {
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
-                // Rate limiter runs first — rejects brute-force before JWT parsing or DB access
-                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                // Rate limiter runs first — rejects brute-force before JWT parsing or DB access.
+                // Chain explicitly: rateLimitFilter → jwtAuthenticationFilter → UsernamePasswordAuthenticationFilter.
+                // Using the same anchor for both addFilterBefore calls would cause Spring to reverse the order.
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

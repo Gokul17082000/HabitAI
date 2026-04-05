@@ -12,14 +12,18 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final int MAX_REQUESTS = 10;
     private static final long WINDOW_MS = 60_000L;
+    // Evict stale entries every N filtered requests to prevent unbounded map growth
+    private static final int EVICTION_INTERVAL = 500;
 
     private final Map<String, RequestWindow> windowMap = new ConcurrentHashMap<>();
+    private int requestsSinceEviction = 0;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -39,16 +43,26 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String clientIp = resolveClientIp(request);
         String key = clientIp + ":" + request.getRequestURI();
 
-        RequestWindow window = windowMap.compute(key, (k, existing) -> {
+        // Periodically evict expired windows to prevent unbounded map growth
+        if (++requestsSinceEviction >= EVICTION_INTERVAL) {
+            requestsSinceEviction = 0;
             long now = Instant.now().toEpochMilli();
+            windowMap.entrySet().removeIf(e -> now - e.getValue().windowStart > WINDOW_MS);
+        }
+
+        long now = Instant.now().toEpochMilli();
+        // compute() is atomic; AtomicInteger.incrementAndGet() is the atomic increment inside.
+        // This replaces the old non-atomic existing.count++ which allowed races under burst traffic.
+        RequestWindow window = windowMap.compute(key, (k, existing) -> {
             if (existing == null || now - existing.windowStart > WINDOW_MS) {
-                return new RequestWindow(now, 1);
+                return new RequestWindow(now);
             }
-            existing.count++;
             return existing;
         });
 
-        if (window.count > MAX_REQUESTS) {
+        int count = window.count.incrementAndGet();
+
+        if (count > MAX_REQUESTS) {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType("application/json");
             response.getWriter().write(
@@ -69,12 +83,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private static class RequestWindow {
-        long windowStart;
-        int count;
+        final long windowStart;
+        // AtomicInteger replaces the plain int — safe for concurrent increments
+        final AtomicInteger count = new AtomicInteger(0);
 
-        RequestWindow(long windowStart, int count) {
+        RequestWindow(long windowStart) {
             this.windowStart = windowStart;
-            this.count = count;
         }
     }
 }

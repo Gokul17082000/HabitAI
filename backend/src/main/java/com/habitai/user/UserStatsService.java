@@ -3,6 +3,7 @@ package com.habitai.user;
 import com.habitai.common.AppConstants;
 import com.habitai.common.security.CurrentUser;
 import com.habitai.exception.UserNotFoundException;
+import com.habitai.habit.HabitScheduleService;
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitRepository;
 import com.habitai.habitlog.HabitLog;
@@ -24,15 +25,18 @@ public class UserStatsService {
     private final HabitLogRepository habitLogRepository;
     private final CurrentUser currentUser;
     private final UserRepository userRepository;
+    private final HabitScheduleService habitScheduleService;
 
     public UserStatsService(HabitRepository habitRepository,
                             HabitLogRepository habitLogRepository,
                             CurrentUser currentUser,
-                            UserRepository userRepository) {
+                            UserRepository userRepository,
+                            HabitScheduleService habitScheduleService) {
         this.habitRepository = habitRepository;
         this.habitLogRepository = habitLogRepository;
         this.currentUser = currentUser;
         this.userRepository = userRepository;
+        this.habitScheduleService = habitScheduleService;
     }
 
     @Transactional(readOnly = true)
@@ -164,10 +168,13 @@ public class UserStatsService {
         while (!cursor.isAfter(today)) {
             final LocalDate date = cursor;
 
-            // Check if any habit was scheduled this day
+            // Only show a pixel if at least one habit was actually scheduled on this day.
+            // Must call isScheduledForDate() — checking only createdAt/isPaused misses
+            // weekly/monthly habits and marks their off-days as MISSED incorrectly.
             boolean anyScheduled = habits.stream()
                     .anyMatch(h -> !date.isBefore(h.getCreatedAt())
-                            && !h.isPaused());
+                            && !h.isPaused()
+                            && habitScheduleService.isScheduledForDate(h, date));
 
             if (anyScheduled) {
                 List<HabitLog> dayLogs = logsByDate.getOrDefault(date, List.of());
