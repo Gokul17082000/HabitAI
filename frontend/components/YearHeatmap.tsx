@@ -73,9 +73,11 @@ export default function YearHeatmap({ pixels }: Props) {
             {weeks.map((_, wi) => {
               const label = monthLabels.find((m) => m.weekIndex === wi);
               return (
-                <View key={wi} style={{ width: WEEK_WIDTH }}>
+                <View key={wi} style={{ width: WEEK_WIDTH, overflow: "visible" }}>
                   {label ? (
-                    <Text style={styles.monthLabel}>{label.label}</Text>
+                    <Text style={styles.monthLabel} numberOfLines={1}>
+                      {label.label}
+                    </Text>
                   ) : null}
                 </View>
               );
@@ -138,7 +140,7 @@ export default function YearHeatmap({ pixels }: Props) {
 
 const styles = StyleSheet.create({
   monthRow:    { flexDirection: "row", marginBottom: 4 },
-  monthLabel:  { fontSize: 10, color: "#6b7280", fontWeight: "500" },
+  monthLabel:  { fontSize: 10, color: "#6b7280", fontWeight: "500", width: 28 },
   gridRow:     { flexDirection: "row" },
   dayLabel:    { fontSize: 9, color: "#9ca3af" },
   cell:        { width: CELL_SIZE, height: CELL_SIZE, borderRadius: 2, marginBottom: CELL_GAP },

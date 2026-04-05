@@ -25,11 +25,14 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [note, setNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [noteSaved, setNoteSaved] = useState(false);
 
-  // Sync when habit prop changes
   useEffect(() => {
-    setLocalStatus(habit.habitStatus);
-    setLocalCount(habit.currentCount);
+    if (!logging) {
+      setLocalStatus(habit.habitStatus);
+      setLocalCount(habit.currentCount);
+      setNoteSaved(false);
+    }
   }, [habit.habitStatus, habit.currentCount]);
 
   const today = formatDate(new Date());
@@ -108,6 +111,7 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
     setSavingNote(true);
     try {
       await logHabitApi(habit.id, today, "MISSED", 0, note.trim());
+      setNoteSaved(true);
     } catch {
       // fail silently — note is non-critical
     } finally {
@@ -123,7 +127,7 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
     <View style={styles.card}>
       {/* Left side — same for both */}
       <View style={styles.left}>
-        <Text style={styles.title}>{habit.title}</Text>
+        <Text style={styles.title} numberOfLines={2}>{habit.title}</Text>
         <Text style={styles.category}>{habit.category}</Text>
         <Text style={styles.time}>⏰ {formatTime(habit.targetTime)}</Text>
       </View>
@@ -209,12 +213,16 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
       </View>
       {/* Note prompt — shows below card when missed */}
       {isMissed && (
-        <Pressable
-          style={noteStyles.prompt}
-          onPress={() => setShowNoteModal(true)}
-        >
-          <Text style={noteStyles.promptText}>💬 Why did you skip? Add a note</Text>
-        </Pressable>
+        noteSaved ? (
+          <Text style={noteStyles.savedText}>✓ Note saved</Text>
+        ) : (
+          <Pressable
+            style={noteStyles.prompt}
+            onPress={() => setShowNoteModal(true)}
+          >
+            <Text style={noteStyles.promptText}>💬 Why did you skip? Add a note</Text>
+          </Pressable>
+        )
       )}
 
       {/* Note Modal */}
@@ -282,6 +290,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: Colors.text,
+    flexShrink: 1,
   },
   category: {
     fontSize: 12,
@@ -376,4 +385,5 @@ const noteStyles = StyleSheet.create({
   cancelText:    { fontSize: 14, color: Colors.subtext },
   saveBtn:       { flex: 2, paddingVertical: 12, alignItems: "center", borderRadius: 10, backgroundColor: Colors.primary },
   saveText:      { fontSize: 14, color: "#fff", fontWeight: "600" },
+  savedText: { fontSize: 12, color: Colors.completed, marginTop: -8, marginBottom: 12, paddingHorizontal: 4 },
 });

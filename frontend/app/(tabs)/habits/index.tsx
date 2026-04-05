@@ -33,8 +33,14 @@ export default function MasterHabitsScreen() {
   const [suggesting, setSuggesting] = useState(false);
   const [goalError, setGoalError] = useState("");
 
-  const activeHabits = habits.filter((h) => !h.paused);
-  const pausedHabits = habits.filter((h) => h.paused);
+  const activeHabits = habits
+    .filter((h) => !h.paused)
+    .sort((a, b) => a.targetTime.localeCompare(b.targetTime));
+
+  const pausedHabits = habits
+    .filter((h) => h.paused)
+    .sort((a, b) => a.targetTime.localeCompare(b.targetTime));
+
 
   /* ---------------- Load all habits ---------------- */
   const loadHabits = useCallback(async () => {

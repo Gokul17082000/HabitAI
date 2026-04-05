@@ -93,7 +93,9 @@ export default function ProfileScreen() {
 
         {/* Profile Card */}
         <View style={styles.profileCard}>
-          <Text style={styles.avatar}>👤</Text>
+          <Text style={styles.avatar}>
+            {user?.email?.slice(0, 2).toUpperCase() ?? "?"}
+          </Text>
           {loading ? (
             <Text style={styles.email}>Loading...</Text>
           ) : error ? (
@@ -251,7 +253,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   avatar: {
-    fontSize: 48,
+    fontSize: 22,
+    fontWeight: "700",
+    color: Colors.white,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.primary,
+    textAlign: "center",
+    lineHeight: 64,
     marginBottom: 10,
   },
   email: {

@@ -42,7 +42,7 @@ function ManageHabitCard({
       {/* Left */}
       <View style={{ flex: 1 }}>
         <View style={styles.titleRow}>
-          <Text style={styles.title}>{habit.title}</Text>
+          <Text style={styles.title} numberOfLines={2}>{habit.title}</Text>
           {habit.paused && (
             <View style={styles.pausedBadge}>
               <Text style={styles.pausedBadgeText}>⏸ Paused</Text>
@@ -135,6 +135,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: Colors.text,
+    flex: 1,
+    flexShrink: 1,
   },
   pausedBadge: {
     backgroundColor: Colors.border,

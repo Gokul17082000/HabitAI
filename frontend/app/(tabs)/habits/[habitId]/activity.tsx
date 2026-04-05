@@ -27,7 +27,7 @@ const getRangeDays = (range: RangeOption): number => {
     case "3M": return 90;
     case "6M": return 180;
     case "1Y": return 365;
-    case "ALL": return 3650;
+    case "ALL": return 1825;
   }
 };
 

@@ -5,18 +5,23 @@ import {
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { createHabitApi } from "../../../services/habitService";
-import { CreateHabitRequest, HabitCategory, HabitFrequency } from "../../../types/habit";
+import { CreateHabitRequest, HabitCategory, HabitFrequency, DayOfWeek } from "../../../types/habit";
 import { Colors } from "../../../constants/colors";
 
 const CATEGORIES: HabitCategory[] = ["GENERAL", "HEALTH", "FITNESS", "WORK", "LEARNING"];
 const FREQUENCIES: HabitFrequency[] = ["DAILY", "WEEKLY", "MONTHLY"];
+const DAYS_OF_WEEK: DayOfWeek[] = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
+const DAY_SHORT: Record<DayOfWeek, string> = {
+  MONDAY: "Mon", TUESDAY: "Tue", WEDNESDAY: "Wed", THURSDAY: "Thu",
+  FRIDAY: "Fri", SATURDAY: "Sat", SUNDAY: "Sun",
+};
 
 export default function AiReviewScreen() {
   const params = useLocalSearchParams();
   const initial: CreateHabitRequest[] = JSON.parse(params.habits as string);
   const [habits, setHabits] = useState<CreateHabitRequest[]>(initial);
   const [selected, setSelected] = useState<Set<number>>(
-    new Set(initial.map((_, i) => i)) // all selected by default
+    new Set(initial.map((_, i) => i))
   );
   const [saving, setSaving] = useState(false);
 
@@ -31,21 +36,56 @@ export default function AiReviewScreen() {
 
   const toggleSelectAll = () => {
     if (selected.size === habits.length) {
-      setSelected(new Set()); // deselect all
+      setSelected(new Set());
     } else {
-      setSelected(new Set(habits.map((_, i) => i))); // select all
+      setSelected(new Set(habits.map((_, i) => i)));
     }
   };
 
   const updateHabit = (index: number, field: keyof CreateHabitRequest, value: any) => {
     setHabits((prev) =>
-      prev.map((h, i) => (i === index ? { ...h, [field]: value } : h))
+      prev.map((h, i) => {
+        if (i !== index) return h;
+        const updated = { ...h, [field]: value };
+        // When frequency changes, reset days
+        if (field === "frequency") {
+          updated.daysOfWeek = null;
+          updated.daysOfMonth = null;
+        }
+        return updated;
+      })
+    );
+  };
+
+  const toggleDayOfWeek = (index: number, day: DayOfWeek) => {
+    setHabits((prev) =>
+      prev.map((h, i) => {
+        if (i !== index) return h;
+        const current = h.daysOfWeek ?? [];
+        const exists = current.includes(day);
+        return {
+          ...h,
+          daysOfWeek: exists
+            ? current.filter((d) => d !== day)
+            : [...current, day],
+        };
+      })
     );
   };
 
   const saveSelected = async () => {
     const toSave = habits.filter((_, i) => selected.has(i));
     if (toSave.length === 0) return;
+
+    // Validate weekly habits have at least one day selected
+    const invalid = toSave.find(
+      (h) => h.frequency === "WEEKLY" && (!h.daysOfWeek || h.daysOfWeek.length === 0)
+    );
+    if (invalid) {
+      Alert.alert("Missing days", `"${invalid.title}" is WEEKLY but has no days selected.`);
+      return;
+    }
+
     setSaving(true);
     try {
       await Promise.all(toSave.map((h) => createHabitApi(h)));
@@ -76,35 +116,31 @@ export default function AiReviewScreen() {
       </View>
 
       <Text style={styles.subtitle}>
-        Select the habits you want to add. Tap a card to select/deselect it.
+        Tap a card to select it. Edit fields before saving.
       </Text>
 
       <ScrollView contentContainerStyle={styles.list}>
         {habits.map((habit, index) => {
           const isSelected = selected.has(index);
           return (
-            <View
-              key={index}
-              style={[styles.card, isSelected && styles.cardSelected]}
-            >
-              {/* Selection toggle row */}
-              <Pressable
-                style={styles.cardHeader}
-                onPress={() => toggleSelect(index)}
-              >
+            <View key={index} style={[styles.card, isSelected && styles.cardSelected]}>
+
+              {/* Card header — tap to select/deselect */}
+              <Pressable style={styles.cardHeader} onPress={() => toggleSelect(index)}>
                 <View style={styles.cardHeaderLeft}>
                   <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
                     {isSelected && <Text style={styles.checkmark}>✓</Text>}
                   </View>
-                  <Text style={styles.cardTitle}>{habit.title}</Text>
+                  <Text style={styles.cardTitle} numberOfLines={2}>{habit.title}</Text>
                 </View>
                 <Text style={styles.categoryBadge}>{habit.category}</Text>
               </Pressable>
 
-              {/* Expandable edit fields — only show when selected */}
+              {/* Edit fields — only when selected */}
               {isSelected && (
                 <View style={styles.editSection}>
 
+                  {/* Title */}
                   <Text style={styles.label}>Title</Text>
                   <TextInput
                     style={styles.input}
@@ -112,6 +148,7 @@ export default function AiReviewScreen() {
                     onChangeText={(v) => updateHabit(index, "title", v)}
                   />
 
+                  {/* Description */}
                   <Text style={styles.label}>Description</Text>
                   <TextInput
                     style={[styles.input, styles.inputMultiline]}
@@ -154,7 +191,66 @@ export default function AiReviewScreen() {
                     ))}
                   </View>
 
-                  {/* Time and count */}
+                  {/* Days of week — only when WEEKLY */}
+                  {habit.frequency === "WEEKLY" && (
+                    <>
+                      <Text style={styles.label}>Days of week</Text>
+                      <View style={styles.daysRow}>
+                        {DAYS_OF_WEEK.map((day) => {
+                          const isActive = habit.daysOfWeek?.includes(day) ?? false;
+                          return (
+                            <Pressable
+                              key={day}
+                              style={[styles.dayChip, isActive && styles.dayChipActive]}
+                              onPress={() => toggleDayOfWeek(index, day)}
+                            >
+                              <Text style={[styles.dayChipText, isActive && styles.dayChipTextActive]}>
+                                {DAY_SHORT[day].slice(0, 2)}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </>
+                  )}
+
+                  {/* Days of month — only when MONTHLY */}
+                  {habit.frequency === "MONTHLY" && (
+                    <>
+                      <Text style={styles.label}>Days of month</Text>
+                      <View style={styles.daysRow}>
+                        {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
+                          const isActive = habit.daysOfMonth?.includes(day) ?? false;
+                          return (
+                            <Pressable
+                              key={day}
+                              style={[styles.dayChip, isActive && styles.dayChipActive]}
+                              onPress={() => {
+                                setHabits((prev) =>
+                                  prev.map((h, i) => {
+                                    if (i !== index) return h;
+                                    const current = h.daysOfMonth ?? [];
+                                    return {
+                                      ...h,
+                                      daysOfMonth: current.includes(day)
+                                        ? current.filter((d) => d !== day)
+                                        : [...current, day],
+                                    };
+                                  })
+                                );
+                              }}
+                            >
+                              <Text style={[styles.dayChipText, isActive && styles.dayChipTextActive]}>
+                                {day}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </>
+                  )}
+
+                  {/* Target time and count */}
                   <View style={styles.row}>
                     <View style={styles.halfField}>
                       <Text style={styles.label}>Target time</Text>
@@ -228,7 +324,6 @@ const styles = StyleSheet.create({
   subtitle:          { fontSize: 13, color: Colors.subtext, paddingHorizontal: 20, marginBottom: 12 },
   list:              { paddingHorizontal: 20, paddingBottom: 100 },
 
-  // Card
   card:              { backgroundColor: Colors.white, borderRadius: 12, marginBottom: 12, borderWidth: 1.5, borderColor: "#e5e7eb", overflow: "hidden" },
   cardSelected:      { borderColor: Colors.primary },
   cardHeader:        { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14 },
@@ -236,12 +331,10 @@ const styles = StyleSheet.create({
   cardTitle:         { fontSize: 14, fontWeight: "600", color: Colors.text, flex: 1 },
   categoryBadge:     { fontSize: 11, color: Colors.primary, fontWeight: "600", backgroundColor: "#ede9fe", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
 
-  // Checkbox
   checkbox:          { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: "#d1d5db", alignItems: "center", justifyContent: "center" },
   checkboxSelected:  { backgroundColor: Colors.primary, borderColor: Colors.primary },
   checkmark:         { color: "#fff", fontSize: 13, fontWeight: "700" },
 
-  // Edit section
   editSection:       { paddingHorizontal: 14, paddingBottom: 14, borderTopWidth: 1, borderTopColor: "#f3f4f6" },
   label:             { fontSize: 12, color: Colors.subtext, marginBottom: 4, marginTop: 10 },
   input:             { borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 8, padding: 10, fontSize: 14, color: Colors.text },
@@ -249,28 +342,30 @@ const styles = StyleSheet.create({
   row:               { flexDirection: "row", gap: 12 },
   halfField:         { flex: 1 },
 
-  // Category chips
   chipRow:           { flexDirection: "row", gap: 8 },
   chip:              { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#f9fafb" },
   chipActive:        { backgroundColor: Colors.primary, borderColor: Colors.primary },
   chipText:          { fontSize: 12, color: Colors.subtext },
   chipTextActive:    { color: "#fff", fontWeight: "600" },
 
-  // Frequency segments
   segmentRow:        { flexDirection: "row", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 8, overflow: "hidden" },
   segment:           { flex: 1, paddingVertical: 8, alignItems: "center", backgroundColor: "#f9fafb" },
   segmentActive:     { backgroundColor: Colors.primary },
   segmentText:       { fontSize: 12, color: Colors.subtext },
   segmentTextActive: { color: "#fff", fontWeight: "600" },
 
-  // Countable toggle
+  daysRow:           { flexDirection: "row", gap: 6, flexWrap: "wrap" },
+  dayChip:           { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#f9fafb", alignItems: "center", justifyContent: "center" },
+  dayChipActive:     { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  dayChipText:       { fontSize: 12, color: Colors.subtext, fontWeight: "500" },
+  dayChipTextActive: { color: "#fff", fontWeight: "600" },
+
   toggleRow:         { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
   toggleBtn:         { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#f9fafb" },
   toggleBtnActive:   { backgroundColor: Colors.primary, borderColor: Colors.primary },
   toggleText:        { fontSize: 13, color: Colors.subtext },
   toggleTextActive:  { color: "#fff", fontWeight: "600" },
 
-  // Footer
   footer:            { position: "absolute", bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: "#e5e7eb" },
   saveBtn:           { backgroundColor: Colors.primary, borderRadius: 10, paddingVertical: 14, alignItems: "center" },
   saveBtnText:       { color: "#fff", fontWeight: "600", fontSize: 15 },
