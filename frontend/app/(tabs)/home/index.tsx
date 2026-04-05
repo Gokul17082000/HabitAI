@@ -1,5 +1,16 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView, StatusBar, RefreshControl } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  SafeAreaView,
+  StatusBar,
+  RefreshControl,
+  TextInput,
+  ActivityIndicator,
+} from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { getHabitsForDateApi } from "../../../services/habitService";
 import { HabitResponse, HabitStatus } from "../../../types/habit";
@@ -8,12 +19,16 @@ import { Colors } from "../../../constants/colors";
 import HabitCard from "../../../components/HabitCard";
 import { UnauthorizedError } from "../../../utils/apiHandler";
 import SkeletonCard from "../../../components/SkeletonCard";
+import { suggestHabitsApi } from "../../../services/aiService";
 
 export default function HomeScreen() {
   const [habits, setHabits] = useState<HabitResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [goal, setGoal] = useState("");
+  const [suggesting, setSuggesting] = useState(false);
+  const [goalError, setGoalError] = useState("");
 
   const loadHabits = useCallback(async () => {
     setError("");
@@ -49,6 +64,24 @@ export default function HomeScreen() {
       )
     );
   }, []);
+
+  const handleSuggest = async () => {
+    if (!goal.trim()) return;
+    setSuggesting(true);
+    setGoalError("");
+    try {
+      const suggested = await suggestHabitsApi(goal.trim());
+      router.push({
+        pathname: "/(tabs)/habits/ai-review",
+        params: { habits: JSON.stringify(suggested) },
+      });
+    } catch (e: any) {
+      setGoalError(e.message || "Failed to get suggestions");
+    } finally {
+      setSuggesting(false);
+      setGoal("");
+    }
+  };
 
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "short",
@@ -115,13 +148,31 @@ export default function HomeScreen() {
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No habits yet 👋</Text>
             <Text style={styles.emptySubtitle}>
-              Start by creating your first habit.
+              Tell the AI your goal and get a personalised plan in seconds.
             </Text>
+            <TextInput
+              style={styles.goalInput}
+              placeholder='e.g. "I want to sleep better"'
+              placeholderTextColor={Colors.subtext}
+              value={goal}
+              onChangeText={setGoal}
+            />
+            {goalError ? <Text style={styles.goalError}>{goalError}</Text> : null}
             <Pressable
-              style={styles.createBtn}
+              style={[styles.createBtn, suggesting && { opacity: 0.6 }]}
+              onPress={handleSuggest}
+              disabled={suggesting}
+            >
+              {suggesting
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={styles.createBtnText}>✨ Ask AI Coach →</Text>
+              }
+            </Pressable>
+            <Pressable
+              style={styles.secondaryBtn}
               onPress={() => router.push("/(tabs)/habits/create")}
             >
-              <Text style={styles.createBtnText}>Create your first habit →</Text>
+              <Text style={styles.secondaryBtnText}>Create manually instead</Text>
             </Pressable>
           </View>
         ) : (
@@ -220,11 +271,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: 4,
   },
-
   emptyState: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 20,
   },
   emptyTitle: {
     fontSize: 20,
@@ -236,19 +287,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.subtext,
     textAlign: "center",
-    maxWidth: 240,
-    marginBottom: 20,
+    maxWidth: 280,
+    marginBottom: 16,
+  },
+  goalInput: {
+    borderWidth: 1,
+    borderColor: "#ddd9ff",
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    backgroundColor: "#fff",
+    color: Colors.text,
+    marginBottom: 8,
+    width: "100%",
+  },
+  goalError: {
+    fontSize: 12,
+    color: "#ef4444",
+    marginBottom: 6,
   },
   createBtn: {
     backgroundColor: Colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
+    alignItems: "center",
+    width: "100%",
   },
   createBtnText: {
     color: Colors.white,
     fontWeight: "600",
     fontSize: 14,
+  },
+  secondaryBtn: {
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  secondaryBtnText: {
+    color: Colors.subtext,
+    fontSize: 13,
   },
   addButton: {
     position: "absolute",
