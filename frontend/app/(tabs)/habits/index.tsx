@@ -193,78 +193,80 @@ export default function MasterHabitsScreen() {
             </Pressable>
           </View>
         ) : (
-          {/* AI Banner */}
-          <View style={aiBannerStyles.card}>
-            <Text style={aiBannerStyles.heading}>✨ Not sure what habits to build?</Text>
-            <Text style={aiBannerStyles.sub}>Tell the AI your goal and get a plan in seconds.</Text>
-            <TextInput
-              style={aiBannerStyles.input}
-              placeholder='e.g. "I want to sleep better"'
-              placeholderTextColor={Colors.subtext}
-              value={goal}
-              onChangeText={setGoal}
-            />
-            {goalError ? <Text style={aiBannerStyles.error}>{goalError}</Text> : null}
-            <Pressable
-              style={[aiBannerStyles.btn, suggesting && { opacity: 0.6 }]}
-              onPress={handleSuggest}
-              disabled={suggesting}
-            >
-              {suggesting
-                ? <ActivityIndicator color="#fff" size="small" />
-                : <Text style={aiBannerStyles.btnText}>Ask AI Coach →</Text>
-              }
-            </Pressable>
-          </View>
-          <ScrollView
-            contentContainerStyle={{ paddingBottom: 100 }}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={[Colors.primary]}
-                tintColor={Colors.primary}
-              />
-            }
-          >
-            {activeHabits.length > 0 && (
-              <>
-                <Text style={styles.sectionTitle}>Active ({activeHabits.length})</Text>
-                {activeHabits.map((habit) => (
-                  <ManageHabitCard
-                    key={habit.id}
-                    habit={habit}
-                    isActioning={isActioning(habit.id)}
-                    isDeleting={deletingId === habit.id}
-                    isPausing={pausingId === habit.id}
-                    onDelete={confirmDelete}
-                    onPause={confirmPause}
-                    onResume={handleResume}
+          <>
+              {/* AI Banner */}
+              <View style={aiBannerStyles.card}>
+                <Text style={aiBannerStyles.heading}>✨ Not sure what habits to build?</Text>
+                <Text style={aiBannerStyles.sub}>Tell the AI your goal and get a plan in seconds.</Text>
+                <TextInput
+                  style={aiBannerStyles.input}
+                  placeholder='e.g. "I want to sleep better"'
+                  placeholderTextColor={Colors.subtext}
+                  value={goal}
+                  onChangeText={setGoal}
+                />
+                {goalError ? <Text style={aiBannerStyles.error}>{goalError}</Text> : null}
+                <Pressable
+                  style={[aiBannerStyles.btn, suggesting && { opacity: 0.6 }]}
+                  onPress={handleSuggest}
+                  disabled={suggesting}
+                >
+                  {suggesting
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={aiBannerStyles.btnText}>Ask AI Coach →</Text>
+                  }
+                </Pressable>
+              </View>
+              <ScrollView
+                contentContainerStyle={{ paddingBottom: 100 }}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    colors={[Colors.primary]}
+                    tintColor={Colors.primary}
                   />
-                ))}
-              </>
-            )}
+                }
+              >
+                {activeHabits.length > 0 && (
+                  <>
+                    <Text style={styles.sectionTitle}>Active ({activeHabits.length})</Text>
+                    {activeHabits.map((habit) => (
+                      <ManageHabitCard
+                        key={habit.id}
+                        habit={habit}
+                        isActioning={isActioning(habit.id)}
+                        isDeleting={deletingId === habit.id}
+                        isPausing={pausingId === habit.id}
+                        onDelete={confirmDelete}
+                        onPause={confirmPause}
+                        onResume={handleResume}
+                      />
+                    ))}
+                  </>
+                )}
 
-            {pausedHabits.length > 0 && (
-              <>
-                <Text style={[styles.sectionTitle, styles.sectionTitlePaused]}>
-                  Paused ({pausedHabits.length})
-                </Text>
-                {pausedHabits.map((habit) => (
-                  <ManageHabitCard
-                    key={habit.id}
-                    habit={habit}
-                    isActioning={isActioning(habit.id)}
-                    isDeleting={deletingId === habit.id}
-                    isPausing={pausingId === habit.id}
-                    onDelete={confirmDelete}
-                    onPause={confirmPause}
-                    onResume={handleResume}
-                  />
-                ))}
-              </>
-            )}
-          </ScrollView>
+                {pausedHabits.length > 0 && (
+                  <>
+                    <Text style={[styles.sectionTitle, styles.sectionTitlePaused]}>
+                      Paused ({pausedHabits.length})
+                    </Text>
+                    {pausedHabits.map((habit) => (
+                      <ManageHabitCard
+                        key={habit.id}
+                        habit={habit}
+                        isActioning={isActioning(habit.id)}
+                        isDeleting={deletingId === habit.id}
+                        isPausing={pausingId === habit.id}
+                        onDelete={confirmDelete}
+                        onPause={confirmPause}
+                        onResume={handleResume}
+                      />
+                    ))}
+                  </>
+                )}
+              </ScrollView>
+          </>
         )}
 
         <Pressable
@@ -308,7 +310,9 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   addButtonText: { color: Colors.white, fontSize: 28, fontWeight: "bold" },
-  const aiBannerStyles = StyleSheet.create({
+});
+
+const aiBannerStyles = StyleSheet.create({
     card: { backgroundColor: "#f0f0ff", borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: "#ddd9ff" },
     heading: { fontSize: 14, fontWeight: "600", color: Colors.text, marginBottom: 4 },
     sub: { fontSize: 13, color: Colors.subtext, marginBottom: 10 },
@@ -317,4 +321,3 @@ const styles = StyleSheet.create({
     btnText: { color: "#fff", fontWeight: "600", fontSize: 13 },
     error: { fontSize: 12, color: "#ef4444", marginBottom: 6 },
   });
-});

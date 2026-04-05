@@ -404,11 +404,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     paddingTop: StatusBar.currentHeight ?? 12,
   },
-  const coachStyles = StyleSheet.create({
-    card: { backgroundColor: "#fff", borderRadius: 12, padding: 16, marginTop: 16, borderWidth: 1, borderColor: "#e5e7eb" },
-    heading: { fontSize: 15, fontWeight: "600", color: Colors.text, marginBottom: 8 },
-    insight: { fontSize: 14, color: Colors.text, lineHeight: 22 },
-    btn: { backgroundColor: Colors.primary, borderRadius: 8, paddingVertical: 10, alignItems: "center", marginTop: 4 },
-    btnText: { color: "#fff", fontWeight: "600", fontSize: 13 },
-  });
+});
+
+const coachStyles = StyleSheet.create({
+  card: { backgroundColor: "#fff", borderRadius: 12, padding: 16, marginTop: 16, borderWidth: 1, borderColor: "#e5e7eb" },
+  heading: { fontSize: 15, fontWeight: "600", color: Colors.text, marginBottom: 8 },
+  insight: { fontSize: 14, color: Colors.text, lineHeight: 22 },
+  btn: { backgroundColor: Colors.primary, borderRadius: 8, paddingVertical: 10, alignItems: "center", marginTop: 4 },
+  btnText: { color: "#fff", fontWeight: "600", fontSize: 13 },
 });

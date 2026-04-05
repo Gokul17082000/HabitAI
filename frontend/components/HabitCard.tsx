@@ -361,18 +361,19 @@ const styles = StyleSheet.create({
     color: Colors.subtext,
     marginTop: 4,
   },
-  const noteStyles = StyleSheet.create({
-    prompt:        { marginTop: -8, marginBottom: 12, paddingHorizontal: 4 },
-    promptText:    { fontSize: 12, color: Colors.subtext },
-    overlay:       { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 24 },
-    modal:         { backgroundColor: "#fff", borderRadius: 16, padding: 20 },
-    modalTitle:    { fontSize: 17, fontWeight: "700", color: Colors.text, marginBottom: 4 },
-    modalHabit:    { fontSize: 13, color: Colors.subtext, marginBottom: 14 },
-    input:         { borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 10, padding: 12, fontSize: 14, color: Colors.text, minHeight: 80, textAlignVertical: "top" },
-    modalActions:  { flexDirection: "row", gap: 10, marginTop: 16 },
-    cancelBtn:     { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 10, borderWidth: 1, borderColor: "#e5e7eb" },
-    cancelText:    { fontSize: 14, color: Colors.subtext },
-    saveBtn:       { flex: 2, paddingVertical: 12, alignItems: "center", borderRadius: 10, backgroundColor: Colors.primary },
-    saveText:      { fontSize: 14, color: "#fff", fontWeight: "600" },
-  });
+});
+
+const noteStyles = StyleSheet.create({
+  prompt:        { marginTop: -8, marginBottom: 12, paddingHorizontal: 4 },
+  promptText:    { fontSize: 12, color: Colors.subtext },
+  overlay:       { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 24 },
+  modal:         { backgroundColor: "#fff", borderRadius: 16, padding: 20 },
+  modalTitle:    { fontSize: 17, fontWeight: "700", color: Colors.text, marginBottom: 4 },
+  modalHabit:    { fontSize: 13, color: Colors.subtext, marginBottom: 14 },
+  input:         { borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 10, padding: 12, fontSize: 14, color: Colors.text, minHeight: 80, textAlignVertical: "top" },
+  modalActions:  { flexDirection: "row", gap: 10, marginTop: 16 },
+  cancelBtn:     { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 10, borderWidth: 1, borderColor: "#e5e7eb" },
+  cancelText:    { fontSize: 14, color: Colors.subtext },
+  saveBtn:       { flex: 2, paddingVertical: 12, alignItems: "center", borderRadius: 10, backgroundColor: Colors.primary },
+  saveText:      { fontSize: 14, color: "#fff", fontWeight: "600" },
 });
