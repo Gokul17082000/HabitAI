@@ -38,4 +38,7 @@ public class HabitLog {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private HabitStatus status;
+
+    @Column(length = 300)
+    private String note;
 }

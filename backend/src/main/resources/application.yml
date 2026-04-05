@@ -45,3 +45,8 @@ springdoc:
     enabled: ${SWAGGER_ENABLED:false}
   swagger-ui:
     enabled: ${SWAGGER_ENABLED:false}
+
+grok:
+  api:
+    key: ${GROK_API_KEY}
+    url: https://api.x.ai/v1/chat/completions

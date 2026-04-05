@@ -6,6 +6,9 @@ import { removeToken } from "../../../utils/authStorage";
 import { getUserApi, getUserStatsApi, UserStats } from "../../../services/authService";
 import { Colors } from "../../../constants/colors";
 import { UnauthorizedError } from "../../../utils/apiHandler";
+import { getInsightsApi, InsightResponse } from "../../../services/aiService";
+import YearHeatmap from "../../../components/YearHeatmap";
+import { getYearPixelsApi } from "../../../services/authService";
 
 type UserDTO = {
   email: string;
@@ -16,10 +19,14 @@ export default function ProfileScreen() {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [insight, setInsight] = useState<InsightResponse | null>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [pixels, setPixels] = useState<Record<string, string>>({});
 
   useFocusEffect(
     useCallback(() => {
       loadProfile();
+      loadInsight()
     }, [])
   );
 
@@ -29,9 +36,11 @@ export default function ProfileScreen() {
       const [userData, statsData] = await Promise.all([
         getUserApi(),
         getUserStatsApi(),
+        getYearPixelsApi(),
       ]);
       setUser(userData);
       setStats(statsData);
+      setPixels(pixelsData);
     } catch (e) {
       if (e instanceof UnauthorizedError) {
         return;
@@ -52,6 +61,18 @@ export default function ProfileScreen() {
       month: "long",
       year: "numeric",
     });
+  };
+
+  const loadInsight = async () => {
+    setInsightLoading(true);
+    try {
+      const data = await getInsightsApi();
+      setInsight(data);
+    } catch (_) {
+      // fail silently — insights are non-critical
+    } finally {
+      setInsightLoading(false);
+    }
   };
 
   return (
@@ -142,6 +163,12 @@ export default function ProfileScreen() {
                 </View>
               </View>
 
+              {/* Year in pixels */}
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>📅 Year in pixels</Text>
+                <YearHeatmap pixels={pixels} />
+              </View>
+
               {/* Top Habits */}
               {stats.topHabits && stats.topHabits.length > 0 && (
                 <View style={styles.card}>
@@ -164,6 +191,19 @@ export default function ProfileScreen() {
               )}
             </>
           )}
+
+          <View style={coachStyles.card}>
+            <Text style={coachStyles.heading}>🧠 Your AI Coach</Text>
+            {insightLoading ? (
+              <ActivityIndicator color={Colors.primary} style={{ marginTop: 8 }} />
+            ) : insight ? (
+              <Text style={coachStyles.insight}>{insight.insight}</Text>
+            ) : (
+              <Pressable onPress={loadInsight} style={coachStyles.btn}>
+                <Text style={coachStyles.btnText}>Get your weekly insight</Text>
+              </Pressable>
+            )}
+          </View>
 
           {/* Logout */}
           <Pressable style={styles.logoutBtn} onPress={handleLogout}>
@@ -364,4 +404,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     paddingTop: StatusBar.currentHeight ?? 12,
   },
+  const coachStyles = StyleSheet.create({
+    card: { backgroundColor: "#fff", borderRadius: 12, padding: 16, marginTop: 16, borderWidth: 1, borderColor: "#e5e7eb" },
+    heading: { fontSize: 15, fontWeight: "600", color: Colors.text, marginBottom: 8 },
+    insight: { fontSize: 14, color: Colors.text, lineHeight: 22 },
+    btn: { backgroundColor: Colors.primary, borderRadius: 8, paddingVertical: 10, alignItems: "center", marginTop: 4 },
+    btnText: { color: "#fff", fontWeight: "600", fontSize: 13 },
+  });
 });

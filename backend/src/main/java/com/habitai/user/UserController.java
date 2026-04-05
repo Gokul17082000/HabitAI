@@ -4,6 +4,8 @@ import com.habitai.notification.PushTokenRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/user")
 public class UserController {
@@ -30,5 +32,10 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void savePushToken(@RequestBody PushTokenRequest request) {
         userService.savePushToken(request.token());
+    }
+
+    @GetMapping("/year-pixels")
+    public Map<String, String> getYearPixels() {
+        return userStatsService.getYearPixels();
     }
 }

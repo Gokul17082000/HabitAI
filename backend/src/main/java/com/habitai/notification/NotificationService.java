@@ -30,4 +30,19 @@ public class NotificationService {
             logger.error("Failed to send notification for '{}': {}", habitTitle, e.getMessage());
         }
     }
+
+    public void sendDigest(String pushToken, String body) {
+        try {
+            Message message = Message.builder()
+                    .setToken(pushToken)
+                    .setNotification(Notification.builder()
+                            .setTitle("Your weekly recap 📊")
+                            .setBody(body)
+                            .build())
+                    .build();
+            FirebaseMessaging.getInstance().send(message);
+        } catch (Exception e) {
+            logger.error("Failed to send weekly digest: {}", e.getMessage());
+        }
+    }
 }

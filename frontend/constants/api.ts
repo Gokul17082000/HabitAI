@@ -21,4 +21,6 @@ export const API_ENDPOINTS = {
   pushToken: `${BASE_URL}/user/push-token`,
   habits: `${BASE_URL}/habits`,
   habitSummary: `${BASE_URL}/habits/summary`,
+  ai: `${BASE_URL}/ai`,
+  yearPixels: `${BASE_URL}/user/year-pixels`,
 };

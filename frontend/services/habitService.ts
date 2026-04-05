@@ -65,13 +65,14 @@ export const logHabitApi = async (
   habitId: number,
   date: string,
   habitStatus: string,
-  currentCount: number = 0
+  currentCount: number = 0,
+  note?: string           // add this
 ): Promise<void> => {
   const headers = await buildAuthHeaders();
   const response = await fetch(`${API_ENDPOINTS.habits}/${habitId}/log`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ date, habitStatus, currentCount }),
+    body: JSON.stringify({ date, habitStatus, currentCount, note }),
   });
   await handleResponse<void>(response);
 };
@@ -119,3 +120,4 @@ export const resumeHabitApi = async (habitId: number): Promise<void> => {
   });
   await handleResponse<void>(response);
 };
+

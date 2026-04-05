@@ -5,6 +5,7 @@ import com.habitai.common.security.CurrentUser;
 import com.habitai.exception.UserNotFoundException;
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitRepository;
+import com.habitai.habitlog.HabitLog;
 import com.habitai.habitlog.HabitLogRepository;
 import com.habitai.habitlog.HabitStatus;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class UserStatsService {
@@ -138,5 +140,58 @@ public class UserStatsService {
                     return new UserStatsResponse.TopHabit(h.getTitle(), completions, consistency);
                 })
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, String> getYearPixels() {
+        long userId = currentUser.getId();
+        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
+        LocalDate yearStart = today.minusDays(364); // 52 weeks back
+
+        List<Habit> habits = habitRepository.findByUserId(userId);
+        if (habits.isEmpty()) return Map.of();
+
+        List<HabitLog> logs = habitLogRepository
+                .findByUserIdAndDateBetween(userId, yearStart, today);
+
+        // Group logs by date
+        Map<LocalDate, List<HabitLog>> logsByDate = logs.stream()
+                .collect(Collectors.groupingBy(HabitLog::getDate));
+
+        Map<String, String> result = new HashMap<>();
+        LocalDate cursor = yearStart;
+
+        while (!cursor.isAfter(today)) {
+            final LocalDate date = cursor;
+
+            // Check if any habit was scheduled this day
+            boolean anyScheduled = habits.stream()
+                    .anyMatch(h -> !date.isBefore(h.getCreatedAt())
+                            && !h.isPaused());
+
+            if (anyScheduled) {
+                List<HabitLog> dayLogs = logsByDate.getOrDefault(date, List.of());
+
+                boolean anyCompleted = dayLogs.stream()
+                        .anyMatch(l -> l.getStatus() == HabitStatus.COMPLETED);
+                boolean anyPartial = dayLogs.stream()
+                        .anyMatch(l -> l.getStatus() == HabitStatus.PARTIALLY_COMPLETED);
+                boolean allMissed = !dayLogs.isEmpty() && dayLogs.stream()
+                        .allMatch(l -> l.getStatus() == HabitStatus.MISSED);
+
+                String pixel;
+                if (anyCompleted) pixel = "COMPLETED";
+                else if (anyPartial) pixel = "PARTIAL";
+                else if (allMissed) pixel = "MISSED";
+                else if (date.isBefore(today)) pixel = "MISSED";
+                else pixel = "PENDING";
+
+                result.put(date.toString(), pixel);
+            }
+
+            cursor = cursor.plusDays(1);
+        }
+
+        return result;
     }
 }

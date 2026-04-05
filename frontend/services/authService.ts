@@ -78,3 +78,9 @@ export const getUserStatsApi = async (): Promise<UserStats> => {
   const response = await fetch(API_ENDPOINTS.userStats, { headers });
   return handleResponse<UserStats>(response);
 };
+
+export const getYearPixelsApi = async (): Promise<Record<string, string>> => {
+  const headers = await buildAuthHeaders();
+  const response = await fetch(API_ENDPOINTS.yearPixels, { headers });
+  return handleResponse<Record<string, string>>(response);
+};

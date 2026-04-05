@@ -49,7 +49,7 @@ class HabitLogControllerTest {
     void testUpdateTodayHabitStatusCompleted() throws Exception {
         // Arrange
         long habitId = 1L;
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.COMPLETED, 1);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.COMPLETED, 1, null);
 
         // Act & Assert
         mockMvc.perform(post("/habits/{habitId}/log", habitId)
@@ -64,7 +64,7 @@ class HabitLogControllerTest {
     void testUpdateTodayHabitStatusMissed() throws Exception {
         // Arrange
         long habitId = 1L;
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.MISSED, 0);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.MISSED, 0, null);
 
         // Act & Assert
         mockMvc.perform(post("/habits/{habitId}/log", habitId)
@@ -79,7 +79,7 @@ class HabitLogControllerTest {
     void testUpdateTodayHabitStatusPartiallyCompleted() throws Exception {
         // Arrange
         long habitId = 1L;
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PARTIALLY_COMPLETED, 1);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PARTIALLY_COMPLETED, 1, null);
 
         // Act & Assert
         mockMvc.perform(post("/habits/{habitId}/log", habitId)
@@ -94,7 +94,7 @@ class HabitLogControllerTest {
     void testUpdateTodayHabitStatusPending() throws Exception {
         // Arrange
         long habitId = 1L;
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PENDING, 1);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PENDING, 1, null);
 
         // Act & Assert
         mockMvc.perform(post("/habits/{habitId}/log", habitId)
@@ -126,7 +126,7 @@ class HabitLogControllerTest {
     void testUpdateTodayHabitStatusPastDateCausesBadRequest() throws Exception {
         // Arrange
         long habitId = 1L;
-        HabitLogRequest request = new HabitLogRequest(today.minusDays(1), HabitStatus.COMPLETED, 1);
+        HabitLogRequest request = new HabitLogRequest(today.minusDays(1), HabitStatus.COMPLETED, 1, null);
         
         // Since the service is mocked, we can simulate the exception it would throw
         doThrow(new IllegalStateException("Cannot update past or future habits"))

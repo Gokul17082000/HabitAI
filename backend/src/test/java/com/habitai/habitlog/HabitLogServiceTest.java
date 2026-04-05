@@ -62,7 +62,7 @@ class HabitLogServiceTest {
         when(habitLogRepository.findByHabitIdAndUserIdAndDate(HABIT_ID, USER_ID, today))
                 .thenReturn(Optional.empty());
 
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.COMPLETED, 1);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.COMPLETED, 1, null);
 
         // Act
         habitLogService.updateTodayHabitStatus(HABIT_ID, request);
@@ -85,7 +85,7 @@ class HabitLogServiceTest {
         when(habitLogRepository.findByHabitIdAndUserIdAndDate(HABIT_ID, USER_ID, today))
                 .thenReturn(Optional.empty());
 
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.MISSED, 0);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.MISSED, 0, null);
 
         // Act
         habitLogService.updateTodayHabitStatus(HABIT_ID, request);
@@ -105,7 +105,7 @@ class HabitLogServiceTest {
         when(habitLogRepository.findByHabitIdAndUserIdAndDate(HABIT_ID, USER_ID, today))
                 .thenReturn(Optional.empty());
 
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PARTIALLY_COMPLETED, 1);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PARTIALLY_COMPLETED, 1, null);
 
         // Act
         habitLogService.updateTodayHabitStatus(HABIT_ID, request);
@@ -128,7 +128,7 @@ class HabitLogServiceTest {
         when(habitLogRepository.findByHabitIdAndUserIdAndDate(HABIT_ID, USER_ID, today))
                 .thenReturn(Optional.of(existingLog));
 
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PENDING, 1);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.PENDING, 1, null);
 
         // Act
         habitLogService.updateTodayHabitStatus(HABIT_ID, request);
@@ -150,7 +150,7 @@ class HabitLogServiceTest {
         when(habitLogRepository.findByHabitIdAndUserIdAndDate(HABIT_ID, USER_ID, today))
                 .thenReturn(Optional.of(existingLog));
 
-        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.MISSED, 0);
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.MISSED, 0, null);
 
         // Act
         habitLogService.updateTodayHabitStatus(HABIT_ID, request);
@@ -167,7 +167,7 @@ class HabitLogServiceTest {
         Habit mockHabit = new Habit();
         when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(mockHabit);
 
-        HabitLogRequest request = new HabitLogRequest(pastDate, HabitStatus.COMPLETED, 1);
+        HabitLogRequest request = new HabitLogRequest(pastDate, HabitStatus.COMPLETED, 1, null);
 
         // Act & Assert
         assertThrows(IllegalStateException.class, () ->
@@ -182,7 +182,7 @@ class HabitLogServiceTest {
         Habit mockHabit = new Habit();
         when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(mockHabit);
 
-        HabitLogRequest request = new HabitLogRequest(futureDate, HabitStatus.COMPLETED, 1);
+        HabitLogRequest request = new HabitLogRequest(futureDate, HabitStatus.COMPLETED, 1, null);
 
         // Act & Assert
         assertThrows(IllegalStateException.class, () ->

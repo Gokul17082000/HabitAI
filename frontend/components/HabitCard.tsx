@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, Modal, TextInput, KeyboardAvoidingView, Platform } from "react-native";
 import { useEffect, useState } from "react";
 import { getHabitStreakApi, logHabitApi } from "../services/habitService";
 import { formatDate, formatTime } from "../utils/formatters";
@@ -22,6 +22,9 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
   const [logging, setLogging] = useState(false);
   const [localStatus, setLocalStatus] = useState<HabitStatus>(habit.habitStatus);
   const [localCount, setLocalCount] = useState<number>(habit.currentCount);
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [note, setNote] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
 
   // Sync when habit prop changes
   useEffect(() => {
@@ -94,6 +97,23 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
       onLogged?.(habit.id, habit.habitStatus);
     } finally {
       setLogging(false);
+    }
+  };
+
+  const handleSaveNote = async () => {
+    if (!note.trim()) {
+      setShowNoteModal(false);
+      return;
+    }
+    setSavingNote(true);
+    try {
+      await logHabitApi(habit.id, today, "MISSED", 0, note.trim());
+    } catch {
+      // fail silently — note is non-critical
+    } finally {
+      setSavingNote(false);
+      setShowNoteModal(false);
+      setNote("");
     }
   };
 
@@ -187,6 +207,60 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
           <Text style={styles.streak}>🔥 {streak}</Text>
         )}
       </View>
+      {/* Note prompt — shows below card when missed */}
+      {isMissed && (
+        <Pressable
+          style={noteStyles.prompt}
+          onPress={() => setShowNoteModal(true)}
+        >
+          <Text style={noteStyles.promptText}>💬 Why did you skip? Add a note</Text>
+        </Pressable>
+      )}
+
+      {/* Note Modal */}
+      <Modal
+        visible={showNoteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowNoteModal(false)}
+      >
+        <KeyboardAvoidingView
+          style={noteStyles.overlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={noteStyles.modal}>
+            <Text style={noteStyles.modalTitle}>Why did you skip?</Text>
+            <Text style={noteStyles.modalHabit}>{habit.title}</Text>
+            <TextInput
+              style={noteStyles.input}
+              placeholder="e.g. Was too tired, ran out of time..."
+              placeholderTextColor="#9ca3af"
+              value={note}
+              onChangeText={setNote}
+              multiline
+              maxLength={300}
+              autoFocus
+            />
+            <View style={noteStyles.modalActions}>
+              <Pressable
+                style={noteStyles.cancelBtn}
+                onPress={() => { setShowNoteModal(false); setNote(""); }}
+              >
+                <Text style={noteStyles.cancelText}>Skip</Text>
+              </Pressable>
+              <Pressable
+                style={[noteStyles.saveBtn, savingNote && { opacity: 0.6 }]}
+                onPress={handleSaveNote}
+                disabled={savingNote}
+              >
+                <Text style={noteStyles.saveText}>
+                  {savingNote ? "Saving..." : "Save note"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -287,4 +361,18 @@ const styles = StyleSheet.create({
     color: Colors.subtext,
     marginTop: 4,
   },
+  const noteStyles = StyleSheet.create({
+    prompt:        { marginTop: -8, marginBottom: 12, paddingHorizontal: 4 },
+    promptText:    { fontSize: 12, color: Colors.subtext },
+    overlay:       { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 24 },
+    modal:         { backgroundColor: "#fff", borderRadius: 16, padding: 20 },
+    modalTitle:    { fontSize: 17, fontWeight: "700", color: Colors.text, marginBottom: 4 },
+    modalHabit:    { fontSize: 13, color: Colors.subtext, marginBottom: 14 },
+    input:         { borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 10, padding: 12, fontSize: 14, color: Colors.text, minHeight: 80, textAlignVertical: "top" },
+    modalActions:  { flexDirection: "row", gap: 10, marginTop: 16 },
+    cancelBtn:     { flex: 1, paddingVertical: 12, alignItems: "center", borderRadius: 10, borderWidth: 1, borderColor: "#e5e7eb" },
+    cancelText:    { fontSize: 14, color: Colors.subtext },
+    saveBtn:       { flex: 2, paddingVertical: 12, alignItems: "center", borderRadius: 10, backgroundColor: Colors.primary },
+    saveText:      { fontSize: 14, color: "#fff", fontWeight: "600" },
+  });
 });

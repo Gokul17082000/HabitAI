@@ -59,4 +59,16 @@ public interface HabitLogRepository extends JpaRepository<HabitLog, Long> {
     // Batch-load users hit by scheduler — avoids N+1 per notification tick
     @Query("SELECT DISTINCT l.userId FROM HabitLog l WHERE l.date = :date")
     List<Long> findDistinctUserIdsByDate(@Param("date") LocalDate date);
+
+    /** Per-habit completion and missed counts for a specific date range — used for weekly digest. */
+    @Query("SELECT l.habitId, " +
+            "SUM(CASE WHEN l.status = 'COMPLETED' THEN 1 ELSE 0 END), " +
+            "SUM(CASE WHEN l.status = 'MISSED' THEN 1 ELSE 0 END) " +
+            "FROM HabitLog l WHERE l.userId = :userId " +
+            "AND l.date BETWEEN :startDate AND :endDate " +
+            "GROUP BY l.habitId")
+    List<Object[]> findWeeklyStatsByUserId(
+            @Param("userId") Long userId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 }

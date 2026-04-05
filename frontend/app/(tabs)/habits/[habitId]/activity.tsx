@@ -6,6 +6,7 @@ import { formatDate, formatDisplayDate } from "../../../../utils/formatters";
 import { Colors } from "../../../../constants/colors";
 import { getHabitActivityApi, getHabitStreakApi, getLongestStreakApi } from "../../../../services/habitService";
 import { UnauthorizedError } from "../../../../utils/apiHandler";
+import MilestoneBadges from "../../../../components/MilestoneBadges";
 
 /* ---------------- Range Options ---------------- */
 type RangeOption = "1W" | "1M" | "3M" | "6M" | "1Y" | "ALL";
@@ -175,6 +176,11 @@ export default function HabitActivityScreen() {
               </View>
             </View>
           </View>
+
+          <MilestoneBadges
+              currentStreak={currentStreak}
+              longestStreak={longestStreak}
+          />
 
           {/* GitHub-style Heatmap */}
           <Text style={styles.sectionTitle}>Consistency</Text>

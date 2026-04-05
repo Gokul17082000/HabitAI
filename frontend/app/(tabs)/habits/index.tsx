@@ -10,6 +10,7 @@ import {
   StatusBar,
   RefreshControl,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { getAllHabitsApi, deleteHabitApi, pauseHabitApi, resumeHabitApi } from "../../../services/habitService";
@@ -18,6 +19,8 @@ import { Colors } from "../../../constants/colors";
 import { UnauthorizedError } from "../../../utils/apiHandler";
 import SkeletonCard from "../../../components/SkeletonCard";
 import ManageHabitCard from "../../../components/ManageHabitCard";
+import { suggestHabitsApi } from "../../../services/aiService";
+import { CreateHabitRequest } from "../../../types/habit";
 
 export default function MasterHabitsScreen() {
   const [habits, setHabits] = useState<HabitDTO[]>([]);
@@ -29,6 +32,10 @@ export default function MasterHabitsScreen() {
 
   const activeHabits = habits.filter((h) => !h.paused);
   const pausedHabits = habits.filter((h) => h.paused);
+
+  const [goal, setGoal] = useState("");
+  const [suggesting, setSuggesting] = useState(false);
+  const [goalError, setGoalError] = useState("");
 
   /* ---------------- Load all habits ---------------- */
   const loadHabits = useCallback(async () => {
@@ -132,6 +139,24 @@ export default function MasterHabitsScreen() {
     }
   };
 
+  const handleSuggest = async () => {
+    if (!goal.trim()) return;
+    setSuggesting(true);
+    setGoalError("");
+    try {
+      const habits = await suggestHabitsApi(goal.trim());
+      router.push({
+        pathname: "/(tabs)/habits/ai-review",
+        params: { habits: JSON.stringify(habits) },
+      });
+    } catch (e: any) {
+      setGoalError(e.message || "Failed to get suggestions");
+    } finally {
+      setSuggesting(false);
+      setGoal("");
+    }
+  };
+
   const isActioning = (habitId: number) =>
     deletingId === habitId || pausingId === habitId;
 
@@ -168,6 +193,29 @@ export default function MasterHabitsScreen() {
             </Pressable>
           </View>
         ) : (
+          {/* AI Banner */}
+          <View style={aiBannerStyles.card}>
+            <Text style={aiBannerStyles.heading}>✨ Not sure what habits to build?</Text>
+            <Text style={aiBannerStyles.sub}>Tell the AI your goal and get a plan in seconds.</Text>
+            <TextInput
+              style={aiBannerStyles.input}
+              placeholder='e.g. "I want to sleep better"'
+              placeholderTextColor={Colors.subtext}
+              value={goal}
+              onChangeText={setGoal}
+            />
+            {goalError ? <Text style={aiBannerStyles.error}>{goalError}</Text> : null}
+            <Pressable
+              style={[aiBannerStyles.btn, suggesting && { opacity: 0.6 }]}
+              onPress={handleSuggest}
+              disabled={suggesting}
+            >
+              {suggesting
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={aiBannerStyles.btnText}>Ask AI Coach →</Text>
+              }
+            </Pressable>
+          </View>
           <ScrollView
             contentContainerStyle={{ paddingBottom: 100 }}
             refreshControl={
@@ -260,4 +308,13 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   addButtonText: { color: Colors.white, fontSize: 28, fontWeight: "bold" },
+  const aiBannerStyles = StyleSheet.create({
+    card: { backgroundColor: "#f0f0ff", borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: "#ddd9ff" },
+    heading: { fontSize: 14, fontWeight: "600", color: Colors.text, marginBottom: 4 },
+    sub: { fontSize: 13, color: Colors.subtext, marginBottom: 10 },
+    input: { borderWidth: 1, borderColor: "#ddd9ff", borderRadius: 8, padding: 10, fontSize: 14, backgroundColor: "#fff", color: Colors.text, marginBottom: 8 },
+    btn: { backgroundColor: Colors.primary, borderRadius: 8, paddingVertical: 10, alignItems: "center" },
+    btnText: { color: "#fff", fontWeight: "600", fontSize: 13 },
+    error: { fontSize: 12, color: "#ef4444", marginBottom: 6 },
+  });
 });

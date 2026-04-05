@@ -60,6 +60,7 @@ public class HabitLogService {
 
             habitLog.setStatus(habitLogRequest.habitStatus());
             habitLog.setCurrentCount(0);
+            habitLog.setNote(habitLogRequest.note());
             habitLogRepository.save(habitLog);
             return;
         }
@@ -92,6 +93,7 @@ public class HabitLogService {
 
         habitLog.setStatus(computedStatus);
         habitLog.setCurrentCount(newCount);
+        habitLog.setNote(habitLogRequest.note());
         habitLogRepository.save(habitLog);
     }
 
