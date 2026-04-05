@@ -99,7 +99,7 @@ public class AiService {
 
     private String callGrok(String systemPrompt, String userMessage) {
         Map<String, Object> body = Map.of(
-                "model", "grok-3-mini",
+                "model", "llama-3.3-70b-versatile",
                 "max_tokens", 1000,
                 "messages", List.of(
                         Map.of("role", "system", "content", systemPrompt),

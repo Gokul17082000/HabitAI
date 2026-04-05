@@ -74,7 +74,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const data = await loginApi(email, password);
-      await saveToken(data.token);
+      await saveToken(data.accessToken);
       await registerForPushNotifications();
       router.replace("/home");
     } catch (error) {
