@@ -2,17 +2,19 @@ package com.habitai.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.habitai.habit.Habit;
-import com.habitai.habit.HabitRequest;
-import com.habitai.habit.HabitRepository;
+import com.habitai.habit.*;
 import com.habitai.common.security.CurrentUser;
 import com.habitai.user.UserStatsService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class AiService {
@@ -62,8 +64,63 @@ public class AiService {
         String json = stripMarkdownFences(response);
 
         try {
-            return objectMapper.readValue(json,
-                    objectMapper.getTypeFactory().constructCollectionType(List.class, HabitRequest.class));
+            JsonNode array = objectMapper.readTree(json);
+            if (!array.isArray()) {
+                throw new RuntimeException("AI returned an unexpected response format. Please try again.");
+            }
+
+            List<HabitRequest> result = new java.util.ArrayList<>();
+            for (JsonNode node : array) {
+                String title        = node.path("title").asText();
+                String description  = node.path("description").asText();
+                String categoryStr  = node.path("category").asText("GENERAL");
+                String freqStr      = node.path("frequency").asText("DAILY");
+                String timeStr      = node.path("targetTime").asText("08:00:00");
+                int targetCount     = node.path("targetCount").asInt(1);
+                boolean isCountable = node.path("isCountable").asBoolean(false);
+
+                HabitCategory category;
+                try { category = HabitCategory.valueOf(categoryStr); }
+                catch (Exception e) { category = HabitCategory.GENERAL; }
+
+                HabitFrequency frequency;
+                try { frequency = HabitFrequency.valueOf(freqStr); }
+                catch (Exception e) { frequency = HabitFrequency.DAILY; }
+
+                LocalTime targetTime;
+                try { targetTime = LocalTime.parse(timeStr); }
+                catch (Exception e) { targetTime = LocalTime.of(8, 0); }
+
+                Set<DayOfWeek> daysOfWeek = null;
+                if (frequency == HabitFrequency.WEEKLY
+                        && node.has("daysOfWeek")
+                        && node.path("daysOfWeek").isArray()) {
+                    daysOfWeek = new HashSet<>();
+                    for (JsonNode d : node.path("daysOfWeek")) {
+                        try { daysOfWeek.add(DayOfWeek.valueOf(d.asText())); }
+                        catch (Exception ignored) {}
+                    }
+                }
+
+                Set<Integer> daysOfMonth = null;
+                if (frequency == HabitFrequency.MONTHLY
+                        && node.has("daysOfMonth")
+                        && node.path("daysOfMonth").isArray()) {
+                    daysOfMonth = new java.util.HashSet<>();
+                    for (JsonNode d : node.path("daysOfMonth")) {
+                        daysOfMonth.add(d.asInt());
+                    }
+                }
+
+                result.add(new HabitRequest(
+                        title, description, category, frequency,
+                        daysOfWeek, daysOfMonth, targetTime, targetCount, isCountable
+                ));
+            }
+            return result;
+
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("AI returned an unexpected response format. Please try again.");
         }

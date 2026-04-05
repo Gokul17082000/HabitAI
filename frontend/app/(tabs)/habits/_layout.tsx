@@ -5,6 +5,13 @@ export default function HabitsLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen
+        name="ai-review"
+        options={{
+          presentation: "modal",
+          gestureEnabled: true,
+        }}
+      />
+      <Stack.Screen
         name="create"
         options={{
           presentation: "modal",
