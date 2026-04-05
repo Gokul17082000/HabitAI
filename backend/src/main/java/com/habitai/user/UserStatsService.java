@@ -179,19 +179,24 @@ public class UserStatsService {
             if (anyScheduled) {
                 List<HabitLog> dayLogs = logsByDate.getOrDefault(date, List.of());
 
-                boolean anyCompleted = dayLogs.stream()
-                        .anyMatch(l -> l.getStatus() == HabitStatus.COMPLETED);
-                boolean anyPartial = dayLogs.stream()
-                        .anyMatch(l -> l.getStatus() == HabitStatus.PARTIALLY_COMPLETED);
-                boolean allMissed = !dayLogs.isEmpty() && dayLogs.stream()
-                        .allMatch(l -> l.getStatus() == HabitStatus.MISSED);
+                long completed = dayLogs.stream()
+                        .filter(l -> l.getStatus() == HabitStatus.COMPLETED).count();
+                long partial = dayLogs.stream()
+                        .filter(l -> l.getStatus() == HabitStatus.PARTIALLY_COMPLETED).count();
+                long missed = dayLogs.stream()
+                        .filter(l -> l.getStatus() == HabitStatus.MISSED).count();
+                long total = completed + partial + missed;
 
                 String pixel;
-                if (anyCompleted) pixel = "COMPLETED";
-                else if (anyPartial) pixel = "PARTIAL";
-                else if (allMissed) pixel = "MISSED";
-                else if (date.isBefore(today)) pixel = "MISSED";
-                else pixel = "PENDING";
+                if (total == 0) {
+                    pixel = date.isBefore(today) ? "MISSED" : "PENDING";
+                } else if (completed == total) {
+                    pixel = "COMPLETED";
+                } else if (missed == total) {
+                    pixel = "MISSED";
+                } else {
+                    pixel = "PARTIAL";
+                }
 
                 result.put(date.toString(), pixel);
             }

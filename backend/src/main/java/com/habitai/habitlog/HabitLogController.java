@@ -41,9 +41,6 @@ public class HabitLogController {
         if (startDate.isAfter(endDate)) {
             throw new IllegalArgumentException("startDate must not be after endDate");
         }
-        if (startDate.plusDays(90).isBefore(endDate)) {
-            throw new IllegalArgumentException("Date range must not exceed 90 days");
-        }
         return habitLogService.getHabitActivity(habitId, startDate, endDate);
     }
 }

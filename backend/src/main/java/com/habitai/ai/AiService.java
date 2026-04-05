@@ -45,13 +45,26 @@ public class AiService {
                 .stream().map(Habit::getTitle).toList();
 
         String systemPrompt = """
-            You are a habit coach. Return ONLY a valid JSON array of habits, no explanation.
+            You are a habit coach. Return ONLY a valid JSON array, no explanation, no markdown.
             Each object must have exactly these fields:
-            title (string), description (string), category (one of: GENERAL, HEALTH, FITNESS, WORK, LEARNING),
-            frequency (one of: DAILY, WEEKLY, MONTHLY), targetTime (HH:mm:ss format),
-            targetCount (integer 1-100), isCountable (boolean),
-            daysOfWeek (array of MONDAY-SUNDAY, only if WEEKLY, else null),
-            daysOfMonth (array of integers 1-31, only if MONTHLY, else null).
+            - title: string
+            - description: string
+            - category: one of GENERAL, HEALTH, FITNESS, WORK, LEARNING
+            - frequency: one of DAILY, WEEKLY, MONTHLY
+            - targetTime: string in HH:mm:ss format (e.g. "07:00:00")
+            - targetCount: integer between 1 and 100
+            - isCountable: boolean
+            - daysOfWeek: array of day names (e.g. ["MONDAY","WEDNESDAY"]) only if WEEKLY, else null
+            - daysOfMonth: array of integers only if MONTHLY, else null
+            
+            Important rules for isCountable and targetCount:
+            - Most habits should be isCountable: false with targetCount: 1 (simple yes/no completion)
+            - Only use isCountable: true when the habit naturally involves counting repetitions
+              (e.g. "Do 20 pushups" → targetCount: 20, "Drink 8 glasses of water" → targetCount: 8)
+            - Never use large targetCount values (like 30 or 60) for time-based habits
+              (e.g. "Meditate for 10 minutes" should be isCountable: false, not targetCount: 10)
+            - For sleep, reading, journaling, stretching — always use isCountable: false
+            Return only the JSON array. No text before or after it.
             """;
 
         String userMessage = String.format("""
