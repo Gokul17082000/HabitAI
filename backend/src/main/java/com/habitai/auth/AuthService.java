@@ -31,6 +31,7 @@ public class AuthService {
         this.refreshTokenRepository = refreshTokenRepository;
     }
 
+    @Transactional
     public RegisterResponse register(AuthRequest authRequest) {
         if (userRepository.findByEmail(authRequest.email()).isPresent()) {
             throw new UserAlreadyExistException("User already exists!");

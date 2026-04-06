@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
-import { removeToken } from "../../../utils/authStorage";
+import { removeToken, removeRefreshToken } from "../../../utils/authStorage";
 import { getUserApi, getUserStatsApi, UserStats, getYearPixelsApi } from "../../../services/authService";
 import { Colors } from "../../../constants/colors";
 import { UnauthorizedError } from "../../../utils/apiHandler";
@@ -73,6 +73,7 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     await removeToken();
+    await removeRefreshToken();
     router.replace("/");
   };
 

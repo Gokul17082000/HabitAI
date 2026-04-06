@@ -28,7 +28,7 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
   const [noteSaved, setNoteSaved] = useState(false);
 
   useEffect(() => {
-    if (!logging) {
+    if (!logging && !savingNote) {
       setLocalStatus(habit.habitStatus);
       setLocalCount(habit.currentCount);
       setNoteSaved(false);
@@ -110,7 +110,7 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
     }
     setSavingNote(true);
     try {
-      await logHabitApi(habit.id, today, "MISSED", 0, note.trim());
+      await logHabitApi(habit.id, today, localStatus, localCount, note.trim());
       setNoteSaved(true);
     } catch {
       // fail silently — note is non-critical

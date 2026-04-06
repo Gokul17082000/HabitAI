@@ -76,6 +76,7 @@ export default function MasterHabitsScreen() {
     setGoalError("");
     try {
       const suggested = await suggestHabitsApi(goal.trim());
+      setGoal("");
       router.push({
         pathname: "/(tabs)/habits/ai-review",
         params: { habits: JSON.stringify(suggested) },
@@ -84,7 +85,6 @@ export default function MasterHabitsScreen() {
       setGoalError(e.message || "Failed to get suggestions");
     } finally {
       setSuggesting(false);
-      setGoal("");
     }
   };
 

@@ -48,6 +48,21 @@ public interface HabitLogRepository extends JpaRepository<HabitLog, Long> {
             "ORDER BY l.date DESC")
     List<LocalDate> findDistinctCompletedDatesDescByUserId(@Param("userId") Long userId);
 
+    /** Returns all distinct log dates ordered ascending — for longest-streak calc. */
+    @Query("SELECT DISTINCT l.date FROM HabitLog l " +
+            "WHERE l.userId = :userId " +
+            "ORDER BY l.date ASC")
+    List<LocalDate> findDistinctLogDatesByUserId(@Param("userId") Long userId);
+
+    /** Returns all distinct log dates ordered descending — for current-streak calc. */
+    @Query("SELECT DISTINCT l.date FROM HabitLog l " +
+            "WHERE l.userId = :userId " +
+            "ORDER BY l.date DESC")
+    List<LocalDate> findDistinctLogDatesDescByUserId(@Param("userId") Long userId);
+
+    /** Returns true if a log exists for the given user, date, and status. */
+    boolean existsByUserIdAndDateAndStatus(Long userId, LocalDate date, HabitStatus status);
+
     /** Per-habit completion and total counts — for top-habits ranking. */
     @Query("SELECT l.habitId, " +
             "SUM(CASE WHEN l.status = 'COMPLETED' THEN 1 ELSE 0 END), " +

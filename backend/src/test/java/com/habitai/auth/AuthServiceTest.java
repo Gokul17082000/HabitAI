@@ -19,6 +19,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,6 +33,9 @@ class AuthServiceTest {
 
     @Mock
     private JwtService jwtService;
+
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
 
     @InjectMocks
     private AuthService authService;
@@ -107,6 +111,9 @@ class AuthServiceTest {
         when(passwordEncoder.matches(authRequest.password(), mockUser.getPassword())).thenReturn(true);
         when(jwtService.generateToken(mockUser)).thenReturn("mock.access.token");
         when(jwtService.generateRefreshToken(mockUser)).thenReturn("mock.refresh.token");
+        // login() always invalidates existing refresh tokens and stores the new one
+        doNothing().when(refreshTokenRepository).deleteByUserId(mockUser.getId());
+        lenient().when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(inv -> inv.getArgument(0));
 
         LoginResponse response = authService.login(authRequest);
 

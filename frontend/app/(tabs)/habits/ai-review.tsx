@@ -78,11 +78,19 @@ export default function AiReviewScreen() {
     if (toSave.length === 0) return;
 
     // Validate weekly habits have at least one day selected
-    const invalid = toSave.find(
+    const invalidWeekly = toSave.find(
       (h) => h.frequency === "WEEKLY" && (!h.daysOfWeek || h.daysOfWeek.length === 0)
     );
-    if (invalid) {
-      Alert.alert("Missing days", `"${invalid.title}" is WEEKLY but has no days selected.`);
+    if (invalidWeekly) {
+      Alert.alert("Missing days", `"${invalidWeekly.title}" is WEEKLY but has no days selected.`);
+      return;
+    }
+
+    const invalidMonthly = toSave.find(
+      (h) => h.frequency === "MONTHLY" && (!h.daysOfMonth || h.daysOfMonth.length === 0)
+    );
+    if (invalidMonthly) {
+      Alert.alert("Missing days", `"${invalidMonthly.title}" is MONTHLY but has no days of month selected.`);
       return;
     }
 

@@ -22,6 +22,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,16 +61,21 @@ class UserStatsServiceTest {
 
         LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
 
-        when(habitLogRepository.countByUserIdAndStatus(userId, HabitStatus.COMPLETED)).thenReturn(2L);
-        when(habitLogRepository.countByUserIdAndStatus(userId, HabitStatus.MISSED)).thenReturn(1L);
-        when(habitLogRepository.countDistinctDatesByUserId(userId)).thenReturn(2L);
+        when(habitLogRepository.countByUserIdAndStatus(eq(userId), eq(HabitStatus.COMPLETED))).thenReturn(2L);
+        when(habitLogRepository.countByUserIdAndStatus(eq(userId), eq(HabitStatus.MISSED))).thenReturn(1L);
+        when(habitLogRepository.countDistinctDatesByUserId(eq(userId))).thenReturn(2L);
 
-        when(habitLogRepository.findDistinctCompletedDatesDescByUserId(userId))
+        // Streaks are now computed per-day: a streak day = has COMPLETED and no MISSED.
+        when(habitLogRepository.findDistinctLogDatesDescByUserId(eq(userId)))
                 .thenReturn(List.of(today, today.minusDays(1)));
-        when(habitLogRepository.findDistinctCompletedDatesByUserId(userId))
+        when(habitLogRepository.findDistinctLogDatesByUserId(eq(userId)))
                 .thenReturn(List.of(today.minusDays(1), today));
+        when(habitLogRepository.existsByUserIdAndDateAndStatus(eq(userId), eq(today), eq(HabitStatus.COMPLETED))).thenReturn(true);
+        when(habitLogRepository.existsByUserIdAndDateAndStatus(eq(userId), eq(today), eq(HabitStatus.MISSED))).thenReturn(false);
+        when(habitLogRepository.existsByUserIdAndDateAndStatus(eq(userId), eq(today.minusDays(1)), eq(HabitStatus.COMPLETED))).thenReturn(true);
+        when(habitLogRepository.existsByUserIdAndDateAndStatus(eq(userId), eq(today.minusDays(1)), eq(HabitStatus.MISSED))).thenReturn(false);
 
-        when(habitLogRepository.findHabitCompletionStatsByUserId(userId)).thenReturn(List.of(
+        when(habitLogRepository.findHabitCompletionStatsByUserId(eq(userId))).thenReturn(List.of(
                 new Object[]{10L, 1L, 2L},
                 new Object[]{20L, 1L, 1L}
         ));
@@ -109,8 +116,11 @@ class UserStatsServiceTest {
         when(habitLogRepository.countByUserIdAndStatus(eq(userId), eq(HabitStatus.COMPLETED))).thenReturn(0L);
         when(habitLogRepository.countByUserIdAndStatus(eq(userId), eq(HabitStatus.MISSED))).thenReturn(0L);
         when(habitLogRepository.countDistinctDatesByUserId(userId)).thenReturn(0L);
-        when(habitLogRepository.findDistinctCompletedDatesDescByUserId(userId)).thenReturn(List.of());
-        when(habitLogRepository.findDistinctCompletedDatesByUserId(userId)).thenReturn(List.of());
+        // Depending on early-exit/optimizations these may or may not be called; keep tests strict-clean.
+        lenient().when(habitLogRepository.findDistinctLogDatesDescByUserId(anyLong())).thenReturn(List.of());
+        lenient().when(habitLogRepository.findDistinctLogDatesByUserId(anyLong())).thenReturn(List.of());
+        lenient().when(habitLogRepository.existsByUserIdAndDateAndStatus(anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(false);
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userStatsService.getStats())

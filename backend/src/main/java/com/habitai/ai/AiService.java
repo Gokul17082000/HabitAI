@@ -19,10 +19,10 @@ import java.util.Set;
 @Service
 public class AiService {
 
-    @Value("${grok.api.key}")
+    @Value("${groq.api.key}")
     private String apiKey;
 
-    @Value("${grok.api.url}")
+    @Value("${groq.api.url}")
     private String apiUrl;
 
     private final HabitRepository habitRepository;

@@ -79,17 +79,27 @@ public class UserStatsService {
     }
 
     private int calculateCurrentStreak(long userId) {
-        // Fetch only distinct completed dates descending — stops as soon as streak breaks
-        List<LocalDate> completedDates = habitLogRepository.findDistinctCompletedDatesDescByUserId(userId);
-        if (completedDates.isEmpty()) return 0;
+        // A streak day = at least one habit completed AND zero habits missed.
+        // This is consistent with the per-habit streak logic and avoids inflating
+        // the global streak when the user completes 1 habit but misses 4 others.
+        List<LocalDate> allLogDates = habitLogRepository.findDistinctLogDatesDescByUserId(userId);
+        if (allLogDates.isEmpty()) return 0;
 
-        LocalDate cursor = LocalDate.now(AppConstants.APP_ZONE);
+        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
+        LocalDate cursor = today;
         int streak = 0;
 
-        for (LocalDate date : completedDates) {
-            if (date.equals(cursor) || date.equals(cursor.minusDays(1))) {
-                // Allow today being incomplete without breaking streak
+        for (LocalDate date : allLogDates) {
+            if (!date.equals(cursor) && !date.equals(cursor.minusDays(1))) break;
+
+            boolean hasCompleted = habitLogRepository.existsByUserIdAndDateAndStatus(userId, date, HabitStatus.COMPLETED);
+            boolean hasMissed    = habitLogRepository.existsByUserIdAndDateAndStatus(userId, date, HabitStatus.MISSED);
+
+            if (hasCompleted && !hasMissed) {
                 streak++;
+                cursor = date.minusDays(1);
+            } else if (date.equals(today)) {
+                // Today is still in progress — don't break, just skip it
                 cursor = date.minusDays(1);
             } else {
                 break;
@@ -99,17 +109,21 @@ public class UserStatsService {
     }
 
     private int calculateLongestStreak(long userId) {
-        List<LocalDate> completedDates = habitLogRepository.findDistinctCompletedDatesByUserId(userId);
-        if (completedDates.isEmpty()) return 0;
+        List<LocalDate> allLogDates = habitLogRepository.findDistinctLogDatesByUserId(userId);
+        if (allLogDates.isEmpty()) return 0;
 
-        int longest = 1;
-        int current = 1;
-        for (int i = 1; i < completedDates.size(); i++) {
-            if (completedDates.get(i).equals(completedDates.get(i - 1).plusDays(1))) {
+        int longest = 0;
+        int current = 0;
+
+        for (LocalDate date : allLogDates) {
+            boolean hasCompleted = habitLogRepository.existsByUserIdAndDateAndStatus(userId, date, HabitStatus.COMPLETED);
+            boolean hasMissed    = habitLogRepository.existsByUserIdAndDateAndStatus(userId, date, HabitStatus.MISSED);
+
+            if (hasCompleted && !hasMissed) {
                 current++;
                 longest = Math.max(longest, current);
             } else {
-                current = 1;
+                current = 0;
             }
         }
         return longest;

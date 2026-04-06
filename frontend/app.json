@@ -45,7 +45,8 @@
       "router": {},
       "eas": {
         "projectId": "461bbcbf-9b9e-41ba-881b-cea35f3766aa"
-      }
+      },
+      "devApiHost": "192.168.1.2"
     }
   }
 }

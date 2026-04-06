@@ -1,11 +1,15 @@
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 
 const getBaseUrl = (): string => {
   if (__DEV__) {
     if (Platform.OS === "web") {
       return "http://localhost:8080";
     }
-    return "http://192.168.1.2:8080";
+    // Read from app.json > extra.devApiHost so each developer can override
+    // their local IP in app.json without touching source files.
+    const host = Constants.expoConfig?.extra?.devApiHost ?? "192.168.1.2";
+    return `http://${host}:8080`;
   }
   return "https://habitai-knma.onrender.com";
 };

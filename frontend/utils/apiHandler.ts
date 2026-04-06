@@ -1,4 +1,4 @@
-import { removeToken } from "./authStorage";
+import { removeToken, removeRefreshToken, getRefreshToken, saveToken, saveRefreshToken } from "./authStorage";
 import { router } from "expo-router";
 
 export class UnauthorizedError extends Error {
@@ -8,8 +8,41 @@ export class UnauthorizedError extends Error {
 }
 
 /**
+ * Attempts to refresh the access token using the stored refresh token.
+ * Returns the new access token on success, or null if refresh fails.
+ * A module-level flag prevents multiple simultaneous refresh races.
+ */
+let isRefreshing = false;
+const refreshAccessToken = async (): Promise<string | null> => {
+  if (isRefreshing) return null;
+  isRefreshing = true;
+  try {
+    const refreshToken = await getRefreshToken();
+    if (!refreshToken) return null;
+
+    const { API_ENDPOINTS } = await import("../constants/api");
+    const response = await fetch(API_ENDPOINTS.refresh, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    await saveToken(data.accessToken);
+    await saveRefreshToken(data.refreshToken);
+    return data.accessToken;
+  } catch {
+    return null;
+  } finally {
+    isRefreshing = false;
+  }
+};
+
+/**
  * Central response handler for all API calls.
- * Handles 401 redirect, 204 no-content, JSON parsing and error extraction.
+ * On 401: attempts a silent token refresh before redirecting to login.
  * skipAuthRedirect=true is used only by /auth/* endpoints that must not loop.
  */
 export const handleResponse = async <T>(
@@ -17,8 +50,15 @@ export const handleResponse = async <T>(
   skipAuthRedirect = false
 ): Promise<T> => {
   if (response.status === 401 && !skipAuthRedirect) {
-    await removeToken();
-    router.replace("/");
+    const newToken = await refreshAccessToken();
+    if (!newToken) {
+      // Refresh failed — clear all tokens and send user to login
+      await removeToken();
+      await removeRefreshToken();
+      router.replace("/");
+    }
+    // Either way, throw so the original call fails cleanly.
+    // If refresh succeeded, the next buildAuthHeaders call will use the new token.
     throw new UnauthorizedError();
   }
 

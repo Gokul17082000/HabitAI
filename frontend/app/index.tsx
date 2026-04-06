@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TextInput, Pressable } from "react-native";
 import { router } from "expo-router";
 import FormInput from "../components/FormInput";
 import PrimaryButton from "../components/PrimaryButton";
-import { saveToken, getToken } from "../utils/authStorage";
+import { saveToken, saveRefreshToken, getToken } from "../utils/authStorage";
 import { loginApi } from "../services/authService";
 import { isValidEmail } from "../utils/validation";
 import { Colors } from "../constants/colors";
@@ -75,6 +75,7 @@ export default function LoginScreen() {
     try {
       const data = await loginApi(email, password);
       await saveToken(data.accessToken);
+      await saveRefreshToken(data.refreshToken);
       await registerForPushNotifications();
       router.replace("/home");
     } catch (error) {

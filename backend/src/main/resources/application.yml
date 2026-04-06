@@ -46,7 +46,7 @@ springdoc:
   swagger-ui:
     enabled: ${SWAGGER_ENABLED:false}
 
-grok:
+groq:
   api:
-    key: ${GROK_API_KEY}
+    key: ${GROQ_API_KEY}
     url: https://api.groq.com/openai/v1/chat/completions

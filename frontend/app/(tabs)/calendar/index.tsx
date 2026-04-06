@@ -5,8 +5,7 @@ import { getHabitsForDateApi } from "../../../services/habitService";
 import { HabitResponse } from "../../../types/habit";
 import { formatDate, formatTime } from "../../../utils/formatters";
 import { Colors } from "../../../constants/colors";
-import { UnauthorizedError } from "../../../utils/apiHandler";
-import { getToken } from "../../../utils/authStorage";
+import { buildAuthHeaders, handleResponse, UnauthorizedError } from "../../../utils/apiHandler";
 import { API_ENDPOINTS } from "../../../constants/api"
 
 /* ---------------- Types ---------------- */
@@ -72,30 +71,20 @@ export default function CalendarScreen() {
 
   const loadMonthOverview = async () => {
     try {
-      const token = await getToken();
-      if (!token) return;
-
+      const headers = await buildAuthHeaders();
       const response = await fetch(
         `${API_ENDPOINTS.habitSummary}?year=${currentYear}&month=${currentMonth + 1}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
+        { headers }
       );
+      const data = await handleResponse<Record<string, string[]>>(response);
 
-      if (!response.ok) return;
-
-      const data: Record<string, string[]> = await response.json();
       const newMap = new Map<string, HabitStatus[]>();
-
       Object.entries(data).forEach(([date, statuses]) => {
         newMap.set(date, statuses as HabitStatus[]);
       });
-
       setMonthStatusMap(newMap);
     } catch (e) {
+      if (e instanceof UnauthorizedError) return; // auto-redirected to login by handleResponse
       console.error("Failed to load month overview", e);
     }
   };
