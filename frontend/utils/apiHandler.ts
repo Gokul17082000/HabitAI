@@ -8,36 +8,49 @@ export class UnauthorizedError extends Error {
 }
 
 /**
- * Attempts to refresh the access token using the stored refresh token.
- * Returns the new access token on success, or null if refresh fails.
- * A module-level flag prevents multiple simultaneous refresh races.
+ * FIX: Replace the boolean flag with a shared promise.
+ *
+ * Old behaviour: when `isRefreshing = true`, every concurrent 401 caller got
+ * `null` back immediately and threw UnauthorizedError, logging the user out
+ * even though the refresh was still in flight and about to succeed.
+ *
+ * New behaviour: the first caller starts the refresh and stores the promise.
+ * Every subsequent concurrent caller awaits the *same* promise, so they all
+ * get the new token once the single refresh completes — no race, no false logouts.
  */
-let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
+
 const refreshAccessToken = async (): Promise<string | null> => {
-  if (isRefreshing) return null;
-  isRefreshing = true;
-  try {
-    const refreshToken = await getRefreshToken();
-    if (!refreshToken) return null;
+  // If a refresh is already in flight, share it — don't fire a second one
+  if (refreshPromise) return refreshPromise;
 
-    const { API_ENDPOINTS } = await import("../constants/api");
-    const response = await fetch(API_ENDPOINTS.refresh, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
-    });
+  refreshPromise = (async (): Promise<string | null> => {
+    try {
+      const refreshToken = await getRefreshToken();
+      if (!refreshToken) return null;
 
-    if (!response.ok) return null;
+      const { API_ENDPOINTS } = await import("../constants/api");
+      const response = await fetch(API_ENDPOINTS.refresh, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      });
 
-    const data = await response.json();
-    await saveToken(data.accessToken);
-    await saveRefreshToken(data.refreshToken);
-    return data.accessToken;
-  } catch {
-    return null;
-  } finally {
-    isRefreshing = false;
-  }
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      await saveToken(data.accessToken);
+      await saveRefreshToken(data.refreshToken);
+      return data.accessToken;
+    } catch {
+      return null;
+    } finally {
+      // Clear the shared promise so the next genuine 401 triggers a fresh refresh
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 };
 
 /**
@@ -58,7 +71,7 @@ export const handleResponse = async <T>(
       router.replace("/");
     }
     // Either way, throw so the original call fails cleanly.
-    // If refresh succeeded, the next buildAuthHeaders call will use the new token.
+    // If refresh succeeded, the caller should retry with the new token from storage.
     throw new UnauthorizedError();
   }
 

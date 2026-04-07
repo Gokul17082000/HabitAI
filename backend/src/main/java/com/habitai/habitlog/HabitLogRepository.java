@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface HabitLogRepository extends JpaRepository<HabitLog, Long> {
 
@@ -59,6 +60,16 @@ public interface HabitLogRepository extends JpaRepository<HabitLog, Long> {
             "WHERE l.userId = :userId " +
             "ORDER BY l.date DESC")
     List<LocalDate> findDistinctLogDatesDescByUserId(@Param("userId") Long userId);
+
+    /**
+     * Bulk-loads all dates that have at least one log with the given status for a user.
+     * Used by streak calculations to avoid N+1 queries (one existsBy per date).
+     */
+    @Query("SELECT DISTINCT l.date FROM HabitLog l " +
+            "WHERE l.userId = :userId AND l.status = :status")
+    Set<LocalDate> findDatesByUserIdAndStatus(
+            @Param("userId") Long userId,
+            @Param("status") HabitStatus status);
 
     /** Returns true if a log exists for the given user, date, and status. */
     boolean existsByUserIdAndDateAndStatus(Long userId, LocalDate date, HabitStatus status);

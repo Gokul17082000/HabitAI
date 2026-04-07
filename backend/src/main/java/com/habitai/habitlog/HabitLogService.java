@@ -1,6 +1,5 @@
 package com.habitai.habitlog;
 
-import com.habitai.common.AppConstants;
 import com.habitai.common.security.CurrentUser;
 import com.habitai.common.validation.HabitAccessValidator;
 import com.habitai.habit.Habit;
@@ -8,6 +7,7 @@ import com.habitai.habit.HabitScheduleService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -34,7 +34,8 @@ public class HabitLogService {
     public void updateTodayHabitStatus(long habitId, HabitLogRequest habitLogRequest) {
         Habit habit = habitAccessValidator.getAndValidate(habitId);
         long userId = currentUser.getId();
-        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
+        ZoneId zone = currentUser.getZone();
+        LocalDate today = LocalDate.now(zone);
 
         if (!habitLogRequest.date().isEqual(today)) {
             throw new IllegalStateException("Cannot update past or future habits");
@@ -68,7 +69,6 @@ public class HabitLogService {
         // --- Countable habit ---
         int newCount = habitLogRequest.currentCount();
 
-        // Count reset to 0 — remove log, back to PENDING
         if (newCount <= 0) {
             existing.ifPresent(habitLogRepository::delete);
             return;
@@ -78,7 +78,7 @@ public class HabitLogService {
         HabitStatus computedStatus;
         if (newCount >= habit.getTargetCount()) {
             computedStatus = HabitStatus.COMPLETED;
-            newCount = habit.getTargetCount(); // cap at target, no over-counting
+            newCount = habit.getTargetCount();
         } else {
             computedStatus = HabitStatus.PARTIALLY_COMPLETED;
         }
@@ -100,15 +100,15 @@ public class HabitLogService {
     public HabitStreakResponse getCurrentStreak(long habitId) {
         Habit habit = habitAccessValidator.getAndValidate(habitId);
         long userId = currentUser.getId();
+        ZoneId zone = currentUser.getZone();
 
-        // Only COMPLETED counts toward streak — PARTIALLY_COMPLETED does not
         Set<LocalDate> completedDates = habitLogRepository
                 .findByHabitIdAndUserIdAndStatusOrderByDateDesc(habitId, userId, HabitStatus.COMPLETED)
                 .stream()
                 .map(HabitLog::getDate)
                 .collect(java.util.stream.Collectors.toSet());
 
-        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
+        LocalDate today = LocalDate.now(zone);
         LocalDate cursor = today;
         int streak = 0;
 
@@ -121,7 +121,6 @@ public class HabitLogService {
                 streak++;
                 cursor = cursor.minusDays(1);
             } else if (cursor.isEqual(today)) {
-                // Today not yet completed — streak can still be alive, skip it
                 cursor = cursor.minusDays(1);
             } else {
                 break;
@@ -134,8 +133,8 @@ public class HabitLogService {
     public HabitStreakResponse getLongestStreak(long habitId) {
         Habit habit = habitAccessValidator.getAndValidate(habitId);
         long userId = currentUser.getId();
+        ZoneId zone = currentUser.getZone();
 
-        // Only COMPLETED counts toward streak — PARTIALLY_COMPLETED does not
         Set<LocalDate> completedDates = habitLogRepository
                 .findByHabitIdAndUserIdAndStatusOrderByDateDesc(habitId, userId, HabitStatus.COMPLETED)
                 .stream()
@@ -144,8 +143,7 @@ public class HabitLogService {
 
         if (completedDates.isEmpty()) return new HabitStreakResponse(0);
 
-        // Build ordered list of scheduled days from habit creation up to today
-        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
+        LocalDate today = LocalDate.now(zone);
         List<LocalDate> scheduledDays = new ArrayList<>();
         LocalDate cursor = habit.getCreatedAt();
         while (!cursor.isAfter(today)) {
@@ -174,6 +172,7 @@ public class HabitLogService {
     public List<HabitActivityStatus> getHabitActivity(long habitId, LocalDate startDate, LocalDate endDate) {
         Habit habit = habitAccessValidator.getAndValidate(habitId);
         long userId = currentUser.getId();
+        ZoneId zone = currentUser.getZone();
 
         LocalDate effectiveStart = startDate.isBefore(habit.getCreatedAt())
                 ? habit.getCreatedAt()
@@ -183,15 +182,12 @@ public class HabitLogService {
                 .findByHabitIdAndUserIdAndDateBetweenOrderByDateAsc(habitId, userId, effectiveStart, endDate);
 
         List<HabitActivityStatus> habitActivityStatusList = new ArrayList<>();
-        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
+        LocalDate today = LocalDate.now(zone);
         LocalDate currentDate = effectiveStart;
         LocalDate effectiveEndDate = endDate.isAfter(today) ? today : endDate;
 
         int i = 0;
         while (!currentDate.isAfter(effectiveEndDate)) {
-
-            // Skip days this habit is not scheduled for —
-            // avoids marking non-scheduled days as MISSED which skews consistency %
             if (!habitScheduleService.isScheduledForDate(habit, currentDate)) {
                 currentDate = currentDate.plusDays(1);
                 continue;

@@ -12,9 +12,11 @@ import java.util.List;
 public class UserPrincipal implements UserDetails {
 
     private final long userId;
+    private final String timezone;
 
-    public UserPrincipal(long userId) {
+    public UserPrincipal(long userId, String timezone) {
         this.userId = userId;
+        this.timezone = timezone != null ? timezone : "UTC";
     }
 
     @Override

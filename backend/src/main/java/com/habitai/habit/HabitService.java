@@ -44,8 +44,9 @@ public class HabitService {
 
     public List<HabitResponse> getHabitsForDate(LocalDate date) {
         long userId = currentUser.getId();
-        LocalTime now = LocalTime.now(AppConstants.APP_ZONE);
-        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
+        ZoneId zone = currentUser.getZone();
+        LocalTime now = LocalTime.now(zone);
+        LocalDate today = LocalDate.now(zone);
 
         List<Habit> habits = habitRepository.findByUserId(userId)
                 .stream()
@@ -132,17 +133,19 @@ public class HabitService {
 
         Habit habit = habitAccessValidator.getAndValidate(habitId);
 
+        ZoneId zone = currentUser.getZone();
+
         // If targetCount changed on a countable habit, recompute today's log status
         if (habit.isCountable() && habitRequest.isCountable()
                 && habit.getTargetCount() != habitRequest.targetCount()) {
 
-            LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
+            LocalDate today = LocalDate.now(zone);
             habitLogRepository
                     .findByHabitIdAndUserIdAndDate(habitId, habit.getUserId(), today)
                     .ifPresent(log -> {
                         if (log.getCurrentCount() >= habitRequest.targetCount()) {
                             log.setStatus(HabitStatus.COMPLETED);
-                            log.setCurrentCount(habitRequest.targetCount()); // cap at new target
+                            log.setCurrentCount(habitRequest.targetCount());
                         } else if (log.getCurrentCount() > 0) {
                             log.setStatus(HabitStatus.PARTIALLY_COMPLETED);
                         }
@@ -167,7 +170,6 @@ public class HabitService {
     @Transactional
     public void deleteHabit(long habitId) {
         Habit habit = habitAccessValidator.getAndValidate(habitId);
-        // Delete logs directly via repository to avoid circular dependency with HabitLogService
         habitLogRepository.deleteByHabitIdAndUserId(habitId, habit.getUserId());
         habitRepository.delete(habit);
     }
@@ -223,6 +225,7 @@ public class HabitService {
     @Transactional(readOnly = true)
     public Map<String, List<String>> getMonthSummary(int year, int month) {
         long userId = currentUser.getId();
+        ZoneId zone = currentUser.getZone();
 
         LocalDate startDate = LocalDate.of(year, month, 1);
         LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
@@ -235,7 +238,7 @@ public class HabitService {
         Map<String, List<String>> result = new HashMap<>();
 
         LocalDate current = startDate;
-        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
+        LocalDate today = LocalDate.now(zone);
 
         while (!current.isAfter(endDate) && !current.isAfter(today)) {
             final LocalDate date = current;
@@ -272,7 +275,7 @@ public class HabitService {
     public void pauseHabit(long habitId, PauseRequest request) {
         Habit habit = habitAccessValidator.getAndValidate(habitId);
         habit.setPaused(true);
-        habit.setPausedUntil(LocalDate.now(AppConstants.APP_ZONE).plusDays(request.days()));
+        habit.setPausedUntil(LocalDate.now(currentUser.getZone()).plusDays(request.days()));
         habitRepository.save(habit);
     }
 

@@ -9,7 +9,7 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.security.Key;
+import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.List;
 
@@ -35,17 +35,17 @@ public class JwtService {
 
     private String buildToken(User user, long expiryMs, String tokenType) {
         return Jwts.builder()
-                .setSubject(String.valueOf(user.getId()))
+                .subject(String.valueOf(user.getId()))   // 0.12.x: subject() replaces setSubject()
                 .claim("email", user.getEmail())
                 .claim("role", List.of("USER"))
                 .claim("type", tokenType)
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + expiryMs))
+                .issuedAt(new Date())                    // 0.12.x: issuedAt() replaces setIssuedAt()
+                .expiration(new Date(System.currentTimeMillis() + expiryMs)) // replaces setExpiration()
                 .signWith(getSignKey())
                 .compact();
     }
 
-    private Key getSignKey() {
+    private SecretKey getSignKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
@@ -73,12 +73,11 @@ public class JwtService {
     }
 
     private Claims extractAllClaims(String token) {
-        return Jwts
-                .parserBuilder()
-                .setSigningKey(getSignKey())
+        return Jwts.parser()               // 0.12.x: parser() replaces parserBuilder()
+                .verifyWith(getSignKey())  // replaces setSigningKey()
                 .build()
-                .parseClaimsJws(token)
-                .getBody();
+                .parseSignedClaims(token)  // replaces parseClaimsJws()
+                .getPayload();             // replaces getBody()
     }
 
     public String extractUserId(String token) {

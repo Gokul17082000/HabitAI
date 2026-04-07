@@ -13,7 +13,10 @@ spring:
       connection-test-query: SELECT 1
   jpa:
     hibernate:
-      ddl-auto: ${DDL_AUTO:update}
+      # FIXED: was "update" — Hibernate should never auto-alter a production schema.
+      # Use "validate" so the app fails fast on a schema mismatch rather than silently mutating the DB.
+      # Run Flyway migrations explicitly to evolve the schema.
+      ddl-auto: ${DDL_AUTO:validate}
     show-sql: false
     open-in-view: false
     defer-datasource-initialization: true
@@ -22,6 +25,9 @@ spring:
         format_sql: true
   main:
     lazy-initialization: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
 
 security:
   jwt:
@@ -34,8 +40,10 @@ security:
 cors:
   allowed-origins:
     - ${CORS_ORIGIN_1:http://localhost:8081}
-    - ${CORS_ORIGIN_2:http://192.168.1.2:8081}
-    - ${CORS_ORIGIN_3:http://192.168.1.2:19006}
+    - ${CORS_ORIGIN_2:http://localhost:19006}
+    # FIXED: removed hardcoded 192.168.1.2 — set CORS_ORIGIN_3 in your local .env instead:
+    #   CORS_ORIGIN_3=http://192.168.x.x:8081
+    - ${CORS_ORIGIN_3:}
 
 firebase:
   service-account: ${FIREBASE_SERVICE_ACCOUNT:src/main/resources/firebase-service-account.json}

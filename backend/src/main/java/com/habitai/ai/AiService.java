@@ -6,7 +6,9 @@ import com.habitai.habit.*;
 import com.habitai.common.security.CurrentUser;
 import com.habitai.user.UserStatsService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 import java.time.DayOfWeek;
@@ -29,7 +31,12 @@ public class AiService {
     private final CurrentUser currentUser;
     private final UserStatsService userStatsService;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final RestClient restClient = RestClient.create();
+
+    // FIX: configure explicit connect + read timeouts so a slow or unresponsive
+    // Groq API does not block the request thread indefinitely.
+    // Connect timeout: 5s — fail fast if the host is unreachable.
+    // Read timeout: 15s — enough for the LLM to stream a full response.
+    private final RestClient restClient;
 
     public AiService(HabitRepository habitRepository,
                      CurrentUser currentUser,
@@ -37,6 +44,13 @@ public class AiService {
         this.habitRepository = habitRepository;
         this.currentUser = currentUser;
         this.userStatsService = userStatsService;
+
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5_000);
+        factory.setReadTimeout(15_000);
+        this.restClient = RestClient.builder()
+                .requestFactory(factory)
+                .build();
     }
 
     public List<HabitRequest> suggestHabits(String goal) {
@@ -73,7 +87,7 @@ public class AiService {
             Suggest 3 to 5 new habits that complement and avoid duplicating existing ones.
             """, goal, existingTitles.isEmpty() ? "none" : String.join(", ", existingTitles));
 
-        String response = callGrok(systemPrompt, userMessage);
+        String response = callGroq(systemPrompt, userMessage);
         String json = stripMarkdownFences(response);
 
         try {
@@ -163,11 +177,11 @@ public class AiService {
                 stats.topHabits().stream().map(h -> h.title() + " (" + h.consistencyPercent() + "%)").toList()
         );
 
-        String insight = callGrok(systemPrompt, userMessage);
+        String insight = callGroq(systemPrompt, userMessage);
         return new InsightResponse(insight);
     }
 
-    private String callGrok(String systemPrompt, String userMessage) {
+    private String callGroq(String systemPrompt, String userMessage) {
         Map<String, Object> body = Map.of(
                 "model", "llama-3.3-70b-versatile",
                 "max_tokens", 1000,
@@ -177,19 +191,24 @@ public class AiService {
                 )
         );
 
-        String responseBody = restClient.post()
-                .uri(apiUrl)
-                .header("Authorization", "Bearer " + apiKey)
-                .header("Content-Type", "application/json")
-                .body(body)
-                .retrieve()
-                .body(String.class);
-
         try {
+            String responseBody = restClient.post()
+                    .uri(apiUrl)
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json")
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+
             JsonNode root = objectMapper.readTree(responseBody);
             return root.path("choices").get(0).path("message").path("content").asText();
+
+        } catch (ResourceAccessException e) {
+            // FIX: timeout or network failure — surface a friendly message instead of a 500
+            throw new RuntimeException(
+                    "The AI service is currently unavailable. Please try again in a moment.");
         } catch (Exception e) {
-            throw new RuntimeException("Failed to read Grok response");
+            throw new RuntimeException("Failed to read AI response. Please try again.");
         }
     }
 
@@ -212,7 +231,7 @@ public class AiService {
         Write a personalised coaching recap for this user.
         """, habitSummary, totalCompleted, totalScheduled, overallPct);
 
-        return callGrok(systemPrompt, userMessage);
+        return callGroq(systemPrompt, userMessage);
     }
 
     /**
@@ -223,9 +242,7 @@ public class AiService {
         if (text == null) return "";
         String trimmed = text.strip();
         if (trimmed.startsWith("```")) {
-            // Remove opening fence (```json or just ```)
             trimmed = trimmed.replaceFirst("^```[a-zA-Z]*\\n?", "");
-            // Remove closing fence
             if (trimmed.endsWith("```")) {
                 trimmed = trimmed.substring(0, trimmed.lastIndexOf("```")).stripTrailing();
             }

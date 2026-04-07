@@ -31,6 +31,11 @@ public class User {
     @Column
     private String pushToken;
 
+    // Stores the user's IANA timezone string (e.g. "Asia/Kolkata", "America/New_York").
+    // Defaults to "Asia/Kolkata" for existing users who were created before this column was added.
+    @Column(nullable = false, length = 100)
+    private String timezone = "Asia/Kolkata";
+
     @PrePersist
     public void prePersist(){
         createdAt = LocalDateTime.now(AppConstants.APP_ZONE);

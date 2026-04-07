@@ -13,9 +13,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,11 +44,11 @@ public class UserStatsService {
     @Transactional(readOnly = true)
     public UserStatsResponse getStats() {
         long userId = currentUser.getId();
+        ZoneId zone = currentUser.getZone();
 
         List<Habit> allHabits = habitRepository.findByUserId(userId);
         int totalHabits = allHabits.size();
 
-        // Aggregate queries — no full table scan into memory
         int totalCompleted = (int) habitLogRepository.countByUserIdAndStatus(userId, HabitStatus.COMPLETED);
         int totalMissed    = (int) habitLogRepository.countByUserIdAndStatus(userId, HabitStatus.MISSED);
         int totalDaysTracked = (int) habitLogRepository.countDistinctDatesByUserId(userId);
@@ -56,7 +58,7 @@ public class UserStatsService {
                 ? (int) Math.round((totalCompleted * 100.0) / totalLogs)
                 : 0;
 
-        int currentStreak = calculateCurrentStreak(userId);
+        int currentStreak = calculateCurrentStreak(userId, zone);
         int longestStreak = calculateLongestStreak(userId);
 
         List<UserStatsResponse.TopHabit> topHabits = getTopHabits(allHabits, userId);
@@ -78,22 +80,24 @@ public class UserStatsService {
         );
     }
 
-    private int calculateCurrentStreak(long userId) {
-        // A streak day = at least one habit completed AND zero habits missed.
-        // This is consistent with the per-habit streak logic and avoids inflating
-        // the global streak when the user completes 1 habit but misses 4 others.
+    private int calculateCurrentStreak(long userId, ZoneId zone) {
         List<LocalDate> allLogDates = habitLogRepository.findDistinctLogDatesDescByUserId(userId);
         if (allLogDates.isEmpty()) return 0;
 
-        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
+        LocalDate today = LocalDate.now(zone);
+
+        // FIX: load both sets in bulk — 2 queries total instead of 2 queries per date (N+1)
+        Set<LocalDate> completedDates = habitLogRepository.findDatesByUserIdAndStatus(userId, HabitStatus.COMPLETED);
+        Set<LocalDate> missedDates    = habitLogRepository.findDatesByUserIdAndStatus(userId, HabitStatus.MISSED);
+
         LocalDate cursor = today;
         int streak = 0;
 
         for (LocalDate date : allLogDates) {
             if (!date.equals(cursor) && !date.equals(cursor.minusDays(1))) break;
 
-            boolean hasCompleted = habitLogRepository.existsByUserIdAndDateAndStatus(userId, date, HabitStatus.COMPLETED);
-            boolean hasMissed    = habitLogRepository.existsByUserIdAndDateAndStatus(userId, date, HabitStatus.MISSED);
+            boolean hasCompleted = completedDates.contains(date);
+            boolean hasMissed    = missedDates.contains(date);
 
             if (hasCompleted && !hasMissed) {
                 streak++;
@@ -112,12 +116,16 @@ public class UserStatsService {
         List<LocalDate> allLogDates = habitLogRepository.findDistinctLogDatesByUserId(userId);
         if (allLogDates.isEmpty()) return 0;
 
+        // FIX: load both sets in bulk — 2 queries total instead of 2 per date (N+1)
+        Set<LocalDate> completedDates = habitLogRepository.findDatesByUserIdAndStatus(userId, HabitStatus.COMPLETED);
+        Set<LocalDate> missedDates    = habitLogRepository.findDatesByUserIdAndStatus(userId, HabitStatus.MISSED);
+
         int longest = 0;
         int current = 0;
 
         for (LocalDate date : allLogDates) {
-            boolean hasCompleted = habitLogRepository.existsByUserIdAndDateAndStatus(userId, date, HabitStatus.COMPLETED);
-            boolean hasMissed    = habitLogRepository.existsByUserIdAndDateAndStatus(userId, date, HabitStatus.MISSED);
+            boolean hasCompleted = completedDates.contains(date);
+            boolean hasMissed    = missedDates.contains(date);
 
             if (hasCompleted && !hasMissed) {
                 current++;
@@ -132,7 +140,6 @@ public class UserStatsService {
     private List<UserStatsResponse.TopHabit> getTopHabits(List<Habit> habits, long userId) {
         if (habits.isEmpty()) return List.of();
 
-        // Single aggregate query — no row-by-row streaming
         List<Object[]> rows = habitLogRepository.findHabitCompletionStatsByUserId(userId);
 
         Map<Long, long[]> statsByHabitId = new HashMap<>();
@@ -163,8 +170,9 @@ public class UserStatsService {
     @Transactional(readOnly = true)
     public Map<String, String> getYearPixels() {
         long userId = currentUser.getId();
-        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
-        LocalDate yearStart = today.minusDays(364); // 52 weeks back
+        ZoneId zone = currentUser.getZone();
+        LocalDate today = LocalDate.now(zone);
+        LocalDate yearStart = today.minusDays(364);
 
         List<Habit> habits = habitRepository.findByUserId(userId);
         if (habits.isEmpty()) return Map.of();
@@ -172,7 +180,6 @@ public class UserStatsService {
         List<HabitLog> logs = habitLogRepository
                 .findByUserIdAndDateBetween(userId, yearStart, today);
 
-        // Group logs by date
         Map<LocalDate, List<HabitLog>> logsByDate = logs.stream()
                 .collect(Collectors.groupingBy(HabitLog::getDate));
 
@@ -182,9 +189,6 @@ public class UserStatsService {
         while (!cursor.isAfter(today)) {
             final LocalDate date = cursor;
 
-            // Only show a pixel if at least one habit was actually scheduled on this day.
-            // Must call isScheduledForDate() — checking only createdAt/isPaused misses
-            // weekly/monthly habits and marks their off-days as MISSED incorrectly.
             boolean anyScheduled = habits.stream()
                     .anyMatch(h -> !date.isBefore(h.getCreatedAt())
                             && !h.isPaused()

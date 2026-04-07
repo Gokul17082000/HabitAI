@@ -2,6 +2,7 @@ package com.habitai.security;
 
 import com.habitai.auth.JwtService;
 import com.habitai.common.security.UserPrincipal;
+import com.habitai.user.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,13 +19,18 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, UserRepository userRepository) {
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
 
         String token = extractBearerToken(request);
 
@@ -35,7 +41,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             long userId = Long.parseLong(jwtService.extractUserId(token));
-            UserPrincipal principal = new UserPrincipal(userId);
+
+            // Load the user's timezone from DB so date calculations respect their local time.
+            // This is a single indexed PK lookup — negligible overhead per request.
+            String timezone = userRepository.findById(userId)
+                    .map(u -> u.getTimezone())
+                    .orElse("UTC");
+
+            UserPrincipal principal = new UserPrincipal(userId, timezone);
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(principal, null, List.of());
             SecurityContextHolder.getContext().setAuthentication(authentication);
