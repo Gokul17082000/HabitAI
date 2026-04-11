@@ -40,13 +40,15 @@ class AuthServiceTest {
     @InjectMocks
     private AuthService authService;
 
-    private AuthRequest authRequest;
+    private RegisterRequest authRequest;
+    private LoginRequest loginRequest;
     private User mockUser;
 
     @BeforeEach
     void setUp() {
-        authRequest = new AuthRequest("test@example.com", "password123");
-        
+        authRequest = new RegisterRequest("test@example.com", "password123");
+        loginRequest = new LoginRequest("test@example.com", "password123");
+
         mockUser = new User();
         mockUser.setId(1L);
         mockUser.setEmail("test@example.com");
@@ -115,7 +117,7 @@ class AuthServiceTest {
         doNothing().when(refreshTokenRepository).deleteByUserId(mockUser.getId());
         lenient().when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        LoginResponse response = authService.login(authRequest);
+        LoginResponse response = authService.login(loginRequest);
 
         assertNotNull(response);
         assertEquals("mock.access.token", response.accessToken());
@@ -126,7 +128,7 @@ class AuthServiceTest {
     void login_WhenUserNotFound_ShouldThrowUserNotFoundException() {
         when(userRepository.findByEmail(authRequest.email())).thenReturn(Optional.empty());
         
-        assertThrows(UserNotFoundException.class, () -> authService.login(authRequest));
+        assertThrows(UserNotFoundException.class, () -> authService.login(loginRequest));
         
         verify(passwordEncoder, never()).matches(anyString(), anyString());
         verify(jwtService, never()).generateToken(any(User.class));
@@ -137,7 +139,7 @@ class AuthServiceTest {
         when(userRepository.findByEmail(authRequest.email())).thenReturn(Optional.of(mockUser));
         when(passwordEncoder.matches(authRequest.password(), mockUser.getPassword())).thenReturn(false);
         
-        assertThrows(PasswordDoesNotMatchException.class, () -> authService.login(authRequest));
+        assertThrows(PasswordDoesNotMatchException.class, () -> authService.login(loginRequest));
         
         verify(jwtService, never()).generateToken(any(User.class));
     }

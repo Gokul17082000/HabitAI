@@ -189,9 +189,12 @@ public class UserStatsService {
         while (!cursor.isAfter(today)) {
             final LocalDate date = cursor;
 
+            // FIX: use isHabitPausedOnDate instead of h.isPaused() so the pixel
+            // for a given date reflects whether the habit was paused *on that date*,
+            // not just whether it is paused right now. Consistent with getMonthSummary.
             boolean anyScheduled = habits.stream()
                     .anyMatch(h -> !date.isBefore(h.getCreatedAt())
-                            && !h.isPaused()
+                            && !habitScheduleService.isHabitPausedOnDate(h, date)
                             && habitScheduleService.isScheduledForDate(h, date));
 
             if (anyScheduled) {

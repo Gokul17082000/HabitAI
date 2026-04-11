@@ -56,12 +56,10 @@ public class HabitStatusScheduler {
     @Transactional
     @Scheduled(cron = "0 */5 * * * *")
     public void updateMissedHabits() {
-        // Load all habits in one query, then filter in-memory by timezone.
-        // This is still a single DB round-trip and avoids N+1 per user.
-        List<Habit> allActiveHabits = habitRepository.findAll()
-                .stream()
-                .filter(h -> !h.isPaused())
-                .toList();
+        // FIX: was habitRepository.findAll() — loads every habit in the system on every
+        // 5-minute tick regardless of paused state. findByPausedFalse() scopes the query
+        // to only active habits, cutting memory and query cost as the user base grows.
+        List<Habit> allActiveHabits = habitRepository.findByPausedFalse();
 
         if (allActiveHabits.isEmpty()) return;
 

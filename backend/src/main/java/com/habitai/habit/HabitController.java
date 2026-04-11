@@ -1,6 +1,6 @@
 package com.habitai.habit;
 
-import com.habitai.common.AppConstants;
+import com.habitai.common.security.CurrentUser;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,9 +15,11 @@ import java.util.Map;
 public class HabitController {
 
     private final HabitService habitService;
+    private final CurrentUser currentUser;
 
-    public HabitController(HabitService habitService) {
+    public HabitController(HabitService habitService, CurrentUser currentUser) {
         this.habitService = habitService;
+        this.currentUser = currentUser;
     }
 
     @GetMapping("/all")
@@ -27,7 +29,7 @@ public class HabitController {
 
     @GetMapping
     public List<HabitResponse> getHabitsForDate(@RequestParam(required = false) LocalDate date) {
-        LocalDate targetDate = (date == null) ? LocalDate.now(AppConstants.APP_ZONE) : date;
+        LocalDate targetDate = (date == null) ? LocalDate.now(currentUser.getZone()) : date;
         return habitService.getHabitsForDate(targetDate);
     }
 

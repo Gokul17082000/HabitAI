@@ -72,6 +72,10 @@ export default function MasterHabitsScreen() {
   /* ---------------- AI Suggest ---------------- */
   const handleSuggest = async () => {
     if (!goal.trim()) return;
+    if (goal.trim().length > 500) {
+      setGoalError("Goal must be 500 characters or fewer");
+      return;
+    }
     setSuggesting(true);
     setGoalError("");
     try {

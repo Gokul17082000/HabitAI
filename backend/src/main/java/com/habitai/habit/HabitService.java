@@ -93,7 +93,9 @@ public class HabitService {
     private HabitStatus getDefaultStatus(LocalDate date, LocalDate today, LocalTime now, Habit habit) {
         if (date.isBefore(today)) return HabitStatus.MISSED;
         if (date.isAfter(today)) return HabitStatus.PENDING;
-        return now.isBefore(habit.getTargetTime()) ? HabitStatus.PENDING : HabitStatus.MISSED;
+        // Guard against null targetTime — treat as PENDING (give benefit of the doubt)
+        LocalTime target = habit.getTargetTime();
+        return (target == null || now.isBefore(target)) ? HabitStatus.PENDING : HabitStatus.MISSED;
     }
 
     public HabitDTO getHabitById(long habitId) {
@@ -120,6 +122,7 @@ public class HabitService {
         habit.setTargetTime(habitRequest.targetTime());
         habit.setCountable(habitRequest.isCountable());
         habit.setTargetCount(habitRequest.targetCount());
+        habit.setCreatedAt(LocalDate.now(currentUser.getZone()));
 
         normalizeSchedule(habit);
 
@@ -162,6 +165,7 @@ public class HabitService {
         habit.setTargetTime(habitRequest.targetTime());
         habit.setCountable(habitRequest.isCountable());
         habit.setTargetCount(habitRequest.targetCount());
+        habit.setCreatedAt(LocalDate.now(currentUser.getZone()));
 
         normalizeSchedule(habit);
         habitRepository.save(habit);
@@ -282,20 +286,11 @@ public class HabitService {
     }
 
     /**
-     * Returns true if the habit was paused on the given date.
-     *
-     * A habit recorded as paused in the DB has its current pause state, not a
-     * historical audit. We approximate: if the habit is currently paused AND
-     * pausedUntil >= date, the pause was still active on that date.
-     * Past pauses that have already been auto-resumed won't match (paused=false),
-     * so only the current active pause window is considered — a reasonable
-     * trade-off without a full audit log table.
+     * Delegates to HabitScheduleService — moved there so UserStatsService can
+     * share the same logic without duplicating it.
      */
     private boolean isHabitPausedOnDate(Habit habit, LocalDate date) {
-        if (!habit.isPaused()) return false;
-        // pausedUntil being null with paused=true means paused indefinitely
-        if (habit.getPausedUntil() == null) return true;
-        return !date.isAfter(habit.getPausedUntil());
+        return habitScheduleService.isHabitPausedOnDate(habit, date);
     }
 
     @Transactional

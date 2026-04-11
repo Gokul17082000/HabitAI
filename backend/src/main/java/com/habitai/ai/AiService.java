@@ -10,6 +10,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
@@ -224,6 +225,28 @@ public class AiService {
                             "The AI service is currently unavailable. Please try again in a moment.");
                 }
                 delayMs *= 2; // exponential backoff
+
+            } catch (RestClientResponseException e) {
+                // FIX: RestClient throws RestClientResponseException for HTTP error status codes
+                // (e.g. 429 Too Many Requests, 503 Service Unavailable). These were previously
+                // swallowed by the generic catch block and never retried, even though they are
+                // the most common transient Groq API failures.
+                int status = e.getStatusCode().value();
+                boolean isTransient = status == 429 || status >= 500;
+                if (!isTransient || attempt == maxAttempts) {
+                    // 4xx (except 429) are permanent — bad API key, malformed request, etc.
+                    throw new RuntimeException(
+                            "The AI service is currently unavailable. Please try again in a moment.");
+                }
+                try {
+                    Thread.sleep(delayMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(
+                            "The AI service is currently unavailable. Please try again in a moment.");
+                }
+                delayMs *= 2;
+
             } catch (Exception e) {
                 // Non-transient error (bad JSON, unexpected response shape) — don't retry
                 throw new RuntimeException("Failed to read AI response. Please try again.");

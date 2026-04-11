@@ -78,6 +78,8 @@ public class Habit {
 
     @PrePersist
     public void prePersist() {
-        createdAt = LocalDate.now(AppConstants.APP_ZONE);
+        if (createdAt == null) {
+            createdAt = LocalDate.now(AppConstants.APP_ZONE);
+        }
     }
 }

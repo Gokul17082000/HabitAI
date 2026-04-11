@@ -47,7 +47,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String clientIp = resolveClientIp(request);
-        String key = clientIp + ":" + request.getRequestURI();
+        String key = clientIp;
 
         if (requestsSinceEviction.incrementAndGet() >= EVICTION_INTERVAL) {
             requestsSinceEviction.set(0);
@@ -56,14 +56,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
 
         long now = Instant.now().toEpochMilli();
-        RequestWindow window = windowMap.compute(key, (k, existing) -> {
-            if (existing == null || now - existing.windowStart > WINDOW_MS) {
-                return new RequestWindow(now);
-            }
-            return existing;
-        });
 
-        int count = window.count.incrementAndGet();
+        AtomicInteger countRef = new AtomicInteger();
+        windowMap.compute(key, (k, existing) -> {
+            RequestWindow w = (existing == null || now - existing.windowStart > WINDOW_MS)
+                    ? new RequestWindow(now) : existing;
+            countRef.set(w.count.incrementAndGet()); // ← always on the live window
+            return w;
+        });
+        int count = countRef.get();
 
         if (count > MAX_REQUESTS) {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());

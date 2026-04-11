@@ -32,10 +32,10 @@ class AuthControllerTest {
 
     @Test
     void register_WithValidRequest_ShouldReturnCreated() throws Exception {
-        AuthRequest validRequest = new AuthRequest("test@habitai.com", "password123");
+        RegisterRequest validRequest = new RegisterRequest("test@habitai.com", "password123");
         RegisterResponse mockResponse = new RegisterResponse("User Successfully created!");
         
-        when(authService.register(any(AuthRequest.class))).thenReturn(mockResponse);
+        when(authService.register(any(RegisterRequest.class))).thenReturn(mockResponse);
 
         mockMvc.perform(post("/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -46,10 +46,10 @@ class AuthControllerTest {
 
     @Test
     void login_WithValidRequest_ShouldReturnOk() throws Exception {
-        AuthRequest validRequest = new AuthRequest("test@habitai.com", "password123");
+        LoginRequest validRequest = new LoginRequest("test@habitai.com", "password123");
         LoginResponse mockResponse = new LoginResponse("mock.access.token", "mock.refresh.token");
 
-        when(authService.login(any(AuthRequest.class))).thenReturn(mockResponse);
+        when(authService.login(any(LoginRequest.class))).thenReturn(mockResponse);
 
         mockMvc.perform(post("/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -62,7 +62,7 @@ class AuthControllerTest {
     @Test
     void register_WithInvalidEmail_ShouldReturnBadRequest() throws Exception {
         // Email is not a valid format
-        AuthRequest invalidRequest = new AuthRequest("not-an-email", "password123");
+        RegisterRequest invalidRequest = new RegisterRequest("not-an-email", "password123");
 
         mockMvc.perform(post("/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -73,7 +73,7 @@ class AuthControllerTest {
     @Test
     void register_WithShortPassword_ShouldReturnBadRequest() throws Exception {
         // Password is less than 8 characters (violates @Size in AuthRequest)
-        AuthRequest invalidRequest = new AuthRequest("test@habitai.com", "short");
+        RegisterRequest invalidRequest = new RegisterRequest("test@habitai.com", "short");
 
         mockMvc.perform(post("/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -84,7 +84,7 @@ class AuthControllerTest {
     @Test
     void login_WithMissingEmail_ShouldReturnBadRequest() throws Exception {
         // Email is blank (violates @NotBlank)
-        AuthRequest invalidRequest = new AuthRequest("", "password123");
+        LoginRequest invalidRequest = new LoginRequest("", "password123");
 
         mockMvc.perform(post("/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)

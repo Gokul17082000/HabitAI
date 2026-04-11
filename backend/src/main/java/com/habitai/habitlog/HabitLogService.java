@@ -42,6 +42,10 @@ public class HabitLogService {
             throw new IllegalStateException("Cannot update past or future habits");
         }
 
+        if (habit.isPaused()) {
+            throw new IllegalStateException("Cannot log a paused habit");
+        }
+
         Optional<HabitLog> existing = habitLogRepository
                 .findByHabitIdAndUserIdAndDate(habitId, userId, today);
 
@@ -114,6 +118,11 @@ public class HabitLogService {
         long userId = currentUser.getId();
         ZoneId zone = currentUser.getZone();
 
+        // INTENTIONAL: streaks count only COMPLETED days, not PARTIALLY_COMPLETED.
+        // A streak represents hitting the full target every scheduled day — partial
+        // completions are recorded and shown in the activity heatmap but do not
+        // extend or preserve the streak. This keeps the metric unambiguous: a streak
+        // of N means the user fully completed the habit N consecutive scheduled days.
         Set<LocalDate> completedDates = habitLogRepository
                 .findByHabitIdAndUserIdAndStatusOrderByDateDesc(habitId, userId, HabitStatus.COMPLETED)
                 .stream()
@@ -147,6 +156,7 @@ public class HabitLogService {
         long userId = currentUser.getId();
         ZoneId zone = currentUser.getZone();
 
+        // INTENTIONAL: same COMPLETED-only policy as getCurrentStreak — see comment there.
         Set<LocalDate> completedDates = habitLogRepository
                 .findByHabitIdAndUserIdAndStatusOrderByDateDesc(habitId, userId, HabitStatus.COMPLETED)
                 .stream()

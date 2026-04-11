@@ -91,7 +91,13 @@ const parseResponse = async <T>(response: Response): Promise<T> => {
   const text = await response.text();
   if (!text) return undefined as T;
 
-  const data = JSON.parse(text);
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(response.ok ? "Unexpected response format" : text || "Something went wrong");
+  }
+
   if (!response.ok) {
     const message =
       data.message || (data.errors && data.errors[0]) || "Something went wrong";

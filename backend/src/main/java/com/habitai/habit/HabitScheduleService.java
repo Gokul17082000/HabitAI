@@ -30,4 +30,19 @@ public class HabitScheduleService {
         }
         return false;
     }
+
+    /**
+     * Returns true if the habit was paused on the given date.
+     *
+     * We approximate from current DB state: if paused=true and pausedUntil >= date,
+     * the pause window was still active on that date. Past pauses that have already
+     * been auto-resumed (paused=false) are invisible — a known trade-off without a
+     * full audit log table. Moved here from HabitService so that both HabitService
+     * and UserStatsService can share the same logic consistently.
+     */
+    public boolean isHabitPausedOnDate(Habit habit, LocalDate date) {
+        if (!habit.isPaused()) return false;
+        if (habit.getPausedUntil() == null) return true; // paused indefinitely
+        return !date.isAfter(habit.getPausedUntil());
+    }
 }

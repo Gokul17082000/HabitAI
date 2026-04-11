@@ -19,13 +19,13 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public RegisterResponse register(@Valid @RequestBody AuthRequest authRequest) {
-        return authService.register(authRequest);
+    public RegisterResponse register(@Valid @RequestBody RegisterRequest registerRequest) {
+        return authService.register(registerRequest);
     }
 
     @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody AuthRequest authRequest) {
-        return authService.login(authRequest);
+    public LoginResponse login(@Valid @RequestBody LoginRequest loginRequest) {
+        return authService.login(loginRequest);
     }
 
     @PostMapping("/refresh")

@@ -42,7 +42,11 @@ public class WeeklyDigestScheduler {
         this.aiService = aiService;
     }
 
-    // Every Sunday at 8:00 AM IST
+    // Every Sunday at 8:00 AM IST.
+    // NOTE: intentionally IST-anchored (Asia/Kolkata). The digest is a weekly
+    // summary, not a real-time alert, so a single global send time is acceptable.
+    // If the app ever becomes multi-region, replace with per-user timezone logic
+    // similar to SchedulerService.sendHabitReminder().
     @Scheduled(cron = "0 0 8 * * SUN", zone = "Asia/Kolkata")
     public void sendWeeklyDigest() {
         LocalDate today = LocalDate.now(AppConstants.APP_ZONE);

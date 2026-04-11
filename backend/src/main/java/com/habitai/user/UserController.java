@@ -1,6 +1,7 @@
 package com.habitai.user;
 
 import com.habitai.notification.PushTokenRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,7 +31,7 @@ public class UserController {
 
     @PostMapping("/push-token")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void savePushToken(@RequestBody PushTokenRequest request) {
+    public void savePushToken(@Valid @RequestBody PushTokenRequest request) {
         userService.savePushToken(request.token());
     }
 
