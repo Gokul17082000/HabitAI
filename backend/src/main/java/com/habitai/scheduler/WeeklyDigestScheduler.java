@@ -77,7 +77,10 @@ public class WeeklyDigestScheduler {
 
     private void processUserDigest(User user, LocalDate weekStart, LocalDate weekEnd,
                                    Map<Long, List<Habit>> habitsByUser) {
-        List<Habit> habits = habitsByUser.getOrDefault(user.getId(), List.of());
+        List<Habit> habits = habitsByUser.getOrDefault(user.getId(), List.of())
+                .stream()
+                .filter(h -> !h.isArchived())
+                .toList();
         if (habits.isEmpty()) return;
 
         // Pull week logs

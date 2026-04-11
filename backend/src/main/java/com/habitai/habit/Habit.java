@@ -9,6 +9,8 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import com.habitai.common.AppConstants;
+
+import java.time.ZoneId;
 import java.util.Set;
 
 @Getter
@@ -82,7 +84,7 @@ public class Habit {
     @PrePersist
     public void prePersist() {
         if (createdAt == null) {
-            createdAt = LocalDate.now(AppConstants.APP_ZONE);
+            createdAt = LocalDate.now(ZoneId.of("UTC"));
         }
     }
 }

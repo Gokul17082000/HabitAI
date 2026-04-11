@@ -56,6 +56,11 @@ public class StreakFreezeService {
             throw new IllegalStateException("This date is already frozen.");
         }
 
+        // Only allow freeze if the user actually missed a habit on that date
+        if (!habitLogRepository.existsByUserIdAndDateAndStatus(userId, date, HabitStatus.MISSED)) {
+            throw new IllegalStateException("No missed habits on this date. Freeze not needed.");
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 

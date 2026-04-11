@@ -337,6 +337,16 @@ public class HabitService {
         habit.setPaused(false);
         habit.setPausedUntil(null);
         habitRepository.save(habit);
+
+        LocalDate today = LocalDate.now(currentUser.getZone());
+        habitPauseHistoryRepository
+                .findTopByHabitIdOrderByPausedFromDesc(habitId)
+                .ifPresent(history -> {
+                    if (history.getPausedUntil().isAfter(today)) {
+                        history.setPausedUntil(today);
+                        habitPauseHistoryRepository.save(history);
+                    }
+                });
     }
 
     @Transactional

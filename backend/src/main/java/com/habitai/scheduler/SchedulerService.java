@@ -85,6 +85,7 @@ public class SchedulerService {
 
             habits.stream()
                     .filter(h -> !h.isPaused())
+                    .filter(h -> !h.isArchived())
                     .filter(h -> habitScheduleService.isScheduledForDate(h, today))
                     .filter(h -> isInWindow(h.getTargetTime(), now, windowEnd, wrapsAroundMidnight))
                     .forEach(h -> notificationService.notify(token, h.getTitle(), h.getTargetTime()));

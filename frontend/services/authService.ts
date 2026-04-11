@@ -1,5 +1,5 @@
 import { API_ENDPOINTS } from "../constants/api";
-import { buildAuthHeaders, handleResponse, retryGet, UnauthorizedError } from "../utils/apiHandler";
+import { buildAuthHeaders, handleResponse, retryGet, retryPost, UnauthorizedError } from "../utils/apiHandler";
 
 interface LoginResponse {
   accessToken: string;

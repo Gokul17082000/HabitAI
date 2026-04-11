@@ -3,6 +3,7 @@ package com.habitai.habit;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 public interface HabitPauseHistoryRepository extends JpaRepository<HabitPauseHistory, Long> {
 
@@ -11,4 +12,6 @@ public interface HabitPauseHistoryRepository extends JpaRepository<HabitPauseHis
     );
 
     void deleteByHabitId(Long habitId);
+
+    Optional<HabitPauseHistory> findTopByHabitIdOrderByPausedFromDesc(Long habitId);
 }

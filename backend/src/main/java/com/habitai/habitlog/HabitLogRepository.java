@@ -100,4 +100,7 @@ public interface HabitLogRepository extends JpaRepository<HabitLog, Long> {
             @Param("userId") Long userId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT COUNT(DISTINCT l.date) FROM HabitLog l WHERE l.userId = :userId AND l.status = :status")
+    long countDistinctDatesByUserIdAndStatus(@Param("userId") Long userId, @Param("status") HabitStatus status);
 }

@@ -18,6 +18,6 @@ public interface HabitRepository extends JpaRepository<Habit, Long> {
     List<Habit> findByPausedTrueAndPausedUntilLessThanEqual(LocalDate date);
 
     /** Used by the MISSED scheduler — only loads active habits, avoids a full table scan. */
-    List<Habit> findByPausedFalse();
+    List<Habit> findByPausedFalseAndArchivedFalse();
 
 }

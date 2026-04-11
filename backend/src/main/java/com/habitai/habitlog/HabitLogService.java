@@ -134,6 +134,8 @@ public class HabitLogService {
                 .map(HabitLog::getDate)
                 .collect(java.util.stream.Collectors.toSet());
 
+        Set<LocalDate> frozenDates = streakFreezeUsageRepository.findUsedOnByUserId(userId);
+
         LocalDate today = LocalDate.now(zone);
         LocalDate cursor = today;
         int streak = 0;
@@ -148,7 +150,7 @@ public class HabitLogService {
                 cursor = cursor.minusDays(1);
             } else if (cursor.isEqual(today)) {
                 cursor = cursor.minusDays(1);
-            } else if (streakFreezeUsageRepository.existsByUserIdAndUsedOn(userId, cursor)) {
+            } else if (frozenDates.contains(cursor)) {
                 // frozen date — skip without breaking streak
                 cursor = cursor.minusDays(1);
             } else {
@@ -191,7 +193,7 @@ public class HabitLogService {
         int current = 0;
         for (LocalDate day : scheduledDays) {
             if (completedDates.contains(day)
-                    || streakFreezeUsageRepository.existsByUserIdAndUsedOn(userId, day)) {
+                    || frozenDates.contains(cursor)) {
                 current++;
                 longest = Math.max(longest, current);
             } else {

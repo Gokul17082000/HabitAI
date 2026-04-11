@@ -50,14 +50,18 @@ public class UserStatsService {
         long userId = currentUser.getId();
         ZoneId zone = currentUser.getZone();
 
-        List<Habit> allHabits = habitRepository.findByUserId(userId);
+        List<Habit> allHabits = habitRepository.findByUserId(userId)
+                .stream()
+                .filter(h -> !h.isArchived())
+                .toList();
         int totalHabits = allHabits.size();
 
         int totalCompleted = (int) habitLogRepository.countByUserIdAndStatus(userId, HabitStatus.COMPLETED);
         int totalMissed    = (int) habitLogRepository.countByUserIdAndStatus(userId, HabitStatus.MISSED);
         int totalDaysTracked = (int) habitLogRepository.countDistinctDatesByUserId(userId);
+        int totalPartial    = (int) habitLogRepository.countByUserIdAndStatus(userId, HabitStatus.PARTIALLY_COMPLETED);
 
-        int totalLogs = totalCompleted + totalMissed;
+        int totalLogs = totalCompleted + totalMissed + totalPartial;
         int overallConsistency = totalLogs > 0
                 ? (int) Math.round((totalCompleted * 100.0) / totalLogs)
                 : 0;
@@ -111,7 +115,7 @@ public class UserStatsService {
             } else if (date.equals(today)) {
                 // Today is still in progress — don't break, just skip it
                 cursor = date.minusDays(1);
-            } else if (streakFreezeUsageRepository.existsByUserIdAndUsedOn(userId, date)) {
+            } else if (frozenDates.contains(date)) {
                 // frozen date — skip without breaking streak
                 cursor = date.minusDays(1);
             } else {
@@ -139,7 +143,7 @@ public class UserStatsService {
             boolean hasMissed    = missedDates.contains(date);
 
             if (hasCompleted && !hasMissed
-                    || streakFreezeUsageRepository.existsByUserIdAndUsedOn(userId, date)) {
+                    || frozenDates.contains(date)) {
                 current++;
                 longest = Math.max(longest, current);
             } else {
@@ -248,7 +252,10 @@ public class UserStatsService {
         LocalDate today = LocalDate.now(zone);
         LocalDate weekStart = today.minusDays(6);
 
-        List<Habit> habits = habitRepository.findByUserId(userId);
+        List<Habit> habits = habitRepository.findByUserId(userId)
+                .stream()
+                .filter(h -> !h.isArchived())
+                .toList();
         List<Object[]> weekStats = habitLogRepository
                 .findWeeklyStatsByUserId(userId, weekStart, today);
 
