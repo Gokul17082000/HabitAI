@@ -1,5 +1,6 @@
 package com.habitai.user;
 
+import com.habitai.ai.AiService;
 import com.habitai.common.AppConstants;
 import com.habitai.common.security.CurrentUser;
 import com.habitai.exception.UserNotFoundException;
@@ -14,10 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,17 +26,23 @@ public class UserStatsService {
     private final CurrentUser currentUser;
     private final UserRepository userRepository;
     private final HabitScheduleService habitScheduleService;
+    private final AiService aiService;
+    private final StreakFreezeUsageRepository streakFreezeUsageRepository;
 
     public UserStatsService(HabitRepository habitRepository,
                             HabitLogRepository habitLogRepository,
                             CurrentUser currentUser,
                             UserRepository userRepository,
-                            HabitScheduleService habitScheduleService) {
+                            HabitScheduleService habitScheduleService,
+                            AiService aiService,
+                            StreakFreezeUsageRepository streakFreezeUsageRepository) {
         this.habitRepository = habitRepository;
         this.habitLogRepository = habitLogRepository;
         this.currentUser = currentUser;
         this.userRepository = userRepository;
         this.habitScheduleService = habitScheduleService;
+        this.aiService = aiService;
+        this.streakFreezeUsageRepository = streakFreezeUsageRepository;
     }
 
     @Transactional(readOnly = true)
@@ -90,6 +94,8 @@ public class UserStatsService {
         Set<LocalDate> completedDates = habitLogRepository.findDatesByUserIdAndStatus(userId, HabitStatus.COMPLETED);
         Set<LocalDate> missedDates    = habitLogRepository.findDatesByUserIdAndStatus(userId, HabitStatus.MISSED);
 
+        Set<LocalDate> frozenDates = streakFreezeUsageRepository.findUsedOnByUserId(userId);
+
         LocalDate cursor = today;
         int streak = 0;
 
@@ -104,6 +110,9 @@ public class UserStatsService {
                 cursor = date.minusDays(1);
             } else if (date.equals(today)) {
                 // Today is still in progress — don't break, just skip it
+                cursor = date.minusDays(1);
+            } else if (streakFreezeUsageRepository.existsByUserIdAndUsedOn(userId, date)) {
+                // frozen date — skip without breaking streak
                 cursor = date.minusDays(1);
             } else {
                 break;
@@ -120,6 +129,8 @@ public class UserStatsService {
         Set<LocalDate> completedDates = habitLogRepository.findDatesByUserIdAndStatus(userId, HabitStatus.COMPLETED);
         Set<LocalDate> missedDates    = habitLogRepository.findDatesByUserIdAndStatus(userId, HabitStatus.MISSED);
 
+        Set<LocalDate> frozenDates = streakFreezeUsageRepository.findUsedOnByUserId(userId);
+
         int longest = 0;
         int current = 0;
 
@@ -127,7 +138,8 @@ public class UserStatsService {
             boolean hasCompleted = completedDates.contains(date);
             boolean hasMissed    = missedDates.contains(date);
 
-            if (hasCompleted && !hasMissed) {
+            if (hasCompleted && !hasMissed
+                    || streakFreezeUsageRepository.existsByUserIdAndUsedOn(userId, date)) {
                 current++;
                 longest = Math.max(longest, current);
             } else {
@@ -226,5 +238,60 @@ public class UserStatsService {
         }
 
         return result;
+    }
+
+    @Transactional(readOnly = true)
+    public WeeklyReviewResponse getWeeklyReview() {
+        long userId = currentUser.getId();
+        ZoneId zone = currentUser.getZone();
+
+        LocalDate today = LocalDate.now(zone);
+        LocalDate weekStart = today.minusDays(6);
+
+        List<Habit> habits = habitRepository.findByUserId(userId);
+        List<Object[]> weekStats = habitLogRepository
+                .findWeeklyStatsByUserId(userId, weekStart, today);
+
+        Map<Long, long[]> statsByHabit = weekStats.stream()
+                .collect(Collectors.toMap(
+                        row -> ((Number) row[0]).longValue(),
+                        row -> new long[]{
+                                ((Number) row[1]).longValue(),
+                                ((Number) row[2]).longValue()
+                        }
+                ));
+
+        long totalCompleted = 0;
+        long totalScheduled = 0;
+        StringBuilder habitSummary = new StringBuilder();
+        List<WeeklyReviewResponse.HabitWeekStat> habitStatsList = new ArrayList<>();
+
+        for (Habit habit : habits) {
+            long[] stats = statsByHabit.getOrDefault(habit.getId(), new long[]{0, 0});
+            long completed = stats[0];
+            long missed = stats[1];
+            long total = completed + missed;
+            totalCompleted += completed;
+            totalScheduled += total;
+
+            if (total > 0) {
+                int pct = (int) Math.round((completed * 100.0) / total);
+                habitSummary.append(String.format("- %s: %d/%d (%d%%)%n",
+                        habit.getTitle(), completed, total, pct));
+                habitStatsList.add(new WeeklyReviewResponse.HabitWeekStat(
+                        habit.getTitle(), (int) completed, (int) total, pct));
+            }
+        }
+
+        int overallPct = totalScheduled > 0
+                ? (int) Math.round((totalCompleted * 100.0) / totalScheduled)
+                : 0;
+
+        String insight = totalScheduled > 0
+                ? aiService.generateWeeklyDigest(
+                habitSummary.toString(), totalCompleted, totalScheduled, overallPct)
+                : "No activity this week yet. Start logging your habits!";
+
+        return new WeeklyReviewResponse(weekStart, today, overallPct, habitStatsList, insight);
     }
 }

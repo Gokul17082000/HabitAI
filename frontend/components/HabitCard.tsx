@@ -4,6 +4,7 @@ import { getHabitStreakApi, logHabitApi } from "../services/habitService";
 import { formatDate, formatTime } from "../utils/formatters";
 import { HabitResponse, HabitStatus } from "../types/habit";
 import { Colors } from "../constants/colors";
+import CelebrationModal from "./CelebrationModal";
 
 interface HabitCardProps {
   habit: HabitResponse;
@@ -26,6 +27,8 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
   const [note, setNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationStreak, setCelebrationStreak] = useState(0);
 
   // Tracks the previous localStatus so we can detect the exact PENDING→COMPLETED
   // transition rather than firing on every render where status === COMPLETED.
@@ -52,12 +55,21 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
   // Using a ref prevents this from firing on every re-render where status
   // happens to already be COMPLETED (e.g. parent list updates), which would
   // cause the streak counter to increment incorrectly on each render.
+
   useEffect(() => {
     const prev = prevStatusRef.current;
     prevStatusRef.current = localStatus;
 
     if (localStatus === "COMPLETED" && prev !== "COMPLETED" && streak !== null) {
-      setStreak((s) => (s !== null ? s + 1 : s));
+      const newStreak = streak + 1;
+      setStreak(newStreak);
+
+      // Check if new streak hits a milestone
+      const milestones = [7, 21, 66, 100, 180, 365, 500, 730, 1000];
+      if (milestones.includes(newStreak)) {
+        setCelebrationStreak(newStreak);
+        setShowCelebration(true);
+      }
     }
   }, [localStatus]);
 
@@ -288,6 +300,13 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      {/* Celebration Modal */}
+      <CelebrationModal
+        streak={celebrationStreak}
+        habitTitle={habit.title}
+        visible={showCelebration}
+        onDismiss={() => setShowCelebration(false)}
+      />
     </View>
   );
 }

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.habitai.habit.*;
 import com.habitai.common.security.CurrentUser;
+import com.habitai.habitlog.HabitLog;
+import com.habitai.habitlog.HabitLogRepository;
 import com.habitai.user.UserStatsService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -13,11 +15,14 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class AiService {
@@ -29,6 +34,7 @@ public class AiService {
     private String apiUrl;
 
     private final HabitRepository habitRepository;
+    private final HabitLogRepository habitLogRepository;
     private final CurrentUser currentUser;
     private final UserStatsService userStatsService;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -40,9 +46,11 @@ public class AiService {
     private final RestClient restClient;
 
     public AiService(HabitRepository habitRepository,
+                     HabitLogRepository habitLogRepository,
                      CurrentUser currentUser,
                      UserStatsService userStatsService) {
         this.habitRepository = habitRepository;
+        this.habitLogRepository = habitLogRepository;
         this.currentUser = currentUser;
         this.userStatsService = userStatsService;
 
@@ -156,6 +164,18 @@ public class AiService {
 
     public InsightResponse getInsights() {
         var stats = userStatsService.getStats();
+        long userId = currentUser.getId();
+        ZoneId zone = currentUser.getZone();
+
+        LocalDate today = LocalDate.now(zone);
+        LocalDate weekAgo = today.minusDays(7);
+        List<HabitLog> recentLogs = habitLogRepository
+                .findByUserIdAndDateBetween(userId, weekAgo, today);
+
+        String recentNotes = recentLogs.stream()
+                .filter(l -> l.getNote() != null && !l.getNote().isBlank())
+                .map(l -> "- " + l.getDate() + ": " + l.getNote())
+                .collect(Collectors.joining("\n"));
 
         String systemPrompt = """
             You are a habit coach giving a weekly insight. Be specific, concise, and actionable.
@@ -170,13 +190,16 @@ public class AiService {
             Total completed: %d
             Total missed: %d
             Top habits: %s
+            Recent notes from the user: %s
             Give a personalised coaching insight based on this data.
             """,
                 stats.totalHabits(), stats.overallConsistency(),
                 stats.currentStreak(), stats.longestStreak(),
                 stats.totalCompleted(), stats.totalMissed(),
-                stats.topHabits().stream().map(h -> h.title() + " (" + h.consistencyPercent() + "%)").toList()
+                stats.topHabits().stream().map(h -> h.title() + " (" + h.consistencyPercent() + "%)").toList(),
+                recentNotes.isBlank() ? "none" : recentNotes
         );
+
 
         String insight = callGroq(systemPrompt, userMessage);
         return new InsightResponse(insight);

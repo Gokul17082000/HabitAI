@@ -45,7 +45,10 @@ class HabitServiceTest {
     @InjectMocks
     private HabitService habitService;
 
-    private final HabitScheduleService realScheduleService = new HabitScheduleService();
+    @Mock
+    private HabitPauseHistoryRepository habitPauseHistoryRepository;
+
+    private HabitScheduleService realScheduleService;
 
     private long userId = 100L;
     private HabitRequest dailyHabitRequest;
@@ -55,6 +58,8 @@ class HabitServiceTest {
 
     @BeforeEach
     void setUp() {
+        realScheduleService = new HabitScheduleService(habitPauseHistoryRepository);
+
         when(currentUser.getId()).thenReturn(userId);
         when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
                 .thenAnswer(invocation -> realScheduleService.isScheduledForDate(

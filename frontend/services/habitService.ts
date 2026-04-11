@@ -109,3 +109,24 @@ export const resumeHabitApi = async (habitId: number): Promise<void> => {
   const response = await fetch(url, { method: "PATCH", headers });
   await handleResponse<void>(response, retryPost(url, "PATCH"));
 };
+
+export const getArchivedHabitsApi = async (): Promise<HabitDTO[]> => {
+  const url = API_ENDPOINTS.habits + "/archived";
+  const headers = await buildAuthHeaders();
+  const response = await fetch(url, { headers });
+  return handleResponse<HabitDTO[]>(response, retryGet(url));
+};
+
+export const archiveHabitApi = async (habitId: number): Promise<void> => {
+  const url = `${API_ENDPOINTS.habits}/${habitId}/archive`;
+  const headers = await buildAuthHeaders();
+  const response = await fetch(url, { method: "PATCH", headers });
+  await handleResponse<void>(response, retryPost(url, "PATCH"));
+};
+
+export const unarchiveHabitApi = async (habitId: number): Promise<void> => {
+  const url = `${API_ENDPOINTS.habits}/${habitId}/unarchive`;
+  const headers = await buildAuthHeaders();
+  const response = await fetch(url, { method: "PATCH", headers });
+  await handleResponse<void>(response, retryPost(url, "PATCH"));
+};

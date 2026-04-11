@@ -9,4 +9,6 @@ public interface HabitPauseHistoryRepository extends JpaRepository<HabitPauseHis
     boolean existsByHabitIdAndPausedFromLessThanEqualAndPausedUntilGreaterThanEqual(
             Long habitId, LocalDate date, LocalDate date2
     );
+
+    void deleteByHabitId(Long habitId);
 }

@@ -42,7 +42,19 @@ public class HabitService {
     }
 
     public List<HabitDTO> getAllHabits() {
-        return habitRepository.findByUserId(currentUser.getId()).stream().map(this::toDTO).toList();
+        return habitRepository.findByUserId(currentUser.getId())
+                .stream()
+                .filter(h -> !h.isArchived())
+                .map(this::toDTO)
+                .toList();
+    }
+
+    public List<HabitDTO> getArchivedHabits() {
+        return habitRepository.findByUserId(currentUser.getId())
+                .stream()
+                .filter(Habit::isArchived)
+                .map(this::toDTO)
+                .toList();
     }
 
     public List<HabitResponse> getHabitsForDate(LocalDate date) {
@@ -54,6 +66,7 @@ public class HabitService {
         List<Habit> habits = habitRepository.findByUserId(userId)
                 .stream()
                 .filter(habit -> !habit.isPaused())
+                .filter(habit -> !habit.isArchived())
                 .filter(habit -> isScheduledForDate(habit, date))
                 .filter(habit -> !date.isBefore(habit.getCreatedAt()))
                 .toList();
@@ -179,6 +192,7 @@ public class HabitService {
     @Transactional
     public void deleteHabit(long habitId) {
         Habit habit = habitAccessValidator.getAndValidate(habitId);
+        habitPauseHistoryRepository.deleteByHabitId(habitId);
         habitLogRepository.deleteByHabitIdAndUserId(habitId, habit.getUserId());
         habitRepository.delete(habit);
     }
@@ -197,7 +211,8 @@ public class HabitService {
                 habit.isCountable(),
                 habit.getTargetCount(),
                 habit.isPaused(),
-                habit.getPausedUntil()
+                habit.getPausedUntil(),
+                habit.isArchived()
         );
     }
 
@@ -321,6 +336,22 @@ public class HabitService {
         Habit habit = habitAccessValidator.getAndValidate(habitId);
         habit.setPaused(false);
         habit.setPausedUntil(null);
+        habitRepository.save(habit);
+    }
+
+    @Transactional
+    public void archiveHabit(long habitId) {
+        Habit habit = habitAccessValidator.getAndValidate(habitId);
+        habit.setArchived(true);
+        habit.setPaused(false);       // unpause if paused
+        habit.setPausedUntil(null);
+        habitRepository.save(habit);
+    }
+
+    @Transactional
+    public void unarchiveHabit(long habitId) {
+        Habit habit = habitAccessValidator.getAndValidate(habitId);
+        habit.setArchived(false);
         habitRepository.save(habit);
     }
 }

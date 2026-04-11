@@ -28,4 +28,7 @@ export const API_ENDPOINTS = {
   habitSummary: `${BASE_URL}/habits/summary`,
   ai: `${BASE_URL}/ai`,
   yearPixels: `${BASE_URL}/user/year-pixels`,
+  weeklyReview: `${BASE_URL}/user/weekly-review`,
+  streakFreeze: `${BASE_URL}/user/streak-freeze`,
+  streakFreezeUse: `${BASE_URL}/user/streak-freeze/use`,
 };

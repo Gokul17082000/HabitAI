@@ -14,7 +14,7 @@ import {
   TextInput,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import { getAllHabitsApi, deleteHabitApi, pauseHabitApi, resumeHabitApi } from "../../../services/habitService";
+import { getAllHabitsApi, deleteHabitApi, pauseHabitApi, resumeHabitApi, archiveHabitApi, getArchivedHabitsApi, unarchiveHabitApi } from "../../../services/habitService";
 import { HabitDTO, CreateHabitRequest } from "../../../types/habit";
 import { Colors } from "../../../constants/colors";
 import { UnauthorizedError } from "../../../utils/apiHandler";
@@ -33,6 +33,9 @@ export default function MasterHabitsScreen() {
   const [goal, setGoal] = useState("");
   const [suggesting, setSuggesting] = useState(false);
   const [goalError, setGoalError] = useState("");
+  const [archivingId, setArchivingId] = useState<number | null>(null);
+  const [archivedHabits, setArchivedHabits] = useState<HabitDTO[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
 
   const activeHabits = habits
     .filter((h) => !h.paused)
@@ -47,8 +50,12 @@ export default function MasterHabitsScreen() {
   const loadHabits = useCallback(async () => {
     setError("");
     try {
-      const data = await getAllHabitsApi();
+      const [data, archived] = await Promise.all([
+        getAllHabitsApi(),
+        getArchivedHabitsApi(),
+      ]);
       setHabits(data);
+      setArchivedHabits(archived);
     } catch (e) {
       if (e instanceof UnauthorizedError) return;
       setError("Failed to load habits.");
@@ -57,6 +64,55 @@ export default function MasterHabitsScreen() {
       setRefreshing(false);
     }
   }, []);
+
+  const handleArchive = async (habitId: number) => {
+    setArchivingId(habitId);
+    try {
+      await archiveHabitApi(habitId);
+      setHabits((prev) => prev.filter((h) => h.id !== habitId));
+      const archived = habits.find((h) => h.id === habitId);
+      if (archived) {
+        setArchivedHabits((prev) => [...prev, { ...archived, archived: true }]);
+      }
+    } catch {
+      loadHabits();
+    } finally {
+      setArchivingId(null);
+    }
+  };
+
+  const handleUnarchive = async (habitId: number) => {
+    setArchivingId(habitId);
+    try {
+      await unarchiveHabitApi(habitId);
+      const habit = archivedHabits.find((h) => h.id === habitId);
+      if (habit) {
+        setArchivedHabits((prev) => prev.filter((h) => h.id !== habitId));
+        setHabits((prev) => [...prev, { ...habit, archived: false }]);
+      }
+    } catch {
+      loadHabits();
+    } finally {
+      setArchivingId(null);
+    }
+  };
+
+  const confirmArchive = (habitId: number) => {
+    if (Platform.OS === "web") {
+      if (window.confirm("Archive Habit — It will be hidden but history is preserved.")) {
+        handleArchive(habitId);
+      }
+    } else {
+      Alert.alert(
+        "Archive Habit",
+        "This habit will be hidden from your active list. All history is preserved and you can unarchive it anytime.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Archive", onPress: () => handleArchive(habitId) },
+        ]
+      );
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -187,7 +243,7 @@ export default function MasterHabitsScreen() {
   };
 
   const isActioning = (habitId: number) =>
-    deletingId === habitId || pausingId === habitId;
+    deletingId === habitId || pausingId === habitId || archivingId === habitId;
 
   /* ---------------- Render ---------------- */
   return (
@@ -286,9 +342,11 @@ export default function MasterHabitsScreen() {
                       isActioning={isActioning(habit.id)}
                       isDeleting={deletingId === habit.id}
                       isPausing={pausingId === habit.id}
+                      isArchiving={archivingId === habit.id}
                       onDelete={confirmDelete}
                       onPause={confirmPause}
                       onResume={handleResume}
+                      onArchive={confirmArchive}
                     />
                   ))}
                 </>
@@ -306,11 +364,54 @@ export default function MasterHabitsScreen() {
                       isActioning={isActioning(habit.id)}
                       isDeleting={deletingId === habit.id}
                       isPausing={pausingId === habit.id}
+                      isArchiving={archivingId === habit.id}
                       onDelete={confirmDelete}
                       onPause={confirmPause}
                       onResume={handleResume}
+                      onArchive={confirmArchive}
                     />
                   ))}
+
+                  {/* Archived section */}
+                  {archivedHabits.length > 0 && (
+                    <>
+                      <Pressable
+                        style={styles.archivedHeader}
+                        onPress={() => setShowArchived(!showArchived)}
+                      >
+                        <Text style={[styles.sectionTitle, styles.sectionTitleArchived]}>
+                          Archived ({archivedHabits.length})
+                        </Text>
+                        <Text style={styles.chevron}>{showArchived ? "▲" : "▼"}</Text>
+                      </Pressable>
+
+                      {showArchived && archivedHabits.map((habit) => (
+                        <View key={habit.id} style={styles.archivedCard}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.archivedTitle}>{habit.title}</Text>
+                            <Text style={styles.archivedMeta}>
+                              {habit.category} • {habit.frequency}
+                            </Text>
+                          </View>
+                          <View style={styles.archivedActions}>
+                            <Pressable
+                              onPress={() => router.navigate(`/(tabs)/habits/${habit.id}/activity`)}
+                            >
+                              <Text>📊</Text>
+                            </Pressable>
+                            <Pressable
+                              disabled={archivingId === habit.id}
+                              onPress={() => handleUnarchive(habit.id)}
+                            >
+                              <Text style={{ opacity: archivingId === habit.id ? 0.4 : 1 }}>
+                                {archivingId === habit.id ? "⏳" : "📤"}
+                              </Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      ))}
+                    </>
+                  )}
                 </>
               )}
             </ScrollView>
@@ -360,6 +461,47 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   addButtonText: { color: Colors.white, fontSize: 28, fontWeight: "bold" },
+  archivedHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  sectionTitleArchived: {
+    color: Colors.subtext,
+  },
+  chevron: {
+    fontSize: 12,
+    color: Colors.subtext,
+  },
+  archivedCard: {
+    backgroundColor: Colors.card,
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    opacity: 0.6,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderStyle: "dashed",
+  },
+  archivedTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.text,
+  },
+  archivedMeta: {
+    fontSize: 12,
+    color: Colors.subtext,
+    marginTop: 4,
+  },
+  archivedActions: {
+    flexDirection: "row",
+    gap: 14,
+    alignItems: "center",
+  },
 });
 
 const aiBannerStyles = StyleSheet.create({

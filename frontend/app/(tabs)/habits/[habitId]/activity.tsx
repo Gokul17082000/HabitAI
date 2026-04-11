@@ -215,12 +215,17 @@ export default function HabitActivityScreen() {
               ) : (
                 recentActivity.map((a) => (
                   <View key={a.date} style={styles.recentRow}>
-                    <Text style={styles.dateText}>
-                      {formatDisplayDate(a.date)}
-                    </Text>
-                    <Text style={styles.statusText}>
-                      {statusEmoji(a.habitStatus)} {a.habitStatus}
-                    </Text>
+                      <View style={styles.recentRowTop}>
+                        <Text style={styles.dateText}>
+                          {formatDisplayDate(a.date)}
+                        </Text>
+                        <Text style={styles.statusText}>
+                          {statusEmoji(a.habitStatus)} {a.habitStatus}
+                        </Text>
+                      </View>
+                      {a.note && (
+                        <Text style={styles.noteText}>💬 {a.note}</Text>
+                      )}
                   </View>
                 ))
               )}
@@ -525,8 +530,17 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
     marginBottom: 8,
+    flexDirection: "column",
+  },
+  recentRowTop: {
     flexDirection: "row",
     justifyContent: "space-between",
+  },
+  noteText: {
+    fontSize: 13,
+    color: Colors.subtext,
+    marginTop: 6,
+    fontStyle: "italic",
   },
   dateText: {
     fontSize: 14,

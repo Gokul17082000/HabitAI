@@ -27,6 +27,7 @@ export interface HabitDTO {
   targetCount: number;
   paused: boolean;
   pausedUntil: string | null;
+  archived: boolean;
 }
 
 export interface HabitResponse {
@@ -44,6 +45,7 @@ export interface HabitResponse {
 export interface ActivityItem {
   date: string;
   habitStatus: HabitStatus;
+  note?: string;
 }
 
 export interface HabitStreakResponse {

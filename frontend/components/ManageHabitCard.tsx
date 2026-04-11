@@ -10,9 +10,11 @@ interface Props {
   isActioning: boolean;
   isDeleting: boolean;
   isPausing: boolean;
+  isArchiving: boolean;
   onDelete: (id: number) => void;
   onPause: (id: number) => void;
   onResume: (id: number) => void;
+  onArchive: (id: number) => void;
 }
 
 function formatPausedUntil(dateStr: string | null): string {
@@ -100,6 +102,15 @@ function ManageHabitCard({
           <Pressable disabled={isActioning} onPress={() => onPause(habit.id)}>
             <Text style={{ opacity: isActioning ? 0.4 : 1 }}>
               {isPausing ? "⏳" : "⏸️"}
+            </Text>
+          </Pressable>
+        )}
+
+        {/* Archive */}
+        {!habit.paused && (
+          <Pressable disabled={isActioning} onPress={() => onArchive(habit.id)}>
+            <Text style={{ opacity: isActioning ? 0.4 : 1 }}>
+              {isArchiving ? "⏳" : "📦"}
             </Text>
           </Pressable>
         )}

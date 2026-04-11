@@ -74,6 +74,9 @@ public class Habit {
     private LocalDate pausedUntil;
 
     @Column(nullable = false)
+    private boolean archived = false;
+
+    @Column(nullable = false)
     private LocalDate createdAt;
 
     @PrePersist

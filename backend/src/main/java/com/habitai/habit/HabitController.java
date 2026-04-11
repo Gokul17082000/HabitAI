@@ -72,4 +72,21 @@ public class HabitController {
     public void resumeHabit(@PathVariable long habitId) {
         habitService.resumeHabit(habitId);
     }
+
+    @GetMapping("/archived")
+    public List<HabitDTO> getArchivedHabits() {
+        return habitService.getArchivedHabits();
+    }
+
+    @PatchMapping("/{habitId}/archive")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void archiveHabit(@PathVariable long habitId) {
+        habitService.archiveHabit(habitId);
+    }
+
+    @PatchMapping("/{habitId}/unarchive")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unarchiveHabit(@PathVariable long habitId) {
+        habitService.unarchiveHabit(habitId);
+    }
 }

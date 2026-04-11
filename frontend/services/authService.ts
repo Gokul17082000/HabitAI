@@ -108,3 +108,45 @@ export const logoutApi = async (): Promise<void> => {
     await removeRefreshToken();
   }
 };
+
+export interface HabitWeekStat {
+  title: string;
+  completed: number;
+  total: number;
+  consistencyPercent: number;
+}
+
+export interface WeeklyReviewResponse {
+  weekStart: string;
+  weekEnd: string;
+  overallPercent: number;
+  habitStats: HabitWeekStat[];
+  aiInsight: string;
+}
+
+export const getWeeklyReviewApi = async (): Promise<WeeklyReviewResponse> => {
+  const url = API_ENDPOINTS.weeklyReview;
+  const headers = await buildAuthHeaders();
+  const response = await fetch(url, { headers });
+  return handleResponse<WeeklyReviewResponse>(response, retryGet(url));
+};
+
+export interface StreakFreezeResponse {
+  availableFreezes: number;
+  maxFreezes: number;
+}
+
+export const getStreakFreezeApi = async (): Promise<StreakFreezeResponse> => {
+  const url = API_ENDPOINTS.streakFreeze;
+  const headers = await buildAuthHeaders();
+  const response = await fetch(url, { headers });
+  return handleResponse<StreakFreezeResponse>(response, retryGet(url));
+};
+
+export const useFreezeApi = async (date: string): Promise<StreakFreezeResponse> => {
+  const url = API_ENDPOINTS.streakFreezeUse;
+  const body = JSON.stringify({ date });
+  const headers = await buildAuthHeaders();
+  const response = await fetch(url, { method: "POST", headers, body });
+  return handleResponse<StreakFreezeResponse>(response, retryPost(url, "POST", body));
+};

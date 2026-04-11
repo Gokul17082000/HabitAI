@@ -4,6 +4,8 @@ import com.habitai.common.security.CurrentUser;
 import com.habitai.common.validation.HabitAccessValidator;
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitScheduleService;
+import com.habitai.user.StreakFreezeService;
+import com.habitai.user.StreakFreezeUsageRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -21,15 +23,18 @@ public class HabitLogService {
     private final HabitAccessValidator habitAccessValidator;
     private final CurrentUser currentUser;
     private final HabitScheduleService habitScheduleService;
+    private final StreakFreezeUsageRepository streakFreezeUsageRepository;
 
     public HabitLogService(HabitLogRepository habitLogRepository,
                            HabitAccessValidator habitAccessValidator,
                            CurrentUser currentUser,
-                           HabitScheduleService habitScheduleService) {
+                           HabitScheduleService habitScheduleService,
+                           StreakFreezeUsageRepository streakFreezeUsageRepository) {
         this.habitLogRepository = habitLogRepository;
         this.habitAccessValidator = habitAccessValidator;
         this.currentUser = currentUser;
         this.habitScheduleService = habitScheduleService;
+        this.streakFreezeUsageRepository = streakFreezeUsageRepository;
     }
 
     public void updateTodayHabitStatus(long habitId, HabitLogRequest habitLogRequest) {
@@ -143,6 +148,9 @@ public class HabitLogService {
                 cursor = cursor.minusDays(1);
             } else if (cursor.isEqual(today)) {
                 cursor = cursor.minusDays(1);
+            } else if (streakFreezeUsageRepository.existsByUserIdAndUsedOn(userId, cursor)) {
+                // frozen date — skip without breaking streak
+                cursor = cursor.minusDays(1);
             } else {
                 break;
             }
@@ -163,6 +171,8 @@ public class HabitLogService {
                 .map(HabitLog::getDate)
                 .collect(java.util.stream.Collectors.toSet());
 
+        Set<LocalDate> frozenDates = streakFreezeUsageRepository.findUsedOnByUserId(userId);
+
         if (completedDates.isEmpty()) return new HabitStreakResponse(0);
 
         LocalDate today = LocalDate.now(zone);
@@ -180,7 +190,8 @@ public class HabitLogService {
         int longest = 0;
         int current = 0;
         for (LocalDate day : scheduledDays) {
-            if (completedDates.contains(day)) {
+            if (completedDates.contains(day)
+                    || streakFreezeUsageRepository.existsByUserIdAndUsedOn(userId, day)) {
                 current++;
                 longest = Math.max(longest, current);
             } else {
@@ -217,12 +228,12 @@ public class HabitLogService {
 
             HabitActivityStatus habitActivityStatus;
             if (i < habitLogs.size() && habitLogs.get(i).getDate().isEqual(currentDate)) {
-                habitActivityStatus = new HabitActivityStatus(currentDate, habitLogs.get(i).getStatus());
+                habitActivityStatus = new HabitActivityStatus(currentDate, habitLogs.get(i).getStatus(), habitLogs.get(i).getNote());
                 i++;
             } else if (currentDate.isEqual(today)) {
-                habitActivityStatus = new HabitActivityStatus(currentDate, HabitStatus.PENDING);
+                habitActivityStatus = new HabitActivityStatus(currentDate, HabitStatus.PENDING, null);
             } else {
-                habitActivityStatus = new HabitActivityStatus(currentDate, HabitStatus.MISSED);
+                habitActivityStatus = new HabitActivityStatus(currentDate, HabitStatus.MISSED, null);
             }
 
             habitActivityStatusList.add(habitActivityStatus);

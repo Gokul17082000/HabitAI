@@ -18,5 +18,6 @@ public record HabitDTO(
         boolean isCountable,
         int targetCount,
         boolean paused,
-        LocalDate pausedUntil
+        LocalDate pausedUntil,
+        boolean archived
 ) {}

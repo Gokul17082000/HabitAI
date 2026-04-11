@@ -4,7 +4,11 @@ import com.habitai.common.AppConstants;
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitRepository;
 import com.habitai.habit.HabitScheduleService;
+import com.habitai.habitlog.HabitLogRepository;
+import com.habitai.habitlog.HabitStatus;
 import com.habitai.notification.NotificationService;
+import com.habitai.user.StreakFreezeService;
+import com.habitai.user.StreakFreezeUsageRepository;
 import com.habitai.user.User;
 import com.habitai.user.UserRepository;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -15,24 +19,31 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 public class SchedulerService {
 
     private final HabitRepository habitRepository;
+    private final HabitLogRepository habitLogRepository;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
     private final HabitScheduleService habitScheduleService;
+    private final StreakFreezeService streakFreezeService;
 
     public SchedulerService(HabitRepository habitRepository,
+                            HabitLogRepository habitLogRepository,
                             UserRepository userRepository,
                             NotificationService notificationService,
-                            HabitScheduleService habitScheduleService) {
+                            HabitScheduleService habitScheduleService,
+                            StreakFreezeService streakFreezeService) {
         this.habitRepository = habitRepository;
+        this.habitLogRepository = habitLogRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.habitScheduleService = habitScheduleService;
+        this.streakFreezeService = streakFreezeService;
     }
 
     /**
@@ -114,5 +125,30 @@ public class SchedulerService {
             habit.setPausedUntil(null);
         });
         habitRepository.saveAll(toResume);
+    }
+
+    @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Kolkata")
+    public void awardStreakFreezes() {
+        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
+        LocalDate sevenDaysAgo = today.minusDays(6);
+
+        // Find users who completed at least one habit every day for 7 days
+        List<User> users = userRepository.findAll();
+        for (User user : users) {
+            Set<LocalDate> completedDates = habitLogRepository
+                    .findDatesByUserIdAndStatus(user.getId(), HabitStatus.COMPLETED);
+
+            boolean sevenDayStreak = true;
+            for (LocalDate d = sevenDaysAgo; !d.isAfter(today); d = d.plusDays(1)) {
+                if (!completedDates.contains(d)) {
+                    sevenDayStreak = false;
+                    break;
+                }
+            }
+
+            if (sevenDayStreak) {
+                streakFreezeService.awardFreezeIfEarned(user.getId());
+            }
+        }
     }
 }

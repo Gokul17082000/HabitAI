@@ -29,6 +29,7 @@ export default function ProfileScreen() {
   const [insight, setInsight] = useState<InsightResponse | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
   const [pixels, setPixels] = useState<Record<string, string>>({});
+  const [freezeStatus, setFreezeStatus] = useState<StreakFreezeResponse | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -40,11 +41,13 @@ export default function ProfileScreen() {
   const loadProfile = async () => {
     setError("");
     try {
-      const [userData, statsData, pixelsData] = await Promise.all([
+      const [userData, statsData, pixelsData, freezeData] = await Promise.all([
         getUserApi(),
         getUserStatsApi(),
         getYearPixelsApi(),
+        getStreakFreezeApi(),
       ]);
+      setFreezeStatus(freezeData);
       setUser(userData);
       setStats(statsData);
       setPixels(pixelsData);
@@ -172,6 +175,21 @@ export default function ProfileScreen() {
                   <Text style={styles.streakSub}>days</Text>
                 </View>
               </View>
+
+              {/* Freeze count */}
+              {freezeStatus && (
+                <View style={styles.freezeRow}>
+                  <Text style={styles.freezeText}>
+                    🧊 {freezeStatus.availableFreezes}/{freezeStatus.maxFreezes} streak freezes
+                  </Text>
+                  <Pressable
+                    style={styles.freezeBtn}
+                    onPress={() => router.push("/(tabs)/profile/use-freeze")}
+                  >
+                    <Text style={styles.freezeBtnText}>Use Freeze</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
 
             {/* Year in pixels */}
@@ -216,6 +234,14 @@ export default function ProfileScreen() {
             </View>
           </>
         )}
+
+        {/* Weekly Review */}
+        <Pressable
+          style={styles.weeklyReviewBtn}
+          onPress={() => router.push("/(tabs)/profile/weekly-review")}
+        >
+          <Text style={styles.weeklyReviewText}>📊 View Weekly Review</Text>
+        </Pressable>
 
         {/* Logout */}
         <Pressable style={styles.logoutBtn} onPress={handleLogout}>
@@ -410,6 +436,44 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
     paddingTop: StatusBar.currentHeight ?? 12,
+  },
+  weeklyReviewBtn: {
+    backgroundColor: Colors.card,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  weeklyReviewText: {
+    color: Colors.primary,
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  freezeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+  },
+  freezeText: {
+    fontSize: 14,
+    color: Colors.text,
+  },
+  freezeBtn: {
+    backgroundColor: "#e0f2fe",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  freezeBtnText: {
+    color: "#0284c7",
+    fontWeight: "600",
+    fontSize: 13,
   },
 });
 

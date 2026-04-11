@@ -1,4 +1,4 @@
-package com.habitai.habit;
+package com.habitai.user;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -11,18 +11,21 @@ import java.time.LocalDate;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "habit_pause_history")
-public class HabitPauseHistory {
+@Table(name = "streak_freeze_usage")
+public class StreakFreezeUsage {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private Long habitId;
+    private Long userId;
 
     @Column(nullable = false)
-    private LocalDate pausedFrom;
+    private LocalDate usedOn;
 
-    @Column(nullable = false)
-    private LocalDate pausedUntil;
+    public StreakFreezeUsage(Long userId, LocalDate usedOn) {
+        this.userId = userId;
+        this.usedOn = usedOn;
+    }
 }

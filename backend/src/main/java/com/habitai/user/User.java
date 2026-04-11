@@ -44,6 +44,9 @@ public class User {
     @Column(nullable = false, length = 100)
     private String timezone = "Asia/Kolkata";
 
+    @Column(nullable = false)
+    private int streakFreezes = 0;
+
     @PrePersist
     public void prePersist() {
         createdAt = Instant.now();
