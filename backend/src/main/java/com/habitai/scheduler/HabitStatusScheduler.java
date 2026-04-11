@@ -99,6 +99,9 @@ public class HabitStatusScheduler {
             // Only mark missed if scheduled for today in the user's calendar
             if (!habitScheduleService.isScheduledForDate(habit, today)) continue;
 
+            // skip if the habit didn't exist yet on this date
+            if (today.isBefore(habit.getCreatedAt())) continue;
+
             // Skip if already logged today (any status)
             String key = habit.getId() + ":" + habit.getUserId() + ":" + today;
             if (alreadyLoggedKeys.contains(key)) continue;

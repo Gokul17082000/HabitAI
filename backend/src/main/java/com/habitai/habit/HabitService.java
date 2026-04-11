@@ -25,17 +25,20 @@ public class HabitService {
     private final HabitAccessValidator habitAccessValidator;
     private final HabitLogRepository habitLogRepository;
     private final HabitScheduleService habitScheduleService;
+    private final HabitPauseHistoryRepository habitPauseHistoryRepository;
 
     public HabitService(HabitRepository habitRepository,
                         CurrentUser currentUser,
                         HabitAccessValidator habitAccessValidator,
                         HabitLogRepository habitLogRepository,
-                        HabitScheduleService habitScheduleService) {
+                        HabitScheduleService habitScheduleService,
+                        HabitPauseHistoryRepository habitPauseHistoryRepository) {
         this.habitRepository = habitRepository;
         this.currentUser = currentUser;
         this.habitAccessValidator = habitAccessValidator;
         this.habitLogRepository = habitLogRepository;
         this.habitScheduleService = habitScheduleService;
+        this.habitPauseHistoryRepository = habitPauseHistoryRepository;
     }
 
     public List<HabitDTO> getAllHabits() {
@@ -292,15 +295,25 @@ public class HabitService {
      * share the same logic without duplicating it.
      */
     private boolean isHabitPausedOnDate(Habit habit, LocalDate date) {
-        return habitScheduleService.isHabitPausedOnDate(habit, date);
+        return habitScheduleService.isHabitPausedOnDate(habit.getId(), date);
     }
 
     @Transactional
     public void pauseHabit(long habitId, PauseRequest request) {
         Habit habit = habitAccessValidator.getAndValidate(habitId);
+        LocalDate today = LocalDate.now(currentUser.getZone());
+        LocalDate until = today.plusDays(request.days());
+
         habit.setPaused(true);
-        habit.setPausedUntil(LocalDate.now(currentUser.getZone()).plusDays(request.days()));
+        habit.setPausedUntil(until);
         habitRepository.save(habit);
+
+        HabitPauseHistory habitPauseHistory = new HabitPauseHistory();
+        habitPauseHistory.setHabitId(habitId);
+        habitPauseHistory.setPausedFrom(today);
+        habitPauseHistory.setPausedUntil(until);
+
+        habitPauseHistoryRepository.save(habitPauseHistory);
     }
 
     @Transactional

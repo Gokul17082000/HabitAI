@@ -194,7 +194,7 @@ public class UserStatsService {
             // not just whether it is paused right now. Consistent with getMonthSummary.
             boolean anyScheduled = habits.stream()
                     .anyMatch(h -> !date.isBefore(h.getCreatedAt())
-                            && !habitScheduleService.isHabitPausedOnDate(h, date)
+                            && !habitScheduleService.isHabitPausedOnDate(h.getId(), date)
                             && habitScheduleService.isScheduledForDate(h, date));
 
             if (anyScheduled) {

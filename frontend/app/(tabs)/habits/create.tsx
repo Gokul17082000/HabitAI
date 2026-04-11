@@ -70,10 +70,6 @@ export default function CreateHabitScreen() {
       setError("Habit title is required");
       return;
     }
-    if (!description.trim()) {
-      setError("Description is required");
-      return;
-    }
     if (frequency === "WEEKLY" && daysOfWeek.length === 0) {
       setError("Select at least one day of week");
       return;
@@ -139,7 +135,7 @@ export default function CreateHabitScreen() {
           maxLength={100}
         />
         <FormInput
-          label="Description"
+          label="Description (optional)"
           value={description}
           onChangeText={setDescription}
           placeholder="e.g. Run 5km every morning"
