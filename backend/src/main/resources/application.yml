@@ -45,6 +45,15 @@ cors:
     #   CORS_ORIGIN_3=http://192.168.x.x:8081
     - ${CORS_ORIGIN_3:}
 
+# Trusted reverse-proxy IPs that are allowed to set X-Forwarded-For.
+# Leave empty when running locally without a proxy (safe default — header is ignored).
+# In production, set to your nginx / load balancer's internal IP:
+#   rate-limit:
+#     trusted-proxies:
+#       - 10.0.0.1
+rate-limit:
+  trusted-proxies: ${RATE_LIMIT_TRUSTED_PROXIES:}
+
 firebase:
   service-account: ${FIREBASE_SERVICE_ACCOUNT:src/main/resources/firebase-service-account.json}
 

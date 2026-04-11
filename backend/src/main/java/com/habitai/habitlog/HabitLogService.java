@@ -4,6 +4,7 @@ import com.habitai.common.security.CurrentUser;
 import com.habitai.common.validation.HabitAccessValidator;
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitScheduleService;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -44,6 +45,18 @@ public class HabitLogService {
         Optional<HabitLog> existing = habitLogRepository
                 .findByHabitIdAndUserIdAndDate(habitId, userId, today);
 
+        try {
+            saveHabitLog(habit, habitId, userId, today, habitLogRequest, existing);
+        } catch (DataIntegrityViolationException e) {
+            // Concurrent request already inserted a row — re-fetch and update it
+            Optional<HabitLog> concurrent = habitLogRepository
+                    .findByHabitIdAndUserIdAndDate(habitId, userId, today);
+            saveHabitLog(habit, habitId, userId, today, habitLogRequest, concurrent);
+        }
+    }
+
+    private void saveHabitLog(Habit habit, long habitId, long userId, LocalDate today,
+                              HabitLogRequest habitLogRequest, Optional<HabitLog> existing) {
         // --- Binary habit (yes/no) ---
         if (!habit.isCountable()) {
             if (habitLogRequest.habitStatus() == HabitStatus.PENDING) {
@@ -74,7 +87,6 @@ public class HabitLogService {
             return;
         }
 
-        // Auto-compute status from count — never trust status sent from frontend for countable habits
         HabitStatus computedStatus;
         if (newCount >= habit.getTargetCount()) {
             computedStatus = HabitStatus.COMPLETED;

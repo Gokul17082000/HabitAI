@@ -43,6 +43,15 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
     loadStreak();
   }, [habit.id]);
 
+  // Optimistically bump the displayed streak by 1 when this habit becomes
+  // COMPLETED (without firing another network request). It reverts if the
+  // log API call fails and onLogged restores the original status.
+  useEffect(() => {
+    if (localStatus === "COMPLETED" && streak !== null) {
+      setStreak((prev) => (prev !== null ? prev + 1 : prev));
+    }
+  }, [localStatus]);
+
   const loadStreak = async () => {
     try {
       const data = await getHabitStreakApi(habit.id);
@@ -63,7 +72,8 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
     setLogging(true);
     try {
       await logHabitApi(habit.id, today, newStatus, 0);
-      await loadStreak();
+      // Streak is refreshed on the next useFocusEffect cycle (home screen
+      // re-fetches habits). No need to fire an extra network request here.
     } catch {
       setLocalStatus(habit.habitStatus);
       onLogged?.(habit.id, habit.habitStatus);
@@ -92,7 +102,7 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
     setLogging(true);
     try {
       await logHabitApi(habit.id, today, newStatus, newCount);
-      await loadStreak();
+      // Streak refreshes on the next focus cycle — no extra call needed here.
     } catch {
       // Revert on error
       setLocalCount(habit.currentCount);

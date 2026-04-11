@@ -8,20 +8,12 @@ export class UnauthorizedError extends Error {
 }
 
 /**
- * FIX: Replace the boolean flag with a shared promise.
- *
- * Old behaviour: when `isRefreshing = true`, every concurrent 401 caller got
- * `null` back immediately and threw UnauthorizedError, logging the user out
- * even though the refresh was still in flight and about to succeed.
- *
- * New behaviour: the first caller starts the refresh and stores the promise.
- * Every subsequent concurrent caller awaits the *same* promise, so they all
- * get the new token once the single refresh completes — no race, no false logouts.
+ * Shared refresh promise so concurrent 401s don't each fire their own refresh.
+ * The first caller starts the refresh; every subsequent caller awaits the same promise.
  */
 let refreshPromise: Promise<string | null> | null = null;
 
 const refreshAccessToken = async (): Promise<string | null> => {
-  // If a refresh is already in flight, share it — don't fire a second one
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async (): Promise<string | null> => {
@@ -45,7 +37,6 @@ const refreshAccessToken = async (): Promise<string | null> => {
     } catch {
       return null;
     } finally {
-      // Clear the shared promise so the next genuine 401 triggers a fresh refresh
       refreshPromise = null;
     }
   })();
@@ -55,29 +46,47 @@ const refreshAccessToken = async (): Promise<string | null> => {
 
 /**
  * Central response handler for all API calls.
- * On 401: attempts a silent token refresh before redirecting to login.
- * skipAuthRedirect=true is used only by /auth/* endpoints that must not loop.
+ *
+ * FIX: On a 401, we now retry the original request with the new token if
+ * the refresh succeeds, instead of always throwing UnauthorizedError.
+ * Previously the refresh could succeed but the caller still got an error,
+ * causing spurious logouts.
+ *
+ * @param response    - The initial fetch response.
+ * @param retryFn     - A function that replays the original request with a
+ *                      fresh token. Pass undefined for auth endpoints that
+ *                      should never be retried (skipAuthRedirect behaviour).
  */
 export const handleResponse = async <T>(
   response: Response,
-  skipAuthRedirect = false
+  retryFn?: (newToken: string) => Promise<Response>
 ): Promise<T> => {
-  if (response.status === 401 && !skipAuthRedirect) {
+  if (response.status === 401 && retryFn) {
     const newToken = await refreshAccessToken();
-    if (!newToken) {
-      // Refresh failed — clear all tokens and send user to login
-      await removeToken();
-      await removeRefreshToken();
-      router.replace("/");
+
+    if (newToken) {
+      // Refresh succeeded — replay the original request with the new token
+      const retried = await retryFn(newToken);
+      // Parse the retried response (no further retry on another 401)
+      return parseResponse<T>(retried);
     }
-    // Either way, throw so the original call fails cleanly.
-    // If refresh succeeded, the caller should retry with the new token from storage.
+
+    // Refresh failed — clear tokens and send user to login
+    await removeToken();
+    await removeRefreshToken();
+    router.replace("/");
     throw new UnauthorizedError();
   }
 
-  if (response.status === 204) {
-    return undefined as T;
-  }
+  return parseResponse<T>(response);
+};
+
+/**
+ * Parses a fetch Response into T. Throws with the server's error message on
+ * non-OK responses.
+ */
+const parseResponse = async <T>(response: Response): Promise<T> => {
+  if (response.status === 204) return undefined as T;
 
   const text = await response.text();
   if (!text) return undefined as T;
@@ -92,9 +101,9 @@ export const handleResponse = async <T>(
 };
 
 /**
- * Builds the Authorization + Content-Type headers from the stored token.
- * Throws UnauthorizedError (no redirect) if no token found — the caller's
- * handleResponse will do the redirect when the server responds 401.
+ * Builds Authorization + Content-Type headers from the stored access token.
+ * Also returns a retryFn that rebuilds the same request with a new token,
+ * for use with handleResponse's auto-retry mechanism.
  */
 export const buildAuthHeaders = async (): Promise<Record<string, string>> => {
   const { getToken } = await import("./authStorage");
@@ -105,3 +114,33 @@ export const buildAuthHeaders = async (): Promise<Record<string, string>> => {
     "Content-Type": "application/json",
   };
 };
+
+/**
+ * Helper: builds a retryFn for a simple GET/DELETE with no body.
+ * Usage: handleResponse(response, retryGet(url))
+ */
+export const retryGet = (url: string) => async (newToken: string): Promise<Response> =>
+  fetch(url, {
+    headers: {
+      Authorization: `Bearer ${newToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+/**
+ * Helper: builds a retryFn for a request with a JSON body.
+ * Usage: handleResponse(response, retryPost(url, method, body))
+ */
+export const retryPost = (
+  url: string,
+  method: string,
+  body?: string
+) => async (newToken: string): Promise<Response> =>
+  fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${newToken}`,
+      "Content-Type": "application/json",
+    },
+    ...(body ? { body } : {}),
+  });

@@ -399,7 +399,7 @@ class JwtAuthenticationFilterTest {
     @Test
     void testDoFilterInternalClearsPreviousAuthenticationWhenInvalidToken() throws Exception {
         // Arrange - Set up existing authentication
-        UserPrincipal existingPrincipal = new UserPrincipal(999L);
+        UserPrincipal existingPrincipal = new UserPrincipal(999L, "UTC");
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
                 existingPrincipal, null, List.of()));
@@ -421,7 +421,7 @@ class JwtAuthenticationFilterTest {
     @Test
     void testDoFilterInternalDoesNotOverrideExistingAuthentication() throws Exception {
         // Arrange - Set up existing authentication
-        UserPrincipal existingPrincipal = new UserPrincipal(999L);
+        UserPrincipal existingPrincipal = new UserPrincipal(999L, "UTC");
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
                 existingPrincipal, null, List.of()));

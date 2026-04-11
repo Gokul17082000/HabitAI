@@ -11,8 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
-import { removeToken, removeRefreshToken } from "../../../utils/authStorage";
-import { getUserApi, getUserStatsApi, UserStats, getYearPixelsApi } from "../../../services/authService";
+import { getUserApi, getUserStatsApi, UserStats, getYearPixelsApi, logoutApi } from "../../../services/authService";
 import { Colors } from "../../../constants/colors";
 import { UnauthorizedError } from "../../../utils/apiHandler";
 import { getInsightsApi, InsightResponse } from "../../../services/aiService";
@@ -72,8 +71,8 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = async () => {
-    await removeToken();
-    await removeRefreshToken();
+    // logoutApi invalidates server-side refresh tokens AND clears local storage
+    await logoutApi();
     router.replace("/");
   };
 

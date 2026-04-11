@@ -50,12 +50,15 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/auth/**",
+                                "/auth/login",
+                                "/auth/register",
+                                "/auth/refresh",
                                 "/health",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
+                        // /auth/logout is intentionally NOT permit-all — it requires a valid JWT
                         .anyRequest().authenticated()
                 )
                 // Rate limiter runs first — rejects brute-force before JWT parsing or DB access.

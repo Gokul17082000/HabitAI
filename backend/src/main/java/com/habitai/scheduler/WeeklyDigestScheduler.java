@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,20 +50,30 @@ public class WeeklyDigestScheduler {
 
         // Only load users who have a push token — avoids a full table scan
         List<User> users = userRepository.findByPushTokenNotNull();
-
         if (users.isEmpty()) return;
+
+        // SUGGESTION FIX: batch-load ALL habits for these users in one query
+        // instead of calling habitRepository.findByUserId() inside the loop (N+1).
+        Set<Long> userIds = users.stream()
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
+        Map<Long, List<Habit>> habitsByUser = habitRepository.findByUserIdIn(userIds)
+                .stream()
+                .collect(Collectors.groupingBy(Habit::getUserId));
 
         for (User user : users) {
             try {
-                processUserDigest(user, weekStart, today);
+                processUserDigest(user, weekStart, today, habitsByUser);
             } catch (Exception e) {
                 logger.error("Failed weekly digest for user {}: {}", user.getId(), e.getMessage());
             }
         }
     }
 
-    private void processUserDigest(User user, LocalDate weekStart, LocalDate weekEnd) {
-        List<Habit> habits = habitRepository.findByUserId(user.getId());
+    private void processUserDigest(User user, LocalDate weekStart, LocalDate weekEnd,
+                                   Map<Long, List<Habit>> habitsByUser) {
+        List<Habit> habits = habitsByUser.getOrDefault(user.getId(), List.of());
         if (habits.isEmpty()) return;
 
         // Pull week logs

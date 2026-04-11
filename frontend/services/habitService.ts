@@ -1,5 +1,5 @@
 import { API_ENDPOINTS } from "../constants/api";
-import { buildAuthHeaders, handleResponse } from "../utils/apiHandler";
+import { buildAuthHeaders, handleResponse, retryGet, retryPost } from "../utils/apiHandler";
 import {
   HabitDTO,
   HabitResponse,
@@ -9,56 +9,51 @@ import {
   UpdateHabitRequest,
 } from "../types/habit";
 
-/* ---------------- Habit APIs ---------------- */
-
 export const getAllHabitsApi = async (): Promise<HabitDTO[]> => {
+  const url = API_ENDPOINTS.habits + "/all";
   const headers = await buildAuthHeaders();
-  const response = await fetch(API_ENDPOINTS.habits + "/all", { headers });
-  return handleResponse<HabitDTO[]>(response);
+  const response = await fetch(url, { headers });
+  return handleResponse<HabitDTO[]>(response, retryGet(url));
 };
 
 export const getHabitsForDateApi = async (date: string): Promise<HabitResponse[]> => {
+  const url = `${API_ENDPOINTS.habits}?date=${date}`;
   const headers = await buildAuthHeaders();
-  const response = await fetch(`${API_ENDPOINTS.habits}?date=${date}`, { headers });
-  return handleResponse<HabitResponse[]>(response);
+  const response = await fetch(url, { headers });
+  return handleResponse<HabitResponse[]>(response, retryGet(url));
 };
 
 export const getHabitByIdApi = async (habitId: number): Promise<HabitDTO> => {
+  const url = `${API_ENDPOINTS.habits}/${habitId}`;
   const headers = await buildAuthHeaders();
-  const response = await fetch(`${API_ENDPOINTS.habits}/${habitId}`, { headers });
-  return handleResponse<HabitDTO>(response);
+  const response = await fetch(url, { headers });
+  return handleResponse<HabitDTO>(response, retryGet(url));
 };
 
 export const createHabitApi = async (request: CreateHabitRequest): Promise<HabitDTO> => {
+  const url = API_ENDPOINTS.habits;
+  const body = JSON.stringify(request);
   const headers = await buildAuthHeaders();
-  const response = await fetch(API_ENDPOINTS.habits, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(request),
-  });
-  return handleResponse<HabitDTO>(response);
+  const response = await fetch(url, { method: "POST", headers, body });
+  return handleResponse<HabitDTO>(response, retryPost(url, "POST", body));
 };
 
 export const updateHabitApi = async (
   habitId: number,
   request: UpdateHabitRequest
 ): Promise<void> => {
+  const url = `${API_ENDPOINTS.habits}/${habitId}`;
+  const body = JSON.stringify(request);
   const headers = await buildAuthHeaders();
-  const response = await fetch(`${API_ENDPOINTS.habits}/${habitId}`, {
-    method: "PUT",
-    headers,
-    body: JSON.stringify(request),
-  });
-  await handleResponse<void>(response);
+  const response = await fetch(url, { method: "PUT", headers, body });
+  await handleResponse<void>(response, retryPost(url, "PUT", body));
 };
 
 export const deleteHabitApi = async (habitId: number): Promise<void> => {
+  const url = `${API_ENDPOINTS.habits}/${habitId}`;
   const headers = await buildAuthHeaders();
-  const response = await fetch(`${API_ENDPOINTS.habits}/${habitId}`, {
-    method: "DELETE",
-    headers,
-  });
-  await handleResponse<void>(response);
+  const response = await fetch(url, { method: "DELETE", headers });
+  await handleResponse<void>(response, retryPost(url, "DELETE"));
 };
 
 export const logHabitApi = async (
@@ -66,27 +61,27 @@ export const logHabitApi = async (
   date: string,
   habitStatus: string,
   currentCount: number = 0,
-  note?: string           // add this
+  note?: string
 ): Promise<void> => {
+  const url = `${API_ENDPOINTS.habits}/${habitId}/log`;
+  const body = JSON.stringify({ date, habitStatus, currentCount, note });
   const headers = await buildAuthHeaders();
-  const response = await fetch(`${API_ENDPOINTS.habits}/${habitId}/log`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ date, habitStatus, currentCount, note }),
-  });
-  await handleResponse<void>(response);
+  const response = await fetch(url, { method: "POST", headers, body });
+  await handleResponse<void>(response, retryPost(url, "POST", body));
 };
 
 export const getHabitStreakApi = async (habitId: number): Promise<HabitStreakResponse> => {
+  const url = `${API_ENDPOINTS.habits}/${habitId}/streak`;
   const headers = await buildAuthHeaders();
-  const response = await fetch(`${API_ENDPOINTS.habits}/${habitId}/streak`, { headers });
-  return handleResponse<HabitStreakResponse>(response);
+  const response = await fetch(url, { headers });
+  return handleResponse<HabitStreakResponse>(response, retryGet(url));
 };
 
 export const getLongestStreakApi = async (habitId: number): Promise<HabitStreakResponse> => {
+  const url = `${API_ENDPOINTS.habits}/${habitId}/streak/longest`;
   const headers = await buildAuthHeaders();
-  const response = await fetch(`${API_ENDPOINTS.habits}/${habitId}/streak/longest`, { headers });
-  return handleResponse<HabitStreakResponse>(response);
+  const response = await fetch(url, { headers });
+  return handleResponse<HabitStreakResponse>(response, retryGet(url));
 };
 
 export const getHabitActivityApi = async (
@@ -94,30 +89,23 @@ export const getHabitActivityApi = async (
   startDate: string,
   endDate: string
 ): Promise<ActivityItem[]> => {
+  const url = `${API_ENDPOINTS.habits}/${habitId}/activity?startDate=${startDate}&endDate=${endDate}`;
   const headers = await buildAuthHeaders();
-  const response = await fetch(
-    `${API_ENDPOINTS.habits}/${habitId}/activity?startDate=${startDate}&endDate=${endDate}`,
-    { headers }
-  );
-  return handleResponse<ActivityItem[]>(response);
+  const response = await fetch(url, { headers });
+  return handleResponse<ActivityItem[]>(response, retryGet(url));
 };
 
 export const pauseHabitApi = async (habitId: number, days: number): Promise<void> => {
+  const url = `${API_ENDPOINTS.habits}/${habitId}/pause`;
+  const body = JSON.stringify({ days });
   const headers = await buildAuthHeaders();
-  const response = await fetch(`${API_ENDPOINTS.habits}/${habitId}/pause`, {
-    method: "PATCH",
-    headers,
-    body: JSON.stringify({ days }),
-  });
-  await handleResponse<void>(response);
+  const response = await fetch(url, { method: "PATCH", headers, body });
+  await handleResponse<void>(response, retryPost(url, "PATCH", body));
 };
 
 export const resumeHabitApi = async (habitId: number): Promise<void> => {
+  const url = `${API_ENDPOINTS.habits}/${habitId}/resume`;
   const headers = await buildAuthHeaders();
-  const response = await fetch(`${API_ENDPOINTS.habits}/${habitId}/resume`, {
-    method: "PATCH",
-    headers,
-  });
-  await handleResponse<void>(response);
+  const response = await fetch(url, { method: "PATCH", headers });
+  await handleResponse<void>(response, retryPost(url, "PATCH"));
 };
-

@@ -176,12 +176,14 @@ export default function EditHabitScreen() {
           value={title}
           onChangeText={setTitle}
           placeholder="e.g. Morning Run"
+          maxLength={100}
         />
         <FormInput
           label="Description"
           value={description}
           onChangeText={setDescription}
           placeholder="e.g. Run 5km every morning"
+          maxLength={100}
         />
 
         {/* Category */}

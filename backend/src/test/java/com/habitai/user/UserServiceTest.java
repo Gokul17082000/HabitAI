@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -40,7 +41,7 @@ class UserServiceTest {
         user.setId(userId);
         user.setEmail("test@example.com");
         user.setPassword("securepass");
-        user.setCreatedAt(LocalDateTime.now());
+        user.setCreatedAt(LocalDateTime.now().toInstant(ZoneOffset.UTC));
     }
 
     @Test

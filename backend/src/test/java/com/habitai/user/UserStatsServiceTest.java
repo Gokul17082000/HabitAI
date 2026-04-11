@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -84,7 +85,7 @@ class UserStatsServiceTest {
         user.setId(userId);
         user.setEmail("user@example.com");
         user.setPassword("pass");
-        user.setCreatedAt(LocalDateTime.of(2024, 1, 2, 3, 4));
+        user.setCreatedAt(LocalDateTime.of(2024, 1, 2, 3, 4).toInstant(ZoneOffset.UTC));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
         UserStatsResponse response = userStatsService.getStats();

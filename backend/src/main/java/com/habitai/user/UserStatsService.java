@@ -65,7 +65,7 @@ public class UserStatsService {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
-        LocalDate memberSince = user.getCreatedAt().toLocalDate();
+        LocalDate memberSince = user.getCreatedAt().atZone(zone).toLocalDate();
 
         return new UserStatsResponse(
                 totalHabits,

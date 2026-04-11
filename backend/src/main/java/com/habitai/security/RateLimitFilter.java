@@ -11,6 +11,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -19,15 +20,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final int MAX_REQUESTS = 10;
     private static final long WINDOW_MS = 60_000L;
-    // Evict stale entries every N filtered requests to prevent unbounded map growth
     private static final int EVICTION_INTERVAL = 500;
 
     private final Map<String, RequestWindow> windowMap = new ConcurrentHashMap<>();
-    private int requestsSinceEviction = 0;
+    // Thread-safe eviction counter (was a plain int — minor fix also applied here)
+    private final AtomicInteger requestsSinceEviction = new AtomicInteger(0);
+
+    private final RateLimitProperties rateLimitProperties;
+
+    public RateLimitFilter(RateLimitProperties rateLimitProperties) {
+        this.rateLimitProperties = rateLimitProperties;
+    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        // Only apply to auth endpoints — all other paths skip this filter entirely
         String path = request.getRequestURI();
         return !path.startsWith("/auth/login")
                 && !path.startsWith("/auth/register")
@@ -43,16 +49,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String clientIp = resolveClientIp(request);
         String key = clientIp + ":" + request.getRequestURI();
 
-        // Periodically evict expired windows to prevent unbounded map growth
-        if (++requestsSinceEviction >= EVICTION_INTERVAL) {
-            requestsSinceEviction = 0;
+        if (requestsSinceEviction.incrementAndGet() >= EVICTION_INTERVAL) {
+            requestsSinceEviction.set(0);
             long now = Instant.now().toEpochMilli();
             windowMap.entrySet().removeIf(e -> now - e.getValue().windowStart > WINDOW_MS);
         }
 
         long now = Instant.now().toEpochMilli();
-        // compute() is atomic; AtomicInteger.incrementAndGet() is the atomic increment inside.
-        // This replaces the old non-atomic existing.count++ which allowed races under burst traffic.
         RequestWindow window = windowMap.compute(key, (k, existing) -> {
             if (existing == null || now - existing.windowStart > WINDOW_MS) {
                 return new RequestWindow(now);
@@ -68,23 +71,42 @@ public class RateLimitFilter extends OncePerRequestFilter {
             response.getWriter().write(
                     "{\"message\":\"Too many requests. Please try again later.\",\"status\":429}"
             );
-            return; // stops the chain — no further filters or controllers run
+            return;
         }
 
         filterChain.doFilter(request, response);
     }
 
+    /**
+     * SECURITY FIX: X-Forwarded-For is only trusted when the request arrives
+     * from a known trusted proxy IP (configured via rate-limit.trusted-proxies).
+     *
+     * Without this check, any client can send:
+     *   X-Forwarded-For: 1.2.3.4
+     * and rotate through infinite fake IPs, bypassing the rate limiter entirely.
+     *
+     * When no trusted proxies are configured (e.g. local dev), the header is
+     * ignored and remoteAddr is used directly — safe default.
+     */
     private String resolveClientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+        Set<String> trustedProxies = rateLimitProperties.getTrustedProxies();
+        String remoteAddr = request.getRemoteAddr();
+
+        if (trustedProxies != null
+                && !trustedProxies.isEmpty()
+                && trustedProxies.contains(remoteAddr)) {
+            String forwarded = request.getHeader("X-Forwarded-For");
+            if (forwarded != null && !forwarded.isBlank()) {
+                // The leftmost IP is the original client; subsequent entries are proxies
+                return forwarded.split(",")[0].trim();
+            }
         }
-        return request.getRemoteAddr();
+
+        return remoteAddr;
     }
 
     private static class RequestWindow {
         final long windowStart;
-        // AtomicInteger replaces the plain int — safe for concurrent increments
         final AtomicInteger count = new AtomicInteger(0);
 
         RequestWindow(long windowStart) {

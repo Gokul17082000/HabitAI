@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import { getHabitsForDateApi } from "../../../services/habitService";
+import { getHabitsForDateApi, getAllHabitsApi } from "../../../services/habitService";
 import { HabitResponse, HabitStatus } from "../../../types/habit";
 import { formatDate } from "../../../utils/formatters";
 import { Colors } from "../../../constants/colors";
@@ -23,6 +23,10 @@ import { suggestHabitsApi } from "../../../services/aiService";
 
 export default function HomeScreen() {
   const [habits, setHabits] = useState<HabitResponse[]>([]);
+  // MINOR FIX: track total habit count (including paused) separately from the
+  // visible list. When habits=[] but totalHabits>0, all habits are paused —
+  // we show a dedicated message instead of the "No habits yet" onboarding state.
+  const [totalHabits, setTotalHabits] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -34,8 +38,13 @@ export default function HomeScreen() {
     setError("");
     try {
       const today = formatDate(new Date());
-      const data = await getHabitsForDateApi(today);
+      // Fetch today's visible habits and total habit count in parallel
+      const [data, all] = await Promise.all([
+        getHabitsForDateApi(today),
+        getAllHabitsApi(),
+      ]);
       setHabits(data);
+      setTotalHabits(all.length);
     } catch (e) {
       if (e instanceof UnauthorizedError) return;
       setError("Failed to load habits. Please try again.");
@@ -144,7 +153,7 @@ export default function HomeScreen() {
             <Text style={styles.emptyTitle}>Something went wrong</Text>
             <Text style={styles.emptySubtitle}>{error}</Text>
           </View>
-        ) : habits.length === 0 ? (
+        ) : habits.length === 0 && totalHabits === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No habits yet 👋</Text>
             <Text style={styles.emptySubtitle}>
@@ -173,6 +182,20 @@ export default function HomeScreen() {
               onPress={() => router.push("/(tabs)/habits/create")}
             >
               <Text style={styles.secondaryBtnText}>Create manually instead</Text>
+            </Pressable>
+          </View>
+        ) : habits.length === 0 && totalHabits > 0 ? (
+          // All habits are paused — show a clear message instead of a blank screen
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>All habits paused ⏸️</Text>
+            <Text style={styles.emptySubtitle}>
+              Your habits are taking a break. Head to the Habits tab to resume them.
+            </Text>
+            <Pressable
+              style={styles.createBtn}
+              onPress={() => router.push("/(tabs)/habits")}
+            >
+              <Text style={styles.createBtnText}>Go to Habits →</Text>
             </Pressable>
           </View>
         ) : (

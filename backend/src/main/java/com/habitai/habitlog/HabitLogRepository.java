@@ -28,6 +28,9 @@ public interface HabitLogRepository extends JpaRepository<HabitLog, Long> {
 
     List<HabitLog> findByDate(LocalDate date);
 
+    /** Used by the MISSED scheduler to pre-load logs across a date window (covers all timezones). */
+    List<HabitLog> findByDateBetween(LocalDate startDate, LocalDate endDate);
+
     @Transactional
     void deleteByHabitIdAndUserId(Long habitId, Long userId);
 

@@ -41,7 +41,7 @@ class CurrentUserTest {
 
     @Test
     void getId_WhenAuthenticatedWithUserPrincipal_ShouldReturnUserId() {
-        UserPrincipal userPrincipal = new UserPrincipal(100L);
+        UserPrincipal userPrincipal = new UserPrincipal(100L, "UTC");
 
         when(securityContext.getAuthentication()).thenReturn(authentication);
         when(authentication.isAuthenticated()).thenReturn(true);

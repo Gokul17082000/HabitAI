@@ -33,12 +33,15 @@ public class AuthService {
 
     @Transactional
     public RegisterResponse register(AuthRequest authRequest) {
-        if (userRepository.findByEmail(authRequest.email()).isPresent()) {
+        // Normalise to lowercase so "User@Gmail.com" and "user@gmail.com" are the same account
+        String email = authRequest.email().trim().toLowerCase();
+
+        if (userRepository.findByEmail(email).isPresent()) {
             throw new UserAlreadyExistException("User already exists!");
         }
         try {
             User user = new User();
-            user.setEmail(authRequest.email());
+            user.setEmail(email);
             user.setPassword(passwordEncoder.encode(authRequest.password()));
             userRepository.save(user);
         } catch (DataIntegrityViolationException ex) {
@@ -53,7 +56,10 @@ public class AuthService {
 
     @Transactional
     public LoginResponse login(AuthRequest authRequest) {
-        User user = userRepository.findByEmail(authRequest.email())
+        // Normalise to lowercase — matches how email is stored at registration
+        String email = authRequest.email().trim().toLowerCase();
+
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UserNotFoundException("User Not Found!"));
 
         if (!passwordEncoder.matches(authRequest.password(), user.getPassword())) {
@@ -103,6 +109,12 @@ public class AuthService {
         persistRefreshToken(newRawRefreshToken, user.getId());
 
         return new LoginResponse(jwtService.generateToken(user), newRawRefreshToken);
+    }
+
+    @Transactional
+    public void logout(long userId) {
+        // Invalidate all refresh tokens — access token expires naturally within its TTL
+        refreshTokenRepository.deleteByUserId(userId);
     }
 
     private void persistRefreshToken(String rawToken, Long userId) {

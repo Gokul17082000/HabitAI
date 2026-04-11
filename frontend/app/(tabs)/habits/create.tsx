@@ -136,12 +136,14 @@ export default function CreateHabitScreen() {
           value={title}
           onChangeText={setTitle}
           placeholder="e.g. Morning Run"
+          maxLength={100}
         />
         <FormInput
           label="Description"
           value={description}
           onChangeText={setDescription}
           placeholder="e.g. Run 5km every morning"
+          maxLength={100}
         />
 
         {/* Category */}
@@ -201,6 +203,11 @@ export default function CreateHabitScreen() {
                 />
               ))}
             </View>
+            {daysOfMonth.some((d) => d >= 29) && (
+              <Text style={styles.monthWarning}>
+                ⚠️ Days 29–31 will fall on the last day of shorter months (e.g. Feb, Apr).
+              </Text>
+            )}
           </>
         )}
 
@@ -375,6 +382,15 @@ const styles = StyleSheet.create({
     color: Colors.error,
     textAlign: "center",
     marginBottom: 10,
+  },
+  monthWarning: {
+    fontSize: 12,
+    color: "#92400e",
+    backgroundColor: "#fef3c7",
+    borderRadius: 6,
+    padding: 8,
+    marginTop: 4,
+    marginBottom: 8,
   },
   closeBtn: {
     padding: 12,

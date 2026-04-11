@@ -206,6 +206,10 @@ public class HabitService {
                 for (Integer d : habitRequest.daysOfMonth()) {
                     if (d < 1 || d > 31)
                         throw new IllegalArgumentException("Invalid day: " + d);
+                    // Warn: days 29-31 will be clamped to the last day of shorter months
+                    // (e.g. day 31 becomes day 30 in April). This is intentional behaviour —
+                    // the habit fires on the last valid day rather than being silently skipped.
+                    // Clients should surface this caveat in their UI.
                 }
             }
         }
@@ -246,6 +250,12 @@ public class HabitService {
             List<Habit> scheduledHabits = habits.stream()
                     .filter(h -> isScheduledForDate(h, date))
                     .filter(h -> !date.isBefore(h.getCreatedAt()))
+                    // SUGGESTION FIX: exclude habits that were paused on this specific date.
+                    // Previously, all paused habits were included and shown as MISSED for
+                    // the entire month, inflating missed counts for paused periods.
+                    // A habit is considered paused on a date if paused=true AND
+                    // pausedUntil is on or after that date (meaning the pause was active).
+                    .filter(h -> !isHabitPausedOnDate(h, date))
                     .toList();
 
             if (!scheduledHabits.isEmpty()) {
@@ -269,6 +279,23 @@ public class HabitService {
         }
 
         return result;
+    }
+
+    /**
+     * Returns true if the habit was paused on the given date.
+     *
+     * A habit recorded as paused in the DB has its current pause state, not a
+     * historical audit. We approximate: if the habit is currently paused AND
+     * pausedUntil >= date, the pause was still active on that date.
+     * Past pauses that have already been auto-resumed won't match (paused=false),
+     * so only the current active pause window is considered — a reasonable
+     * trade-off without a full audit log table.
+     */
+    private boolean isHabitPausedOnDate(Habit habit, LocalDate date) {
+        if (!habit.isPaused()) return false;
+        // pausedUntil being null with paused=true means paused indefinitely
+        if (habit.getPausedUntil() == null) return true;
+        return !date.isAfter(habit.getPausedUntil());
     }
 
     @Transactional

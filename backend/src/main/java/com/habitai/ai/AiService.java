@@ -191,25 +191,47 @@ public class AiService {
                 )
         );
 
-        try {
-            String responseBody = restClient.post()
-                    .uri(apiUrl)
-                    .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
-                    .body(body)
-                    .retrieve()
-                    .body(String.class);
+        // Retry up to 3 attempts with exponential backoff (500ms → 1000ms → give up).
+        // LLM API endpoints are inherently flakier than internal services — a single
+        // transient network blip should not surface as a user-visible error.
+        int maxAttempts = 3;
+        long delayMs = 500;
 
-            JsonNode root = objectMapper.readTree(responseBody);
-            return root.path("choices").get(0).path("message").path("content").asText();
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                String responseBody = restClient.post()
+                        .uri(apiUrl)
+                        .header("Authorization", "Bearer " + apiKey)
+                        .header("Content-Type", "application/json")
+                        .body(body)
+                        .retrieve()
+                        .body(String.class);
 
-        } catch (ResourceAccessException e) {
-            // FIX: timeout or network failure — surface a friendly message instead of a 500
-            throw new RuntimeException(
-                    "The AI service is currently unavailable. Please try again in a moment.");
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to read AI response. Please try again.");
+                JsonNode root = objectMapper.readTree(responseBody);
+                return root.path("choices").get(0).path("message").path("content").asText();
+
+            } catch (ResourceAccessException e) {
+                // Timeout or network failure — retry if attempts remain
+                if (attempt == maxAttempts) {
+                    throw new RuntimeException(
+                            "The AI service is currently unavailable. Please try again in a moment.");
+                }
+                try {
+                    Thread.sleep(delayMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(
+                            "The AI service is currently unavailable. Please try again in a moment.");
+                }
+                delayMs *= 2; // exponential backoff
+            } catch (Exception e) {
+                // Non-transient error (bad JSON, unexpected response shape) — don't retry
+                throw new RuntimeException("Failed to read AI response. Please try again.");
+            }
         }
+
+        // Unreachable — loop always returns or throws — but compiler requires it
+        throw new RuntimeException("The AI service is currently unavailable. Please try again in a moment.");
     }
 
     public String generateWeeklyDigest(String habitSummary,
