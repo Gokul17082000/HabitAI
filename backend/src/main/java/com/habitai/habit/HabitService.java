@@ -165,7 +165,9 @@ public class HabitService {
         habit.setTargetTime(habitRequest.targetTime());
         habit.setCountable(habitRequest.isCountable());
         habit.setTargetCount(habitRequest.targetCount());
-        habit.setCreatedAt(LocalDate.now(currentUser.getZone()));
+        // NOTE: createdAt is intentionally NOT updated here — editing a habit
+        // must never change its original creation date, as streaks and activity
+        // history are anchored to that date.
 
         normalizeSchedule(habit);
         habitRepository.save(habit);

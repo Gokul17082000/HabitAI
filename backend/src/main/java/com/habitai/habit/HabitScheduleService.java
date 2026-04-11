@@ -42,7 +42,7 @@ public class HabitScheduleService {
      */
     public boolean isHabitPausedOnDate(Habit habit, LocalDate date) {
         if (!habit.isPaused()) return false;
-        if (habit.getPausedUntil() == null) return true; // paused indefinitely
+        if (habit.getPausedUntil() == null) return !date.isBefore(LocalDate.now()); // only today and future
         return !date.isAfter(habit.getPausedUntil());
     }
 }

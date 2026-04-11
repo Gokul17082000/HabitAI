@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Pressable, Modal, TextInput, KeyboardAvoidingView, Platform } from "react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getHabitStreakApi, logHabitApi } from "../services/habitService";
 import { formatDate, formatTime } from "../utils/formatters";
 import { HabitResponse, HabitStatus } from "../types/habit";
@@ -27,13 +27,17 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
   const [savingNote, setSavingNote] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
 
+  // Tracks the previous localStatus so we can detect the exact PENDING→COMPLETED
+  // transition rather than firing on every render where status === COMPLETED.
+  const prevStatusRef = useRef<HabitStatus>(habit.habitStatus);
+
   useEffect(() => {
     if (!logging && !savingNote) {
       setLocalStatus(habit.habitStatus);
       setLocalCount(habit.currentCount);
       setNoteSaved(false);
     }
-  }, [habit.habitStatus, habit.currentCount]);
+  }, [habit.habitStatus, habit.currentCount, logging, savingNote]);
 
   const today = formatDate(new Date());
   const isMissed = localStatus === "MISSED";
@@ -43,12 +47,17 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
     loadStreak();
   }, [habit.id]);
 
-  // Optimistically bump the displayed streak by 1 when this habit becomes
-  // COMPLETED (without firing another network request). It reverts if the
-  // log API call fails and onLogged restores the original status.
+  // Optimistically bump the displayed streak by 1 only when localStatus
+  // transitions INTO "COMPLETED" from a non-completed state.
+  // Using a ref prevents this from firing on every re-render where status
+  // happens to already be COMPLETED (e.g. parent list updates), which would
+  // cause the streak counter to increment incorrectly on each render.
   useEffect(() => {
-    if (localStatus === "COMPLETED" && streak !== null) {
-      setStreak((prev) => (prev !== null ? prev + 1 : prev));
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = localStatus;
+
+    if (localStatus === "COMPLETED" && prev !== "COMPLETED" && streak !== null) {
+      setStreak((s) => (s !== null ? s + 1 : s));
     }
   }, [localStatus]);
 

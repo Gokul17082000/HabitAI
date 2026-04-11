@@ -18,8 +18,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private static final int MAX_REQUESTS = 10;
-    private static final long WINDOW_MS = 60_000L;
     private static final int EVICTION_INTERVAL = 500;
 
     private final Map<String, RequestWindow> windowMap = new ConcurrentHashMap<>();
@@ -51,22 +49,27 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         if (requestsSinceEviction.incrementAndGet() >= EVICTION_INTERVAL) {
             requestsSinceEviction.set(0);
+            int maxRequests = rateLimitProperties.getMaxRequests();
+            long windowMs   = rateLimitProperties.getWindowMs();
             long now = Instant.now().toEpochMilli();
-            windowMap.entrySet().removeIf(e -> now - e.getValue().windowStart > WINDOW_MS);
+            windowMap.entrySet().removeIf(e -> now - e.getValue().windowStart > windowMs);
         }
 
-        long now = Instant.now().toEpochMilli();
+        int maxRequests = rateLimitProperties.getMaxRequests();
+        long windowMs   = rateLimitProperties.getWindowMs();
+        long now        = Instant.now().toEpochMilli();
+
 
         AtomicInteger countRef = new AtomicInteger();
         windowMap.compute(key, (k, existing) -> {
-            RequestWindow w = (existing == null || now - existing.windowStart > WINDOW_MS)
+            RequestWindow w = (existing == null || now - existing.windowStart > windowMs)
                     ? new RequestWindow(now) : existing;
             countRef.set(w.count.incrementAndGet()); // ← always on the live window
             return w;
         });
         int count = countRef.get();
 
-        if (count > MAX_REQUESTS) {
+        if (count > maxRequests) {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType("application/json");
             response.getWriter().write(

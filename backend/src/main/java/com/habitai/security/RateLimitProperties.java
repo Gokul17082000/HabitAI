@@ -30,4 +30,9 @@ public class RateLimitProperties {
      * case X-Forwarded-For is ignored entirely and remoteAddr is used directly.
      */
     private Set<String> trustedProxies = new HashSet<>();
+
+    private int maxRequests = 20;   // was hardcoded as 10 in the filter
+
+    private long windowMs = 60_000L; // was hardcoded in the filter
+
 }

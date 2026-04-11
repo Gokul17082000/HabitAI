@@ -257,7 +257,7 @@ export default function CreateHabitScreen() {
         {Platform.OS === "web" ? (
           <input
             type="time"
-            value={formatTargetTime(targetTime)}
+            value={`${targetTime.getHours().toString().padStart(2,"0")}:${targetTime.getMinutes().toString().padStart(2,"0")}`}
             onChange={(e) => {
               const [h, m] = e.target.value.split(":");
               const newTime = new Date();

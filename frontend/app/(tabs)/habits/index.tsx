@@ -18,6 +18,7 @@ import { getAllHabitsApi, deleteHabitApi, pauseHabitApi, resumeHabitApi } from "
 import { HabitDTO, CreateHabitRequest } from "../../../types/habit";
 import { Colors } from "../../../constants/colors";
 import { UnauthorizedError } from "../../../utils/apiHandler";
+import { formatDate } from "../../../utils/formatters";
 import SkeletonCard from "../../../components/SkeletonCard";
 import ManageHabitCard from "../../../components/ManageHabitCard";
 import { suggestHabitsApi } from "../../../services/aiService";
@@ -126,9 +127,14 @@ export default function MasterHabitsScreen() {
       setHabits((prev) =>
         prev.map((h) => {
           if (h.id !== habitId) return h;
-          const pausedUntil = new Date();
-          pausedUntil.setDate(pausedUntil.getDate() + days);
-          return { ...h, paused: true, pausedUntil: pausedUntil.toISOString().split("T")[0] };
+          // FIX: use local date arithmetic instead of toISOString() which converts
+          // to UTC first. For users east of UTC (e.g. UTC+5:30), toISOString() after
+          // 6:30 PM local time returns tomorrow's UTC date, making pausedUntil appear
+          // one day too far ahead in the UI. formatDate() uses en-CA locale
+          // (YYYY-MM-DD) which respects the device's local calendar date.
+          const pausedUntilDate = new Date();
+          pausedUntilDate.setDate(pausedUntilDate.getDate() + days);
+          return { ...h, paused: true, pausedUntil: formatDate(pausedUntilDate) };
         })
       );
     } catch {
@@ -139,17 +145,30 @@ export default function MasterHabitsScreen() {
   };
 
   const confirmPause = (habitId: number) => {
-    Alert.alert(
-      "Pause Habit",
-      "How long do you want to pause this habit? It will auto-resume after the selected period.",
-      [
-        { text: "3 days",  onPress: () => handlePause(habitId, 3) },
-        { text: "7 days",  onPress: () => handlePause(habitId, 7) },
-        { text: "14 days", onPress: () => handlePause(habitId, 14) },
-        { text: "30 days", onPress: () => handlePause(habitId, 30) },
-        { text: "Cancel",  style: "cancel" },
-      ]
-    );
+    if (Platform.OS === "web") {
+      const input = window.prompt(
+        "Pause Habit\nHow many days? Enter 3, 7, 14, or 30."
+      );
+      if (input === null) return; // user cancelled
+      const days = parseInt(input, 10);
+      if (![3, 7, 14, 30].includes(days)) {
+        window.alert("Please enter 3, 7, 14, or 30.");
+        return;
+      }
+      handlePause(habitId, days);
+    } else {
+      Alert.alert(
+        "Pause Habit",
+        "How long do you want to pause this habit? It will auto-resume after the selected period.",
+        [
+          { text: "3 days",  onPress: () => handlePause(habitId, 3) },
+          { text: "7 days",  onPress: () => handlePause(habitId, 7) },
+          { text: "14 days", onPress: () => handlePause(habitId, 14) },
+          { text: "30 days", onPress: () => handlePause(habitId, 30) },
+          { text: "Cancel",  style: "cancel" },
+        ]
+      );
+    }
   };
 
   /* ---------------- Resume ---------------- */
