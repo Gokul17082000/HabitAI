@@ -213,8 +213,8 @@ export default function HabitActivityScreen() {
               {recentActivity.length === 0 ? (
                 <Text style={styles.emptyText}>No activity recorded yet.</Text>
               ) : (
-                recentActivity.map((a, i) => (
-                  <View key={i} style={styles.recentRow}>
+                recentActivity.map((a) => (
+                  <View key={a.date} style={styles.recentRow}>
                     <Text style={styles.dateText}>
                       {formatDisplayDate(a.date)}
                     </Text>

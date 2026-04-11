@@ -5,7 +5,7 @@ import { getHabitsForDateApi } from "../../../services/habitService";
 import { HabitResponse } from "../../../types/habit";
 import { formatDate, formatTime } from "../../../utils/formatters";
 import { Colors } from "../../../constants/colors";
-import { buildAuthHeaders, handleResponse, UnauthorizedError } from "../../../utils/apiHandler";
+import { buildAuthHeaders, handleResponse, retryGet, UnauthorizedError } from "../../../utils/apiHandler";
 import { API_ENDPOINTS } from "../../../constants/api"
 
 /* ---------------- Types ---------------- */
@@ -72,11 +72,9 @@ export default function CalendarScreen() {
   const loadMonthOverview = async () => {
     try {
       const headers = await buildAuthHeaders();
-      const response = await fetch(
-        `${API_ENDPOINTS.habitSummary}?year=${currentYear}&month=${currentMonth + 1}`,
-        { headers }
-      );
-      const data = await handleResponse<Record<string, string[]>>(response);
+      const url = `${API_ENDPOINTS.habitSummary}?year=${currentYear}&month=${currentMonth + 1}`;
+      const response = await fetch(url, { headers });
+      const data = await handleResponse<Record<string, string[]>>(response, retryGet(url));
 
       const newMap = new Map<string, HabitStatus[]>();
       Object.entries(data).forEach(([date, statuses]) => {
