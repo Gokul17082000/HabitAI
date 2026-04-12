@@ -272,7 +272,7 @@ class HabitLogControllerTest {
         LocalDate startDate = today;
         LocalDate endDate = today;
 
-        HabitActivityStatus activity = new HabitActivityStatus(today, HabitStatus.COMPLETED);
+        HabitActivityStatus activity = new HabitActivityStatus(today, HabitStatus.COMPLETED, null);
         List<HabitActivityStatus> activities = List.of(activity);
 
         when(habitLogService.getHabitActivity(habitId, startDate, endDate))
@@ -298,7 +298,7 @@ class HabitLogControllerTest {
 
         List<HabitActivityStatus> activities = new ArrayList<>();
         for (int i = 6; i >= 0; i--) {
-            activities.add(new HabitActivityStatus(today.minusDays(i), HabitStatus.COMPLETED));
+            activities.add(new HabitActivityStatus(today.minusDays(i), HabitStatus.COMPLETED, null));
         }
 
         when(habitLogService.getHabitActivity(habitId, startDate, endDate))
@@ -325,7 +325,7 @@ class HabitLogControllerTest {
 
         List<HabitActivityStatus> activities = new ArrayList<>();
         for (int i = 29; i >= 0; i--) {
-            activities.add(new HabitActivityStatus(today.minusDays(i), HabitStatus.COMPLETED));
+            activities.add(new HabitActivityStatus(today.minusDays(i), HabitStatus.COMPLETED, null));
         }
 
         when(habitLogService.getHabitActivity(habitId, startDate, endDate))
@@ -349,9 +349,9 @@ class HabitLogControllerTest {
         LocalDate endDate = today;
 
         List<HabitActivityStatus> activities = List.of(
-                new HabitActivityStatus(today.minusDays(2), HabitStatus.COMPLETED),
-                new HabitActivityStatus(today.minusDays(1), HabitStatus.MISSED),
-                new HabitActivityStatus(today, HabitStatus.PENDING)
+                new HabitActivityStatus(today.minusDays(2), HabitStatus.COMPLETED, null),
+                new HabitActivityStatus(today.minusDays(1), HabitStatus.MISSED, null),
+                new HabitActivityStatus(today, HabitStatus.PENDING, null)
         );
 
         when(habitLogService.getHabitActivity(habitId, startDate, endDate))
@@ -414,10 +414,10 @@ class HabitLogControllerTest {
         LocalDate endDate = today;
 
         List<HabitActivityStatus> activities = List.of(
-                new HabitActivityStatus(today.minusDays(3), HabitStatus.COMPLETED),
-                new HabitActivityStatus(today.minusDays(2), HabitStatus.PARTIALLY_COMPLETED),
-                new HabitActivityStatus(today.minusDays(1), HabitStatus.MISSED),
-                new HabitActivityStatus(today, HabitStatus.PENDING)
+                new HabitActivityStatus(today.minusDays(3), HabitStatus.COMPLETED, null),
+                new HabitActivityStatus(today.minusDays(2), HabitStatus.PARTIALLY_COMPLETED, null),
+                new HabitActivityStatus(today.minusDays(1), HabitStatus.MISSED, null),
+                new HabitActivityStatus(today, HabitStatus.PENDING, null)
         );
 
         when(habitLogService.getHabitActivity(habitId, startDate, endDate))
@@ -443,7 +443,7 @@ class HabitLogControllerTest {
         long habitId = 1L;
         LocalDate sameDate = today;
 
-        HabitActivityStatus activity = new HabitActivityStatus(sameDate, HabitStatus.COMPLETED);
+        HabitActivityStatus activity = new HabitActivityStatus(sameDate, HabitStatus.COMPLETED, null);
         when(habitLogService.getHabitActivity(habitId, sameDate, sameDate))
                 .thenReturn(List.of(activity));
 
@@ -468,7 +468,7 @@ class HabitLogControllerTest {
 
         List<HabitActivityStatus> activities = new ArrayList<>();
         for (int i = 89; i >= 0; i--) {
-            activities.add(new HabitActivityStatus(today.minusDays(i), HabitStatus.COMPLETED));
+            activities.add(new HabitActivityStatus(today.minusDays(i), HabitStatus.COMPLETED, null));
         }
 
         when(habitLogService.getHabitActivity(habitId, startDate, endDate))

@@ -48,8 +48,8 @@ class HabitControllerTest {
     void getAllHabits_ShouldReturnListOfHabits() throws Exception {
         // Arrange
         List<HabitDTO> habits = List.of(
-                new HabitDTO(1L, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null),
-                new HabitDTO(2L, "Gym", "Workout", HabitCategory.FITNESS, HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY), null, LocalTime.of(18, 0), LocalDate.now(), false, 1, false, null)
+                new HabitDTO(1L, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null, false),
+                new HabitDTO(2L, "Gym", "Workout", HabitCategory.FITNESS, HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY), null, LocalTime.of(18, 0), LocalDate.now(), false, 1, false, null, false)
         );
         when(habitService.getAllHabits()).thenReturn(habits);
 
@@ -109,7 +109,7 @@ class HabitControllerTest {
     void getHabitById_WithValidId_ShouldReturnHabit() throws Exception {
         // Arrange
         long habitId = 1L;
-        HabitDTO habit = new HabitDTO(habitId, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null);
+        HabitDTO habit = new HabitDTO(habitId, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null, false);
         when(habitService.getHabitById(habitId)).thenReturn(habit);
 
         // Act & Assert
@@ -134,7 +134,7 @@ class HabitControllerTest {
                 1,
                 false
         );
-        HabitDTO response = new HabitDTO(1L, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null);
+        HabitDTO response = new HabitDTO(1L, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null, false);
         when(habitService.createHabit(any(HabitRequest.class))).thenReturn(response);
 
         // Act & Assert
@@ -160,7 +160,7 @@ class HabitControllerTest {
                 1,
                 false
         );
-        HabitDTO response = new HabitDTO(2L, "Gym Day", "Workout", HabitCategory.FITNESS, HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), null, LocalTime.of(18, 0), LocalDate.now(), false, 1, false, null);
+        HabitDTO response = new HabitDTO(2L, "Gym Day", "Workout", HabitCategory.FITNESS, HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), null, LocalTime.of(18, 0), LocalDate.now(), false, 1, false, null, false);
         when(habitService.createHabit(any(HabitRequest.class))).thenReturn(response);
 
         // Act & Assert

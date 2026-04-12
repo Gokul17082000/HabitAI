@@ -6,6 +6,7 @@ import com.habitai.habit.HabitScheduleService;
 import com.habitai.habitlog.HabitLog;
 import com.habitai.habitlog.HabitLogRepository;
 import com.habitai.habitlog.HabitStatus;
+import com.habitai.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,6 +37,9 @@ class HabitStatusSchedulerTest {
     @Mock
     private HabitScheduleService habitScheduleService;
 
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private HabitStatusScheduler habitStatusScheduler;
 
@@ -61,7 +65,7 @@ class HabitStatusSchedulerTest {
         habitStatusScheduler.updateMissedHabits();
 
         // Assert
-        verify(habitRepository).findByTargetTimeBefore(any(LocalTime.class));
+        verify(habitRepository).findByPausedFalseAndArchivedFalse();
         verify(habitLogRepository, never()).findByDate(any());
         verify(habitLogRepository, never()).saveAll(any());
     }
@@ -77,7 +81,7 @@ class HabitStatusSchedulerTest {
         habitStatusScheduler.updateMissedHabits();
 
         // Assert
-        verify(habitRepository).findByTargetTimeBefore(any(LocalTime.class));
+        verify(habitRepository).findByPausedFalseAndArchivedFalse();
         verify(habitLogRepository, never()).saveAll(any());
     }
 
@@ -152,7 +156,7 @@ class HabitStatusSchedulerTest {
         Habit habit2 = createHabit(2L, 100L, LocalTime.of(9, 0));
         Habit habit3 = createHabit(3L, 100L, LocalTime.of(10, 0));
 
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
+        when(habitRepository.findByPausedFalseAndArchivedFalse())
                 .thenReturn(List.of(habit1, habit2, habit3));
         when(habitLogRepository.findByDate(today))
                 .thenReturn(new ArrayList<>());

@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -42,13 +43,19 @@ class UserStatsServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private StreakFreezeUsageRepository streakFreezeUsageRepository;
+
     @InjectMocks
     private UserStatsService userStatsService;
 
     @Test
     void getStats_returnsAggregatedStatistics() {
         long userId = 42L;
+        ZoneId zone = ZoneId.of("UTC");
+
         when(currentUser.getId()).thenReturn(userId);
+        when(currentUser.getZone()).thenReturn(zone);
 
         Habit habit1 = new Habit();
         habit1.setId(10L);

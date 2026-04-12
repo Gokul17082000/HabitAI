@@ -53,7 +53,6 @@ class SchedulerServiceTest {
         later = now.plusMinutes(15);
 
         schedulerService = spy(schedulerService);
-        doReturn(now).when(schedulerService).getCurrentTime();
         when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class))).thenReturn(true);
     }
 
@@ -269,8 +268,6 @@ class SchedulerServiceTest {
         LocalTime startTime = LocalTime.of(23, 50);
         LocalTime endTime = LocalTime.of(0, 5);
 
-        doReturn(startTime).when(schedulerService).getCurrentTime();
-
         Habit habit1 = createHabit(1L, 100L, "Late Night", startTime);
         Habit habit2 = createHabit(2L, 100L, "Early Morning", endTime);
         User user = createUser(100L, "token123");
@@ -288,9 +285,6 @@ class SchedulerServiceTest {
         verify(habitRepository).findByTargetTimeAfter(startTime);
         verify(habitRepository).findByTargetTimeBefore(endTime);
         verify(notificationService, times(2)).notify(any(), any(), any());
-
-        // Restore base behavior for other tests
-        doReturn(now).when(schedulerService).getCurrentTime();
     }
 
     // sendHabitReminder - Time Range Tests

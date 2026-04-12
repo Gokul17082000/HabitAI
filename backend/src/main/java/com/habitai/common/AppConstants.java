@@ -6,5 +6,5 @@ public final class AppConstants {
 
     private AppConstants() {}
 
-    public static final ZoneId APP_ZONE = ZoneId.of("Asia/Kolkata");
+    public static final ZoneId APP_ZONE = ZoneId.of("UTC");
 }
