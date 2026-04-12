@@ -20,14 +20,12 @@ import {
   HabitFrequency,
   DayOfWeek,
   CreateHabitRequest,
+  HABIT_CATEGORIES,
+  HABIT_FREQUENCIES,
+  DAYS_OF_WEEK,
 } from "../../../types/habit";
 import { Colors } from "../../../constants/colors";
 
-const CATEGORIES: HabitCategory[] = ["GENERAL", "HEALTH", "WORK", "FITNESS", "LEARNING"];
-const FREQUENCIES: HabitFrequency[] = ["DAILY", "WEEKLY", "MONTHLY"];
-const DAYS_OF_WEEK: DayOfWeek[] = [
-  "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY",
-];
 
 export default function CreateHabitScreen() {
   const [title, setTitle] = useState("");
@@ -145,7 +143,7 @@ export default function CreateHabitScreen() {
         {/* Category */}
         <Text style={styles.sectionTitle}>Category</Text>
         <View style={styles.row}>
-          {CATEGORIES.map((item) => (
+          {HABIT_CATEGORIES.map((item) => (
             <Chip
               key={item}
               label={item}
@@ -158,7 +156,7 @@ export default function CreateHabitScreen() {
         {/* Frequency */}
         <Text style={styles.label}>Frequency</Text>
         <View style={styles.row}>
-          {FREQUENCIES.map((f) => (
+          {HABIT_FREQUENCIES.map((f) => (
             <Chip
               key={f}
               label={f}
@@ -199,9 +197,9 @@ export default function CreateHabitScreen() {
                 />
               ))}
             </View>
-            {daysOfMonth.some((d) => d >= 29) && (
+            {daysOfMonth.some((d) => d >= 28) && (
               <Text style={styles.monthWarning}>
-                ⚠️ Days 29–31 will fall on the last day of shorter months (e.g. Feb, Apr).
+                ⚠️ Days 28–31 may not exist in all months (e.g. Feb). The habit will run on the last available day instead.
               </Text>
             )}
           </>

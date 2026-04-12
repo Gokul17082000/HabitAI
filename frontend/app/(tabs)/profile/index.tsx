@@ -31,49 +31,67 @@ export default function ProfileScreen() {
   const [pixels, setPixels] = useState<Record<string, string>>({});
   const [freezeStatus, setFreezeStatus] = useState<StreakFreezeResponse | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      setLoading(true);
-      loadProfile();
-      loadInsight();
-    }, [])
-  );
-
-  const loadProfile = async () => {
-    setError("");
-    try {
-      const [userData, statsData, pixelsData, freezeData] = await Promise.all([
-        getUserApi(),
-        getUserStatsApi(),
-        getYearPixelsApi(),
-        getStreakFreezeApi(),
-      ]);
-      setFreezeStatus(freezeData);
-      setUser(userData);
-      setStats(statsData);
-      setPixels(pixelsData);
-    } catch (e) {
-      if (e instanceof UnauthorizedError) {
-        return;
-      }
-      setError("Failed to load profile.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadInsight = async () => {
+  // Standalone fetch for the manual "Get your weekly insight" button.
+  // Defined at component scope so it is accessible from the JSX button handler.
+  const fetchInsight = async () => {
     if (insight) return;
     setInsightLoading(true);
     try {
       const data = await getInsightsApi();
       setInsight(data);
-    } catch (_) {
+    } catch {
       // fail silently — insights are non-critical
     } finally {
       setInsightLoading(false);
     }
   };
+
+  // loadProfile and loadInsight are defined inside useCallback so the dep
+  // array is stable (empty) without creating a stale closure over state.
+  // Previously they were defined outside, which meant the callback captured
+  // them at mount and would use stale state if dependencies ever changed.
+  useFocusEffect(
+    useCallback(() => {
+      const loadProfile = async () => {
+        setLoading(true);
+        setError("");
+        try {
+          const [userData, statsData, pixelsData, freezeData] = await Promise.all([
+            getUserApi(),
+            getUserStatsApi(),
+            getYearPixelsApi(),
+            getStreakFreezeApi(),
+          ]);
+          setFreezeStatus(freezeData);
+          setUser(userData);
+          setStats(statsData);
+          setPixels(pixelsData);
+        } catch (e) {
+          if (e instanceof UnauthorizedError) return;
+          setError("Failed to load profile.");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const loadInsight = async () => {
+        // Use functional updater to read latest insight without closing over it
+        setInsight((current) => {
+          if (current) return current; // already loaded — skip
+          // Kick off the fetch outside the updater (updater must be synchronous)
+          setInsightLoading(true);
+          getInsightsApi()
+            .then((data) => setInsight(data))
+            .catch(() => { /* fail silently — insights are non-critical */ })
+            .finally(() => setInsightLoading(false));
+          return current;
+        });
+      };
+
+      loadProfile();
+      loadInsight();
+    }, [])
+  );
 
   const handleLogout = async () => {
     // logoutApi invalidates server-side refresh tokens AND clears local storage
@@ -229,7 +247,7 @@ export default function ProfileScreen() {
               ) : insight ? (
                 <Text style={coachStyles.insight}>{insight.insight}</Text>
               ) : (
-                <Pressable onPress={loadInsight} style={coachStyles.btn}>
+                <Pressable onPress={fetchInsight} style={coachStyles.btn}>
                   <Text style={coachStyles.btnText}>Get your weekly insight</Text>
                 </Pressable>
               )}

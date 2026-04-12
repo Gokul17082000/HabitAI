@@ -69,11 +69,18 @@ export default function MasterHabitsScreen() {
     setArchivingId(habitId);
     try {
       await archiveHabitApi(habitId);
-      setHabits((prev) => prev.filter((h) => h.id !== habitId));
-      const archived = habits.find((h) => h.id === habitId);
-      if (archived) {
-        setArchivedHabits((prev) => [...prev, { ...archived, archived: true }]);
-      }
+      // Use functional updater so we always read the latest habits state,
+      // not the value captured in the closure when this handler was created.
+      setHabits((prev) => {
+        const archived = prev.find((h) => h.id === habitId);
+        if (archived) {
+          setArchivedHabits((prevArchived) => [
+            ...prevArchived,
+            { ...archived, archived: true },
+          ]);
+        }
+        return prev.filter((h) => h.id !== habitId);
+      });
     } catch {
       loadHabits();
     } finally {
@@ -85,11 +92,15 @@ export default function MasterHabitsScreen() {
     setArchivingId(habitId);
     try {
       await unarchiveHabitApi(habitId);
-      const habit = archivedHabits.find((h) => h.id === habitId);
-      if (habit) {
-        setArchivedHabits((prev) => prev.filter((h) => h.id !== habitId));
-        setHabits((prev) => [...prev, { ...habit, archived: false }]);
-      }
+      // Use functional updater so we always read the latest archivedHabits,
+      // not the value captured in the closure when this handler was created.
+      setArchivedHabits((prev) => {
+        const habit = prev.find((h) => h.id === habitId);
+        if (habit) {
+          setHabits((prevHabits) => [...prevHabits, { ...habit, archived: false }]);
+        }
+        return prev.filter((h) => h.id !== habitId);
+      });
     } catch {
       loadHabits();
     } finally {

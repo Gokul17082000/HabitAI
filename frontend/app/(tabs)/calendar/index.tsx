@@ -1,12 +1,11 @@
 import { useCallback, useState } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView, StatusBar } from "react-native";
 import { useFocusEffect } from "expo-router";
-import { getHabitsForDateApi } from "../../../services/habitService";
+import { getHabitsForDateApi, getMonthSummaryApi } from "../../../services/habitService";
 import { HabitResponse, HabitStatus } from "../../../types/habit";
 import { formatDate, formatTime } from "../../../utils/formatters";
 import { Colors } from "../../../constants/colors";
-import { buildAuthHeaders, handleResponse, retryGet, UnauthorizedError } from "../../../utils/apiHandler";
-import { API_ENDPOINTS } from "../../../constants/api"
+import { UnauthorizedError } from "../../../utils/apiHandler";
 
 const STATUS_CONFIG: Record<HabitStatus, { color: string; emoji: string; label: string }> = {
   COMPLETED: { color: "#16a34a", emoji: "✅", label: "COMPLETED" },
@@ -68,18 +67,14 @@ export default function CalendarScreen() {
 
   const loadMonthOverview = async () => {
     try {
-      const headers = await buildAuthHeaders();
-      const url = `${API_ENDPOINTS.habitSummary}?year=${currentYear}&month=${currentMonth + 1}`;
-      const response = await fetch(url, { headers });
-      const data = await handleResponse<Record<string, string[]>>(response, retryGet(url));
-
+      const data = await getMonthSummaryApi(currentYear, currentMonth + 1);
       const newMap = new Map<string, HabitStatus[]>();
       Object.entries(data).forEach(([date, statuses]) => {
         newMap.set(date, statuses as HabitStatus[]);
       });
       setMonthStatusMap(newMap);
     } catch (e) {
-      if (e instanceof UnauthorizedError) return; // auto-redirected to login by handleResponse
+      if (e instanceof UnauthorizedError) return;
       console.error("Failed to load month overview", e);
     }
   };

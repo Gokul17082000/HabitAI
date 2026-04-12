@@ -34,6 +34,12 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
   // transition rather than firing on every render where status === COMPLETED.
   const prevStatusRef = useRef<HabitStatus>(habit.habitStatus);
 
+  // A ref that always holds the latest streak value so the completion effect
+  // never closes over a stale number. Without this, if loadStreak() hasn't
+  // resolved yet when the user taps complete, streak is still null and the
+  // optimistic increment is skipped — or worse, computes from a stale value.
+  const streakRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!logging && !savingNote) {
       setLocalStatus(habit.habitStatus);
@@ -60,8 +66,13 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
     const prev = prevStatusRef.current;
     prevStatusRef.current = localStatus;
 
-    if (localStatus === "COMPLETED" && prev !== "COMPLETED" && streak !== null) {
-      const newStreak = streak + 1;
+    // Read streak from the ref so we always use the latest fetched value,
+    // not whatever was captured in the closure when this effect was registered.
+    const currentStreak = streakRef.current;
+
+    if (localStatus === "COMPLETED" && prev !== "COMPLETED" && currentStreak !== null) {
+      const newStreak = currentStreak + 1;
+      streakRef.current = newStreak;
       setStreak(newStreak);
 
       // Check if new streak hits a milestone
@@ -76,6 +87,7 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
   const loadStreak = async () => {
     try {
       const data = await getHabitStreakApi(habit.id);
+      streakRef.current = data.streak;
       setStreak(data.streak);
     } catch {
       setStreak(0);
@@ -142,13 +154,18 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
     setSavingNote(true);
     try {
       await logHabitApi(habit.id, today, localStatus, localCount, note.trim());
+      // Close modal and mark saved only after the request completes, so the
+      // user sees the "Saving..." indicator finish rather than the modal
+      // disappearing mid-save with no confirmation.
       setNoteSaved(true);
-    } catch {
-      // fail silently — note is non-critical
-    } finally {
-      setSavingNote(false);
       setShowNoteModal(false);
       setNote("");
+    } catch {
+      // fail silently — note is non-critical; close modal anyway
+      setShowNoteModal(false);
+      setNote("");
+    } finally {
+      setSavingNote(false);
     }
   };
 
@@ -193,6 +210,8 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
                 <Pressable
                   style={[styles.countBtn, logging && { opacity: 0.5 }]}
                   disabled={logging || localCount <= 0}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Decrease count for ${habit.title}`}
                   onPress={() => handleCountLog(-1)}
                 >
                   <Text style={styles.countBtnText}>−</Text>
@@ -201,6 +220,8 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
                 <Pressable
                   style={[styles.countBtn, logging && { opacity: 0.5 }]}
                   disabled={logging || localCount >= habit.targetCount}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Increase count for ${habit.title}`}
                   onPress={() => handleCountLog(1)}
                 >
                   <Text style={styles.countBtnText}>+</Text>
@@ -217,6 +238,12 @@ export default function HabitCard({ habit, onLogged }: HabitCardProps) {
           <>
             <Pressable
               disabled={isMissed || logging}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isCompleted
+                  ? `Mark ${habit.title} as incomplete`
+                  : `Mark ${habit.title} as complete`
+              }
               style={({ pressed }) => [
                 styles.button,
                 pressed && !isMissed && { opacity: 0.7 },

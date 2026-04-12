@@ -12,6 +12,8 @@ export default function UseFreezeScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  // Track which date was successfully frozen so both buttons disable on success
+  const [frozenDate, setFrozenDate] = useState<string | null>(null);
 
   const today = new Date();
   const yesterday = new Date();
@@ -23,6 +25,7 @@ export default function UseFreezeScreen() {
     setLoading(true);
     try {
       const result = await useFreezeApi(formatDate(date));
+      setFrozenDate(formatDate(date));
       setSuccess(
         `Freeze used! You have ${result.availableFreezes} freeze(s) remaining.`
       );
@@ -65,7 +68,8 @@ export default function UseFreezeScreen() {
       ) : (
         <View style={styles.options}>
           <Pressable
-            style={styles.option}
+            style={[styles.option, frozenDate !== null && styles.optionDisabled]}
+            disabled={frozenDate !== null}
             onPress={() => handleUseFreeze(today)}
           >
             <Text style={styles.optionEmoji}>🧊</Text>
@@ -74,7 +78,8 @@ export default function UseFreezeScreen() {
           </Pressable>
 
           <Pressable
-            style={styles.option}
+            style={[styles.option, frozenDate !== null && styles.optionDisabled]}
+            disabled={frozenDate !== null}
             onPress={() => handleUseFreeze(yesterday)}
           >
             <Text style={styles.optionEmoji}>🧊</Text>
@@ -159,6 +164,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#bae6fd",
+  },
+  optionDisabled: {
+    opacity: 0.4,
   },
   optionEmoji: {
     fontSize: 32,

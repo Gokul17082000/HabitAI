@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { View, Text, StyleSheet, TextInput, Pressable } from "react-native";
 import { router } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import FormInput from "../components/FormInput";
 import PrimaryButton from "../components/PrimaryButton";
 import { saveToken, saveRefreshToken, getToken } from "../utils/authStorage";
@@ -8,6 +9,26 @@ import { loginApi } from "../services/authService";
 import { isValidEmail } from "../utils/validation";
 import { Colors } from "../constants/colors";
 import { isOnboardingComplete } from "../utils/onboardingStorage";
+
+
+/**
+ * Decodes a JWT and returns true if its exp claim is still in the future.
+ * Does NOT verify the signature — that is the server's job. This is purely
+ * a client-side check to avoid sending obviously expired tokens.
+ */
+function isTokenValid(token: string): boolean {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+    // Base64url → base64 → JSON
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+    if (typeof payload.exp !== "number") return false;
+    // exp is in seconds; Date.now() is in ms
+    return payload.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+}
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -24,15 +45,25 @@ export default function LoginScreen() {
     const checkOnboarding = async () => {
       const onboardingDone = await isOnboardingComplete();
       if (!onboardingDone) {
+        await SplashScreen.hideAsync();
         router.replace("/onboarding");
         return;
       }
 
       const token = await getToken();
-      if (token) {
+      if (token && isTokenValid(token)) {
+        await SplashScreen.hideAsync();
         router.replace("/home");
         return;
       }
+      // Token missing or expired — clear it and show login
+      if (token) {
+        const { removeToken } = await import("../utils/authStorage");
+        await removeToken();
+      }
+      // Hide splash only after the check is done so users never see a flash
+      // of the login screen before being redirected to /home or /onboarding.
+      await SplashScreen.hideAsync();
       setChecking(false);
     };
     checkOnboarding();

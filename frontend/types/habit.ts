@@ -65,3 +65,19 @@ export interface CreateHabitRequest {
 }
 
 export type UpdateHabitRequest = CreateHabitRequest;
+
+// Shared display constants — import these instead of redefining per screen.
+export const HABIT_CATEGORIES: HabitCategory[] = [
+  "GENERAL", "HEALTH", "FITNESS", "WORK", "LEARNING",
+];
+
+export const HABIT_FREQUENCIES: HabitFrequency[] = ["DAILY", "WEEKLY", "MONTHLY"];
+
+export const DAYS_OF_WEEK: DayOfWeek[] = [
+  "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY",
+];
+
+export const DAY_SHORT: Record<DayOfWeek, string> = {
+  MONDAY: "Mon", TUESDAY: "Tue", WEDNESDAY: "Wed", THURSDAY: "Thu",
+  FRIDAY: "Fri", SATURDAY: "Sat", SUNDAY: "Sun",
+};

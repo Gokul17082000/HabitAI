@@ -38,13 +38,21 @@ export default function HomeScreen() {
     setError("");
     try {
       const today = formatDate(new Date());
-      // Fetch today's visible habits and total habit count in parallel
-      const [data, all] = await Promise.all([
-        getHabitsForDateApi(today),
-        getAllHabitsApi(),
-      ]);
+      // Primary fetch — today's scheduled habits.
+      const data = await getHabitsForDateApi(today);
       setHabits(data);
-      setTotalHabits(all.length);
+
+      if (data.length === 0) {
+        // Today's list is empty — could mean no habits at all (new user) or
+        // all habits are paused. Only fire the second call in this edge case
+        // so the happy path (habits visible) only ever makes one request.
+        const all = await getAllHabitsApi();
+        setTotalHabits(all.length);
+      } else {
+        // We have visible habits — totalHabits only needs to be > 0, which
+        // data.length already confirms. No second call needed.
+        setTotalHabits(data.length);
+      }
     } catch (e) {
       if (e instanceof UnauthorizedError) return;
       setError("Failed to load habits. Please try again.");

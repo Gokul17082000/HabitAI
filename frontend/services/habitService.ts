@@ -130,3 +130,18 @@ export const unarchiveHabitApi = async (habitId: number): Promise<void> => {
   const response = await fetch(url, { method: "PATCH", headers });
   await handleResponse<void>(response, retryPost(url, "PATCH"));
 };
+
+/**
+ * Returns a map of date → status[] for every day in the given month.
+ * Used by the calendar screen to colour each day cell.
+ * year: full year (e.g. 2026), month: 1-based (1 = January).
+ */
+export const getMonthSummaryApi = async (
+  year: number,
+  month: number
+): Promise<Record<string, string[]>> => {
+  const url = `${API_ENDPOINTS.habitSummary}?year=${year}&month=${month}`;
+  const headers = await buildAuthHeaders();
+  const response = await fetch(url, { headers });
+  return handleResponse<Record<string, string[]>>(response, retryGet(url));
+};

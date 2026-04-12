@@ -1,31 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View, Text, StyleSheet, ScrollView, SafeAreaView,
   StatusBar, TextInput, Pressable, ActivityIndicator, Alert,
 } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { createHabitApi } from "../../../services/habitService";
-import { CreateHabitRequest, HabitCategory, HabitFrequency, DayOfWeek } from "../../../types/habit";
+import { CreateHabitRequest, HabitCategory, HabitFrequency, DayOfWeek, HABIT_CATEGORIES, HABIT_FREQUENCIES, DAYS_OF_WEEK, DAY_SHORT } from "../../../types/habit";
 import { Colors } from "../../../constants/colors";
 
-const CATEGORIES: HabitCategory[] = ["GENERAL", "HEALTH", "FITNESS", "WORK", "LEARNING"];
-const FREQUENCIES: HabitFrequency[] = ["DAILY", "WEEKLY", "MONTHLY"];
-const DAYS_OF_WEEK: DayOfWeek[] = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
-const DAY_SHORT: Record<DayOfWeek, string> = {
-  MONDAY: "Mon", TUESDAY: "Tue", WEDNESDAY: "Wed", THURSDAY: "Thu",
-  FRIDAY: "Fri", SATURDAY: "Sat", SUNDAY: "Sun",
-};
 
 export default function AiReviewScreen() {
   const params = useLocalSearchParams();
 
+  // Parse habits from params — track whether parsing succeeded so we can
+  // navigate away safely inside a useEffect instead of during render.
+  // Calling router during render causes "Cannot update a component from
+  // inside the function body of a different component" in Expo Router.
   let initial: CreateHabitRequest[] = [];
+  let parseError = false;
   try {
-    initial = JSON.parse(params.habits as string);
-    if (!Array.isArray(initial)) initial = [];
+    const parsed = JSON.parse(params.habits as string);
+    if (Array.isArray(parsed)) {
+      initial = parsed;
+    } else {
+      parseError = true;
+    }
   } catch {
-    // Malformed params — go back rather than crash
-    router.back();
+    parseError = true;
   }
 
   const [habits, setHabits] = useState<CreateHabitRequest[]>(initial);
@@ -33,6 +34,13 @@ export default function AiReviewScreen() {
     new Set(initial.map((_, i) => i))
   );
   const [saving, setSaving] = useState(false);
+
+  // Navigate away after mount if params were malformed.
+  useEffect(() => {
+    if (parseError) {
+      router.back();
+    }
+  }, []);
 
   const toggleSelect = (index: number) => {
     setSelected((prev) => {
@@ -51,7 +59,7 @@ export default function AiReviewScreen() {
     }
   };
 
-  const updateHabit = (index: number, field: keyof CreateHabitRequest, value: any) => {
+  const updateHabit = <K extends keyof CreateHabitRequest>(index: number, field: K, value: CreateHabitRequest[K]) => {
     setHabits((prev) =>
       prev.map((h, i) => {
         if (i !== index) return h;
@@ -178,7 +186,7 @@ export default function AiReviewScreen() {
                   <Text style={styles.label}>Category</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View style={styles.chipRow}>
-                      {CATEGORIES.map((cat) => (
+                      {HABIT_CATEGORIES.map((cat) => (
                         <Pressable
                           key={cat}
                           style={[styles.chip, habit.category === cat && styles.chipActive]}
@@ -195,7 +203,7 @@ export default function AiReviewScreen() {
                   {/* Frequency segments */}
                   <Text style={styles.label}>Frequency</Text>
                   <View style={styles.segmentRow}>
-                    {FREQUENCIES.map((freq) => (
+                    {HABIT_FREQUENCIES.map((freq) => (
                       <Pressable
                         key={freq}
                         style={[styles.segment, habit.frequency === freq && styles.segmentActive]}

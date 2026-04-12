@@ -8,7 +8,9 @@ const getBaseUrl = (): string => {
     }
     // Read from app.json > extra.devApiHost so each developer can override
     // their local IP in app.json without touching source files.
-    const host = Constants.expoConfig?.extra?.devApiHost ?? "192.168.1.2";
+    // Defaults to localhost (works for web and iOS simulator).
+    // Android emulators need 10.0.2.2 — set devApiHost in app.json.
+    const host = Constants.expoConfig?.extra?.devApiHost ?? "localhost";
     return `http://${host}:8080`;
   }
   return "https://habitai-knma.onrender.com";

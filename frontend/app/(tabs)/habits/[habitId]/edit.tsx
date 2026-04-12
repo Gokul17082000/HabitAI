@@ -22,14 +22,12 @@ import {
   HabitFrequency,
   DayOfWeek,
   UpdateHabitRequest,
+  HABIT_CATEGORIES,
+  HABIT_FREQUENCIES,
+  DAYS_OF_WEEK,
 } from "../../../../types/habit";
 import { Colors } from "../../../../constants/colors";
 
-const CATEGORIES: HabitCategory[] = ["GENERAL", "HEALTH", "WORK", "FITNESS", "LEARNING"];
-const FREQUENCIES: HabitFrequency[] = ["DAILY", "WEEKLY", "MONTHLY"];
-const DAYS_OF_WEEK: DayOfWeek[] = [
-  "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY",
-];
 
 export default function EditHabitScreen() {
   const { habitId } = useLocalSearchParams<{ habitId: string }>();
@@ -131,7 +129,7 @@ export default function EditHabitScreen() {
       };
 
       await updateHabitApi(Number(habitId), request);
-      router.replace("/habits");
+      router.replace("/(tabs)/habits");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update habit");
     } finally {
@@ -185,7 +183,7 @@ export default function EditHabitScreen() {
         {/* Category */}
         <Text style={styles.sectionTitle}>Category</Text>
         <View style={styles.row}>
-          {CATEGORIES.map((item) => (
+          {HABIT_CATEGORIES.map((item) => (
             <Chip
               key={item}
               label={item}
@@ -198,7 +196,7 @@ export default function EditHabitScreen() {
         {/* Frequency */}
         <Text style={styles.label}>Frequency</Text>
         <View style={styles.row}>
-          {FREQUENCIES.map((f) => (
+          {HABIT_FREQUENCIES.map((f) => (
             <Chip
               key={f}
               label={f}
@@ -239,6 +237,11 @@ export default function EditHabitScreen() {
                 />
               ))}
             </View>
+            {daysOfMonth.some((d) => d >= 28) && (
+              <Text style={styles.monthWarning}>
+                ⚠️ Days 28–31 may not exist in all months (e.g. Feb). The habit will run on the last available day instead.
+              </Text>
+            )}
           </>
         )}
 
@@ -423,6 +426,15 @@ const styles = StyleSheet.create({
     color: Colors.error,
     textAlign: "center",
     marginBottom: 10,
+  },
+  monthWarning: {
+    fontSize: 12,
+    color: "#92400e",
+    backgroundColor: "#fef3c7",
+    borderRadius: 6,
+    padding: 8,
+    marginTop: 4,
+    marginBottom: 8,
   },
   closeBtn: {
     padding: 12,
