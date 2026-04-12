@@ -10,6 +10,7 @@ import com.habitai.habit.HabitRepository;
 import com.habitai.habitlog.HabitLog;
 import com.habitai.habitlog.HabitLogRepository;
 import com.habitai.habitlog.HabitStatus;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +35,7 @@ public class UserStatsService {
                             CurrentUser currentUser,
                             UserRepository userRepository,
                             HabitScheduleService habitScheduleService,
-                            AiService aiService,
+                            @Lazy AiService aiService,
                             StreakFreezeUsageRepository streakFreezeUsageRepository) {
         this.habitRepository = habitRepository;
         this.habitLogRepository = habitLogRepository;
