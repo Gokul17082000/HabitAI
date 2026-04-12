@@ -99,7 +99,7 @@ export default function CreateHabitScreen() {
       };
 
       await createHabitApi(request);
-      router.replace("/habits");
+      router.replace("/(tabs)/habits");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create habit");
     } finally {

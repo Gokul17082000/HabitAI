@@ -35,9 +35,11 @@ function ManageHabitCard({
   isActioning,
   isDeleting,
   isPausing,
+  isArchiving,
   onDelete,
   onPause,
   onResume,
+  onArchive,
 }: Props) {
   return (
     <View style={[styles.card, habit.paused && styles.cardPaused]}>
@@ -109,7 +111,7 @@ function ManageHabitCard({
         {/* Archive */}
         {!habit.paused && (
           <Pressable disabled={isActioning} onPress={() => onArchive(habit.id)}>
-            <Text style={{ opacity: isActioning ? 0.4 : 1 }}>
+            <Text style={{ opacity: isArchiving ? 0.4 : 1 }}>
               {isArchiving ? "⏳" : "📦"}
             </Text>
           </Pressable>

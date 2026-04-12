@@ -7,7 +7,6 @@ import { saveToken, saveRefreshToken, getToken } from "../utils/authStorage";
 import { loginApi } from "../services/authService";
 import { isValidEmail } from "../utils/validation";
 import { Colors } from "../constants/colors";
-import { registerForPushNotifications } from "../utils/pushNotifications";
 import { isOnboardingComplete } from "../utils/onboardingStorage";
 
 export default function LoginScreen() {
@@ -76,7 +75,6 @@ export default function LoginScreen() {
       const data = await loginApi(email, password);
       await saveToken(data.accessToken);
       await saveRefreshToken(data.refreshToken);
-      await registerForPushNotifications();
       router.replace("/home");
     } catch (error) {
       setApiError(error instanceof Error ? error.message : "Something went wrong");

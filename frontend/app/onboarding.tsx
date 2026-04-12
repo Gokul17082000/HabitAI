@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Dimensions,
   ScrollView,
 } from "react-native";
 import { router } from "expo-router";
@@ -12,7 +11,6 @@ import { setOnboardingComplete } from "../utils/onboardingStorage";
 import { Colors } from "../constants/colors";
 import { StatusBar } from "react-native";
 
-const { width } = Dimensions.get("window");
 
 const SLIDES = [
   {

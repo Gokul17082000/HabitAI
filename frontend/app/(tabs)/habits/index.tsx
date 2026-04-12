@@ -371,47 +371,48 @@ export default function MasterHabitsScreen() {
                       onArchive={confirmArchive}
                     />
                   ))}
+                </>
+              )}
 
-                  {/* Archived section */}
-                  {archivedHabits.length > 0 && (
-                    <>
-                      <Pressable
-                        style={styles.archivedHeader}
-                        onPress={() => setShowArchived(!showArchived)}
-                      >
-                        <Text style={[styles.sectionTitle, styles.sectionTitleArchived]}>
-                          Archived ({archivedHabits.length})
+              {/* Archived section — always shown when there are archived habits,
+                  regardless of whether there are any paused habits */}
+              {archivedHabits.length > 0 && (
+                <>
+                  <Pressable
+                    style={styles.archivedHeader}
+                    onPress={() => setShowArchived(!showArchived)}
+                  >
+                    <Text style={[styles.sectionTitle, styles.sectionTitleArchived]}>
+                      Archived ({archivedHabits.length})
+                    </Text>
+                    <Text style={styles.chevron}>{showArchived ? "▲" : "▼"}</Text>
+                  </Pressable>
+
+                  {showArchived && archivedHabits.map((habit) => (
+                    <View key={habit.id} style={styles.archivedCard}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.archivedTitle}>{habit.title}</Text>
+                        <Text style={styles.archivedMeta}>
+                          {habit.category} • {habit.frequency}
                         </Text>
-                        <Text style={styles.chevron}>{showArchived ? "▲" : "▼"}</Text>
-                      </Pressable>
-
-                      {showArchived && archivedHabits.map((habit) => (
-                        <View key={habit.id} style={styles.archivedCard}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.archivedTitle}>{habit.title}</Text>
-                            <Text style={styles.archivedMeta}>
-                              {habit.category} • {habit.frequency}
-                            </Text>
-                          </View>
-                          <View style={styles.archivedActions}>
-                            <Pressable
-                              onPress={() => router.navigate(`/(tabs)/habits/${habit.id}/activity`)}
-                            >
-                              <Text>📊</Text>
-                            </Pressable>
-                            <Pressable
-                              disabled={archivingId === habit.id}
-                              onPress={() => handleUnarchive(habit.id)}
-                            >
-                              <Text style={{ opacity: archivingId === habit.id ? 0.4 : 1 }}>
-                                {archivingId === habit.id ? "⏳" : "📤"}
-                              </Text>
-                            </Pressable>
-                          </View>
-                        </View>
-                      ))}
-                    </>
-                  )}
+                      </View>
+                      <View style={styles.archivedActions}>
+                        <Pressable
+                          onPress={() => router.navigate(`/(tabs)/habits/${habit.id}/activity`)}
+                        >
+                          <Text>📊</Text>
+                        </Pressable>
+                        <Pressable
+                          disabled={archivingId === habit.id}
+                          onPress={() => handleUnarchive(habit.id)}
+                        >
+                          <Text style={{ opacity: archivingId === habit.id ? 0.4 : 1 }}>
+                            {archivingId === habit.id ? "⏳" : "📤"}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ))}
                 </>
               )}
             </ScrollView>

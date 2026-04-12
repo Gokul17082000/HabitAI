@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
-import { getUserApi, getUserStatsApi, UserStats, getYearPixelsApi, logoutApi } from "../../../services/authService";
+import { getUserApi, getUserStatsApi, UserStats, getYearPixelsApi, logoutApi, getStreakFreezeApi, StreakFreezeResponse } from "../../../services/authService";
 import { Colors } from "../../../constants/colors";
 import { UnauthorizedError } from "../../../utils/apiHandler";
 import { getInsightsApi, InsightResponse } from "../../../services/aiService";
@@ -33,6 +33,7 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      setLoading(true);
       loadProfile();
       loadInsight();
     }, [])
@@ -62,6 +63,7 @@ export default function ProfileScreen() {
   };
 
   const loadInsight = async () => {
+    if (insight) return;
     setInsightLoading(true);
     try {
       const data = await getInsightsApi();
@@ -205,7 +207,7 @@ export default function ProfileScreen() {
                 {stats.topHabits.map((habit, index) => {
                   const medals = ["🥇", "🥈", "🥉"];
                   return (
-                    <View key={habit.title} style={styles.topHabitRow}>
+                    <View key={index} style={styles.topHabitRow}>
                       <Text style={styles.topHabitMedal}>{medals[index]}</Text>
                       <View style={styles.topHabitInfo}>
                         <Text style={styles.topHabitTitle}>{habit.title}</Text>

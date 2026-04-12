@@ -2,14 +2,11 @@ import { useCallback, useState } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView, StatusBar } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { getHabitsForDateApi } from "../../../services/habitService";
-import { HabitResponse } from "../../../types/habit";
+import { HabitResponse, HabitStatus } from "../../../types/habit";
 import { formatDate, formatTime } from "../../../utils/formatters";
 import { Colors } from "../../../constants/colors";
 import { buildAuthHeaders, handleResponse, retryGet, UnauthorizedError } from "../../../utils/apiHandler";
 import { API_ENDPOINTS } from "../../../constants/api"
-
-/* ---------------- Types ---------------- */
-type HabitStatus = "COMPLETED" | "MISSED" | "PENDING" | "PARTIALLY_COMPLETED";
 
 const STATUS_CONFIG: Record<HabitStatus, { color: string; emoji: string; label: string }> = {
   COMPLETED: { color: "#16a34a", emoji: "✅", label: "COMPLETED" },

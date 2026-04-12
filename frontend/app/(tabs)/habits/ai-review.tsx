@@ -18,7 +18,16 @@ const DAY_SHORT: Record<DayOfWeek, string> = {
 
 export default function AiReviewScreen() {
   const params = useLocalSearchParams();
-  const initial: CreateHabitRequest[] = JSON.parse(params.habits as string);
+
+  let initial: CreateHabitRequest[] = [];
+  try {
+    initial = JSON.parse(params.habits as string);
+    if (!Array.isArray(initial)) initial = [];
+  } catch {
+    // Malformed params — go back rather than crash
+    router.back();
+  }
+
   const [habits, setHabits] = useState<CreateHabitRequest[]>(initial);
   const [selected, setSelected] = useState<Set<number>>(
     new Set(initial.map((_, i) => i))
@@ -97,7 +106,7 @@ export default function AiReviewScreen() {
     setSaving(true);
     try {
       await Promise.all(toSave.map((h) => createHabitApi(h)));
-      router.back();
+      router.replace("/(tabs)/habits");
     } catch (e: any) {
       Alert.alert("Error", e.message || "Failed to save habits");
     } finally {
