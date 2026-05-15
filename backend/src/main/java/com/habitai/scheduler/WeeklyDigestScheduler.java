@@ -87,13 +87,14 @@ public class WeeklyDigestScheduler {
         List<Object[]> weekStats = habitLogRepository
                 .findWeeklyStatsByUserId(user.getId(), weekStart, weekEnd);
 
-        // Map habitId -> [completed, missed]
+        // Map habitId -> [completed, missed, partially_completed]
         Map<Long, long[]> statsByHabit = weekStats.stream()
                 .collect(Collectors.toMap(
                         row -> ((Number) row[0]).longValue(),
                         row -> new long[]{
                                 ((Number) row[1]).longValue(),
-                                ((Number) row[2]).longValue()
+                                ((Number) row[2]).longValue(),
+                                row.length > 3 ? ((Number) row[3]).longValue() : 0L
                         }
                 ));
 
@@ -103,10 +104,11 @@ public class WeeklyDigestScheduler {
         StringBuilder habitSummary = new StringBuilder();
 
         for (Habit habit : habits) {
-            long[] stats = statsByHabit.getOrDefault(habit.getId(), new long[]{0, 0});
+            long[] stats = statsByHabit.getOrDefault(habit.getId(), new long[]{0, 0, 0});
             long completed = stats[0];
             long missed = stats[1];
-            long total = completed + missed;
+            long partial = stats[2];
+            long total = completed + missed + partial;
             totalCompleted += completed;
             totalScheduled += total;
 

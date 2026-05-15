@@ -143,6 +143,17 @@ export const getStreakFreezeApi = async (): Promise<StreakFreezeResponse> => {
   return handleResponse<StreakFreezeResponse>(response, retryGet(url));
 };
 
+export const changePasswordApi = async (
+  currentPassword: string,
+  newPassword: string
+): Promise<void> => {
+  const url = `${API_ENDPOINTS.user}/password`;
+  const body = JSON.stringify({ currentPassword, newPassword });
+  const headers = await buildAuthHeaders();
+  const response = await fetch(url, { method: "PUT", headers, body });
+  await handleResponse<void>(response, retryPost(url, "PUT", body));
+};
+
 export const useFreezeApi = async (date: string): Promise<StreakFreezeResponse> => {
   const url = API_ENDPOINTS.streakFreezeUse;
   const body = JSON.stringify({ date });

@@ -131,6 +131,14 @@ export const unarchiveHabitApi = async (habitId: number): Promise<void> => {
   await handleResponse<void>(response, retryPost(url, "PATCH"));
 };
 
+export const reorderHabitApi = async (habitId: number, sortOrder: number): Promise<void> => {
+  const url = `${API_ENDPOINTS.habits}/${habitId}/sort-order`;
+  const body = JSON.stringify({ sortOrder });
+  const headers = await buildAuthHeaders();
+  const response = await fetch(url, { method: "PATCH", headers, body });
+  await handleResponse<void>(response, retryPost(url, "PATCH", body));
+};
+
 /**
  * Returns a map of date → status[] for every day in the given month.
  * Used by the calendar screen to colour each day cell.

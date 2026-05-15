@@ -8,7 +8,8 @@ import {
   Animated,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { Colors } from "../constants/colors";
+import { useTheme } from "../context/ThemeContext";
+import { AppColors } from "../constants/colors";
 
 const MILESTONES = [
   { days: 7,    emoji: "🌱", title: "7 Day Streak!",    message: "One week strong. You're building something real." },
@@ -30,6 +31,8 @@ interface Props {
 }
 
 export default function CelebrationModal({ streak, habitTitle, visible, onDismiss }: Props) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -37,8 +40,8 @@ export default function CelebrationModal({ streak, habitTitle, visible, onDismis
 
   useEffect(() => {
     if (visible && milestone) {
-      // Haptic feedback
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Haptic feedback — fire-and-forget; devices without haptics silently ignore it
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
       // Spring animation
       Animated.parallel([
@@ -58,7 +61,7 @@ export default function CelebrationModal({ streak, habitTitle, visible, onDismis
       scaleAnim.setValue(0);
       opacityAnim.setValue(0);
     }
-  }, [visible]);
+  }, [visible, milestone]);
 
   if (!milestone) return null;
 
@@ -100,7 +103,7 @@ export default function CelebrationModal({ streak, habitTitle, visible, onDismis
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",
@@ -109,7 +112,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: c.card,
     borderRadius: 24,
     padding: 28,
     alignItems: "center",
@@ -135,31 +138,31 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: "800",
-    color: Colors.text,
+    color: c.text,
     textAlign: "center",
     marginBottom: 6,
   },
   habitName: {
     fontSize: 14,
-    color: Colors.subtext,
+    color: c.subtext,
     marginBottom: 12,
     textAlign: "center",
   },
   message: {
     fontSize: 15,
-    color: Colors.text,
+    color: c.text,
     textAlign: "center",
     lineHeight: 22,
     marginBottom: 24,
   },
   btn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: c.primary,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 40,
   },
   btnText: {
-    color: "#fff",
+    color: c.white,
     fontWeight: "700",
     fontSize: 16,
   },

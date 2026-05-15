@@ -21,13 +21,19 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final RateLimitFilter rateLimitFilter;
+    private final AiRateLimitFilter aiRateLimitFilter;
+    private final MdcLoggingFilter mdcLoggingFilter;
     private final CorsProperties corsProperties;
 
     SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                    RateLimitFilter rateLimitFilter,
+                   AiRateLimitFilter aiRateLimitFilter,
+                   MdcLoggingFilter mdcLoggingFilter,
                    CorsProperties corsProperties) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.rateLimitFilter = rateLimitFilter;
+        this.aiRateLimitFilter = aiRateLimitFilter;
+        this.mdcLoggingFilter = mdcLoggingFilter;
         this.corsProperties = corsProperties;
     }
 
@@ -61,11 +67,13 @@ public class SecurityConfig {
                         // /auth/logout is intentionally NOT permit-all — it requires a valid JWT
                         .anyRequest().authenticated()
                 )
-                // Rate limiter runs first — rejects brute-force before JWT parsing or DB access.
-                // Chain explicitly: rateLimitFilter → jwtAuthenticationFilter → UsernamePasswordAuthenticationFilter.
-                // Using the same anchor for both addFilterBefore calls would cause Spring to reverse the order.
+                // Filter order: rateLimitFilter → jwtAuthenticationFilter → aiRateLimitFilter → mdcLoggingFilter
+                // rateLimitFilter runs first — rejects brute-force before JWT parsing or DB access.
+                // aiRateLimitFilter and mdcLoggingFilter run after JWT so SecurityContext is populated.
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class);
+                .addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class)
+                .addFilterAfter(aiRateLimitFilter, JwtAuthenticationFilter.class)
+                .addFilterAfter(mdcLoggingFilter, AiRateLimitFilter.class);
 
         return http.build();
     }

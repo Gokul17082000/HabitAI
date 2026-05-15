@@ -12,7 +12,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @Entity
 @Table(name = "habit_log",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"habitId", "userId", "date"}),
+        uniqueConstraints = @UniqueConstraint(name = "uq_habit_log_habit_user_date", columnNames = {"habitId", "userId", "date"}),
         indexes = {
                 @Index(name = "idx_habitlog_habit_user_date", columnList = "habitId, userId, date"),
                 @Index(name = "idx_habitlog_habit_user", columnList = "habitId, userId")
@@ -39,6 +39,6 @@ public class HabitLog {
     @Column(nullable = false)
     private HabitStatus status;
 
-    @Column(length = 300)
+    @Column(length = 500)
     private String note;
 }

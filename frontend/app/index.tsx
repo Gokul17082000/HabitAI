@@ -7,7 +7,8 @@ import PrimaryButton from "../components/PrimaryButton";
 import { saveToken, saveRefreshToken, getToken } from "../utils/authStorage";
 import { loginApi } from "../services/authService";
 import { isValidEmail } from "../utils/validation";
-import { Colors } from "../constants/colors";
+import { useTheme } from "../context/ThemeContext";
+import { AppColors } from "../constants/colors";
 import { isOnboardingComplete } from "../utils/onboardingStorage";
 
 
@@ -15,22 +16,52 @@ import { isOnboardingComplete } from "../utils/onboardingStorage";
  * Decodes a JWT and returns true if its exp claim is still in the future.
  * Does NOT verify the signature — that is the server's job. This is purely
  * a client-side check to avoid sending obviously expired tokens.
+ *
+ * We avoid atob() because it is not guaranteed to be available in all
+ * Hermes / JSC configurations on React Native. Instead we decode the
+ * base64url payload with a pure-JS implementation so this never throws
+ * a ReferenceError on any platform.
  */
+function base64UrlDecode(str: string): string {
+  // base64url → base64
+  let b64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  // Pad to a multiple of 4
+  while (b64.length % 4) b64 += "=";
+
+  // Decode without atob (works in Hermes, JSC, and browsers)
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let result = "";
+  let i = 0;
+  b64 = b64.replace(/[^A-Za-z0-9+/]/g, "");
+  while (i < b64.length) {
+    const a = chars.indexOf(b64[i++]);
+    const b = chars.indexOf(b64[i++]);
+    const c = chars.indexOf(b64[i++]);
+    const d = chars.indexOf(b64[i++]);
+    result += String.fromCharCode((a << 2) | (b >> 4));
+    if (c !== -1) result += String.fromCharCode(((b & 15) << 4) | (c >> 2));
+    if (d !== -1) result += String.fromCharCode(((c & 3) << 6) | d);
+  }
+  return result;
+}
+
 function isTokenValid(token: string): boolean {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return false;
-    // Base64url → base64 → JSON
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+    const payload = JSON.parse(base64UrlDecode(parts[1]));
     if (typeof payload.exp !== "number") return false;
-    // exp is in seconds; Date.now() is in ms
-    return payload.exp * 1000 > Date.now();
+    // exp is in seconds; Date.now() is in ms. 30s skew tolerance for drifted clocks.
+    return payload.exp * 1000 > Date.now() - 30_000;
   } catch {
     return false;
   }
 }
 
 export default function LoginScreen() {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -169,47 +200,51 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 20,
-    backgroundColor: Colors.background,
-  },
-  branding: {
-    alignItems: "center",
-    marginBottom: 30,
-  },
-  appTitle: {
-    fontSize: 32,
-    fontWeight: "bold",
-  },
-  subtitle: {
-    fontSize: 15,
-    color: Colors.subtext,
-    marginTop: 6,
-  },
-  card: {
-    backgroundColor: Colors.card,
-    padding: 20,
-    borderRadius: 12,
-  },
-  screenTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  link: {
-    marginTop: 20,
-    textAlign: "center",
-    color: Colors.primary,
-    fontWeight: "500",
-  },
-  apiError: {
-    color: Colors.error,
-    textAlign: "center",
-    marginBottom: 12,
-    fontSize: 14,
-  },
-});
+const makeStyles = (c: AppColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: "center",
+      padding: 20,
+      backgroundColor: c.background,
+    },
+    branding: {
+      alignItems: "center",
+      marginBottom: 30,
+    },
+    appTitle: {
+      fontSize: 32,
+      fontWeight: "bold",
+      color: c.primary,
+      letterSpacing: -0.5,
+    },
+    subtitle: {
+      fontSize: 15,
+      color: c.subtext,
+      marginTop: 6,
+    },
+    card: {
+      backgroundColor: c.card,
+      padding: 20,
+      borderRadius: 12,
+    },
+    screenTitle: {
+      fontSize: 20,
+      fontWeight: "600",
+      textAlign: "center",
+      marginBottom: 16,
+      color: c.text,
+    },
+    link: {
+      marginTop: 20,
+      textAlign: "center",
+      color: c.primary,
+      fontWeight: "500",
+    },
+    apiError: {
+      color: c.error,
+      textAlign: "center",
+      marginBottom: 12,
+      fontSize: 14,
+    },
+  });

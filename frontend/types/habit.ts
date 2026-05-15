@@ -28,6 +28,8 @@ export interface HabitDTO {
   paused: boolean;
   pausedUntil: string | null;
   archived: boolean;
+  notificationsEnabled: boolean;
+  sortOrder: number;
 }
 
 export interface HabitResponse {
@@ -62,6 +64,7 @@ export interface CreateHabitRequest {
   targetTime: string;
   targetCount: number;
   isCountable: boolean;
+  notificationsEnabled: boolean;
 }
 
 export type UpdateHabitRequest = CreateHabitRequest;

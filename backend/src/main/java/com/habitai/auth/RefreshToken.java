@@ -34,6 +34,10 @@ public class RefreshToken {
     @Column(nullable = false)
     private boolean used = false;
 
+    public void markUsed() {
+        this.used = true;
+    }
+
     public RefreshToken(String token, Long userId, Instant expiresAt) {
         this.token = token;
         this.userId = userId;

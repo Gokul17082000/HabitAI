@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import {
   View,
@@ -12,16 +12,22 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { getUserApi, getUserStatsApi, UserStats, getYearPixelsApi, logoutApi, getStreakFreezeApi, StreakFreezeResponse } from "../../../services/authService";
-import { Colors } from "../../../constants/colors";
 import { UnauthorizedError } from "../../../utils/apiHandler";
 import { getInsightsApi, InsightResponse } from "../../../services/aiService";
 import YearHeatmap from "../../../components/YearHeatmap";
+import { useTheme } from "../../../context/ThemeContext";
+import { AppColors } from "../../../constants/colors";
+import SkeletonCard from "../../../components/SkeletonCard";
 
 type UserDTO = {
   email: string;
 };
 
 export default function ProfileScreen() {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
+  const coachSt = makeCoachStyles(colors);
+
   const [user, setUser] = useState<UserDTO | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,8 +37,8 @@ export default function ProfileScreen() {
   const [pixels, setPixels] = useState<Record<string, string>>({});
   const [freezeStatus, setFreezeStatus] = useState<StreakFreezeResponse | null>(null);
 
-  // Standalone fetch for the manual "Get your weekly insight" button.
-  // Defined at component scope so it is accessible from the JSX button handler.
+  const insightFetched = useRef(false);
+
   const fetchInsight = async () => {
     if (insight) return;
     setInsightLoading(true);
@@ -46,10 +52,6 @@ export default function ProfileScreen() {
     }
   };
 
-  // loadProfile and loadInsight are defined inside useCallback so the dep
-  // array is stable (empty) without creating a stale closure over state.
-  // Previously they were defined outside, which meant the callback captured
-  // them at mount and would use stale state if dependencies ever changed.
   useFocusEffect(
     useCallback(() => {
       const loadProfile = async () => {
@@ -74,27 +76,20 @@ export default function ProfileScreen() {
         }
       };
 
-      const loadInsight = async () => {
-        // Use functional updater to read latest insight without closing over it
-        setInsight((current) => {
-          if (current) return current; // already loaded — skip
-          // Kick off the fetch outside the updater (updater must be synchronous)
-          setInsightLoading(true);
-          getInsightsApi()
-            .then((data) => setInsight(data))
-            .catch(() => { /* fail silently — insights are non-critical */ })
-            .finally(() => setInsightLoading(false));
-          return current;
-        });
-      };
+      if (!insightFetched.current) {
+        insightFetched.current = true;
+        setInsightLoading(true);
+        getInsightsApi()
+          .then((data) => setInsight(data))
+          .catch(() => {})
+          .finally(() => setInsightLoading(false));
+      }
 
       loadProfile();
-      loadInsight();
     }, [])
   );
 
   const handleLogout = async () => {
-    // logoutApi invalidates server-side refresh tokens AND clears local storage
     await logoutApi();
     router.replace("/");
   };
@@ -111,16 +106,26 @@ export default function ProfileScreen() {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
 
         {/* Header */}
-        <Text style={styles.header}>Profile</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.header}>Profile</Text>
+          <Pressable
+            style={styles.settingsBtn}
+            onPress={() => router.push("/(tabs)/profile/settings")}
+          >
+            <Text style={[styles.settingsBtnText, { color: colors.primary }]}>⚙️ Settings</Text>
+          </Pressable>
+        </View>
         <View style={styles.divider} />
 
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <Text style={styles.avatar}>
-            {user?.email?.slice(0, 2).toUpperCase() ?? "?"}
+            {user?.email
+              ? user.email.split("@")[0].slice(0, 2).toUpperCase()
+              : "?"}
           </Text>
           {loading ? (
-            <Text style={styles.email}>Loading...</Text>
+            <ActivityIndicator color={colors.primary} size="small" style={{ marginTop: 8 }} />
           ) : error ? (
             <Text style={styles.errorText}>{error}</Text>
           ) : (
@@ -135,20 +140,29 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {!loading && stats && (
+        {loading ? (
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : !loading && stats && (
           <>
             {/* Overview */}
             <View style={styles.overviewRow}>
               <View style={styles.overviewCard}>
-                <Text style={styles.overviewValue}>{stats.totalHabits}</Text>
+                <View style={[styles.overviewAccent, { backgroundColor: colors.primaryLight }]} />
+                <Text style={[styles.overviewValue, { color: colors.primary }]}>{stats.totalHabits}</Text>
                 <Text style={styles.overviewLabel}>Total{"\n"}Habits</Text>
               </View>
               <View style={styles.overviewCard}>
-                <Text style={styles.overviewValue}>{stats.overallConsistency}%</Text>
+                <View style={[styles.overviewAccent, { backgroundColor: colors.completedLight }]} />
+                <Text style={[styles.overviewValue, { color: colors.completed }]}>{stats.overallConsistency}%</Text>
                 <Text style={styles.overviewLabel}>Overall{"\n"}Consistency</Text>
               </View>
               <View style={styles.overviewCard}>
-                <Text style={styles.overviewValue}>{stats.totalDaysTracked}</Text>
+                <View style={[styles.overviewAccent, { backgroundColor: colors.streakLight }]} />
+                <Text style={[styles.overviewValue, { color: colors.streak }]}>{stats.totalDaysTracked}</Text>
                 <Text style={styles.overviewLabel}>Days{"\n"}Tracked</Text>
               </View>
             </View>
@@ -159,19 +173,19 @@ export default function ProfileScreen() {
               <View style={styles.allTimeRow}>
                 <View style={styles.allTimeItem}>
                   <Text style={styles.allTimeEmoji}>✅</Text>
-                  <Text style={styles.allTimeValue}>{stats.totalCompleted}</Text>
+                  <Text style={[styles.allTimeValue, { color: colors.completed }]}>{stats.totalCompleted}</Text>
                   <Text style={styles.allTimeLabel}>Completed</Text>
                 </View>
                 <View style={styles.allTimeDivider} />
                 <View style={styles.allTimeItem}>
                   <Text style={styles.allTimeEmoji}>❌</Text>
-                  <Text style={styles.allTimeValue}>{stats.totalMissed}</Text>
+                  <Text style={[styles.allTimeValue, { color: colors.missed }]}>{stats.totalMissed}</Text>
                   <Text style={styles.allTimeLabel}>Missed</Text>
                 </View>
                 <View style={styles.allTimeDivider} />
                 <View style={styles.allTimeItem}>
                   <Text style={styles.allTimeEmoji}>📅</Text>
-                  <Text style={styles.allTimeValue}>{stats.totalDaysTracked}</Text>
+                  <Text style={[styles.allTimeValue, { color: colors.primary }]}>{stats.totalDaysTracked}</Text>
                   <Text style={styles.allTimeLabel}>Days</Text>
                 </View>
               </View>
@@ -183,20 +197,19 @@ export default function ProfileScreen() {
               <View style={styles.streakRow}>
                 <View style={styles.streakItem}>
                   <Text style={styles.streakEmoji}>🔥</Text>
-                  <Text style={styles.streakValue}>{stats.currentStreak}</Text>
+                  <Text style={[styles.streakValue, { color: colors.streak }]}>{stats.currentStreak}</Text>
                   <Text style={styles.streakLabel}>Current Streak</Text>
                   <Text style={styles.streakSub}>days</Text>
                 </View>
                 <View style={styles.streakDivider} />
                 <View style={styles.streakItem}>
                   <Text style={styles.streakEmoji}>🏆</Text>
-                  <Text style={styles.streakValue}>{stats.longestStreak}</Text>
+                  <Text style={[styles.streakValue, { color: colors.primary }]}>{stats.longestStreak}</Text>
                   <Text style={styles.streakLabel}>Longest Streak</Text>
                   <Text style={styles.streakSub}>days</Text>
                 </View>
               </View>
 
-              {/* Freeze count */}
               {freezeStatus && (
                 <View style={styles.freezeRow}>
                   <Text style={styles.freezeText}>
@@ -215,7 +228,7 @@ export default function ProfileScreen() {
             {/* Year in pixels */}
             <View style={styles.card}>
               <Text style={styles.cardTitle}>📅 Year in pixels</Text>
-              <YearHeatmap pixels={pixels} />
+              <YearHeatmap pixels={pixels} colors={colors} />
             </View>
 
             {/* Top Habits */}
@@ -240,15 +253,15 @@ export default function ProfileScreen() {
             )}
 
             {/* AI Coach Card */}
-            <View style={coachStyles.card}>
-              <Text style={coachStyles.heading}>🧠 Your AI Coach</Text>
+            <View style={coachSt.card}>
+              <Text style={coachSt.heading}>🧠 Your AI Coach</Text>
               {insightLoading ? (
-                <ActivityIndicator color={Colors.primary} style={{ marginTop: 8 }} />
+                <ActivityIndicator color={colors.primary} style={{ marginTop: 8 }} />
               ) : insight ? (
-                <Text style={coachStyles.insight}>{insight.insight}</Text>
+                <Text style={coachSt.insight}>{insight.insight}</Text>
               ) : (
-                <Pressable onPress={fetchInsight} style={coachStyles.btn}>
-                  <Text style={coachStyles.btnText}>Get your weekly insight</Text>
+                <Pressable onPress={fetchInsight} style={coachSt.btn}>
+                  <Text style={coachSt.btnText}>Get your weekly insight</Text>
                 </Pressable>
               )}
             </View>
@@ -260,7 +273,7 @@ export default function ProfileScreen() {
           style={styles.weeklyReviewBtn}
           onPress={() => router.push("/(tabs)/profile/weekly-review")}
         >
-          <Text style={styles.weeklyReviewText}>📊 View Weekly Review</Text>
+          <Text style={[styles.weeklyReviewText, { color: colors.primary }]}>📊 View Weekly Review</Text>
         </Pressable>
 
         {/* Logout */}
@@ -274,233 +287,280 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    fontSize: 22,
-    fontWeight: "600",
-    marginBottom: 8,
-    color: Colors.text,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#e5e7eb",
-    marginBottom: 16,
-  },
-  profileCard: {
-    backgroundColor: Colors.card,
-    padding: 24,
-    borderRadius: 14,
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  avatar: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: Colors.white,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.primary,
-    textAlign: "center",
-    lineHeight: 64,
-    marginBottom: 10,
-  },
-  email: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#374151",
-  },
-  memberSince: {
-    fontSize: 12,
-    color: Colors.subtext,
-    marginTop: 4,
-  },
-  errorText: {
-    fontSize: 14,
-    color: Colors.error,
-  },
-  overviewRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 16,
-  },
-  overviewCard: {
-    flex: 1,
-    backgroundColor: Colors.card,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  overviewValue: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: Colors.primary,
-    marginBottom: 4,
-  },
-  overviewLabel: {
-    fontSize: 11,
-    color: Colors.subtext,
-    textAlign: "center",
-  },
-  card: {
-    backgroundColor: Colors.card,
-    padding: 16,
-    borderRadius: 14,
-    marginBottom: 16,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: Colors.text,
-    marginBottom: 16,
-  },
-  allTimeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  allTimeItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  allTimeDivider: {
-    width: 1,
-    height: 50,
-    backgroundColor: "#e5e7eb",
-  },
-  allTimeEmoji: {
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  allTimeValue: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: Colors.text,
-  },
-  allTimeLabel: {
-    fontSize: 11,
-    color: Colors.subtext,
-    marginTop: 2,
-  },
-  streakRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  streakItem: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 8,
-  },
-  streakDivider: {
-    width: 1,
-    height: 60,
-    backgroundColor: "#e5e7eb",
-  },
-  streakEmoji: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  streakValue: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: Colors.text,
-  },
-  streakLabel: {
-    fontSize: 12,
-    color: Colors.subtext,
-    marginTop: 2,
-  },
-  streakSub: {
-    fontSize: 11,
-    color: Colors.subtext,
-  },
-  logoutBtn: {
-    backgroundColor: "#ef4444",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  logoutText: {
-    color: Colors.white,
-    fontWeight: "600",
-    fontSize: 15,
-  },
-  topHabitRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    gap: 10,
-  },
-  topHabitMedal: {
-    fontSize: 24,
-  },
-  topHabitInfo: {
-    flex: 1,
-  },
-  topHabitTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.text,
-  },
-  topHabitSub: {
-    fontSize: 12,
-    color: Colors.subtext,
-    marginTop: 2,
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    paddingTop: StatusBar.currentHeight ?? 12,
-  },
-  weeklyReviewBtn: {
-    backgroundColor: Colors.card,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  weeklyReviewText: {
-    color: Colors.primary,
-    fontWeight: "600",
-    fontSize: 15,
-  },
-  freezeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#e5e7eb",
-  },
-  freezeText: {
-    fontSize: 14,
-    color: Colors.text,
-  },
-  freezeBtn: {
-    backgroundColor: "#e0f2fe",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  freezeBtnText: {
-    color: "#0284c7",
-    fontWeight: "600",
-    fontSize: 13,
-  },
-});
+const makeStyles = (c: AppColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 20,
+      backgroundColor: c.background,
+    },
+    headerRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+    header: {
+      fontSize: 22,
+      fontWeight: "600",
+      color: c.text,
+    },
+    settingsBtn: {
+      padding: 8,
+      borderRadius: 8,
+    },
+    settingsBtnText: {
+      fontSize: 14,
+      fontWeight: "500",
+    },
+    divider: {
+      height: 1,
+      backgroundColor: c.border,
+      marginBottom: 16,
+    },
+    profileCard: {
+      backgroundColor: c.card,
+      padding: 24,
+      borderRadius: 16,
+      alignItems: "center",
+      marginBottom: 16,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    avatar: {
+      fontSize: 22,
+      fontWeight: "700",
+      color: c.white,
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: c.primary,
+      textAlign: "center",
+      lineHeight: 64,
+      marginBottom: 10,
+    },
+    email: {
+      fontSize: 15,
+      fontWeight: "500",
+      color: c.text,
+    },
+    memberSince: {
+      fontSize: 12,
+      color: c.subtext,
+      marginTop: 4,
+    },
+    errorText: {
+      fontSize: 14,
+      color: c.error,
+    },
+    overviewRow: {
+      flexDirection: "row",
+      gap: 12,
+      marginBottom: 16,
+    },
+    overviewCard: {
+      flex: 1,
+      backgroundColor: c.card,
+      padding: 16,
+      borderRadius: 14,
+      alignItems: "center",
+      overflow: "hidden",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    overviewAccent: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 4,
+    },
+    overviewValue: {
+      fontSize: 22,
+      fontWeight: "700",
+      marginBottom: 4,
+      marginTop: 8,
+    },
+    overviewLabel: {
+      fontSize: 11,
+      color: c.subtext,
+      textAlign: "center",
+    },
+    card: {
+      backgroundColor: c.card,
+      padding: 16,
+      borderRadius: 16,
+      marginBottom: 16,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    cardTitle: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: c.text,
+      marginBottom: 16,
+    },
+    allTimeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    allTimeItem: {
+      flex: 1,
+      alignItems: "center",
+    },
+    allTimeDivider: {
+      width: 1,
+      height: 50,
+      backgroundColor: c.border,
+    },
+    allTimeEmoji: {
+      fontSize: 20,
+      marginBottom: 4,
+    },
+    allTimeValue: {
+      fontSize: 22,
+      fontWeight: "700",
+      color: c.text,
+    },
+    allTimeLabel: {
+      fontSize: 11,
+      color: c.subtext,
+      marginTop: 2,
+    },
+    streakRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    streakItem: {
+      flex: 1,
+      alignItems: "center",
+      paddingVertical: 8,
+    },
+    streakDivider: {
+      width: 1,
+      height: 60,
+      backgroundColor: c.border,
+    },
+    streakEmoji: {
+      fontSize: 24,
+      marginBottom: 4,
+    },
+    streakValue: {
+      fontSize: 28,
+      fontWeight: "700",
+      color: c.text,
+    },
+    streakLabel: {
+      fontSize: 12,
+      color: c.subtext,
+      marginTop: 2,
+    },
+    streakSub: {
+      fontSize: 11,
+      color: c.subtext,
+    },
+    logoutBtn: {
+      backgroundColor: c.error,
+      paddingVertical: 14,
+      borderRadius: 12,
+      alignItems: "center",
+      marginBottom: 16,
+    },
+    logoutText: {
+      color: c.white,
+      fontWeight: "600",
+      fontSize: 15,
+    },
+    topHabitRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 12,
+      gap: 10,
+    },
+    topHabitMedal: {
+      fontSize: 24,
+    },
+    topHabitInfo: {
+      flex: 1,
+    },
+    topHabitTitle: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: c.text,
+    },
+    topHabitSub: {
+      fontSize: 12,
+      color: c.subtext,
+      marginTop: 2,
+    },
+    safeArea: {
+      flex: 1,
+      backgroundColor: c.background,
+      paddingTop: StatusBar.currentHeight ?? 12,
+    },
+    weeklyReviewBtn: {
+      backgroundColor: c.card,
+      paddingVertical: 14,
+      borderRadius: 12,
+      alignItems: "center",
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    weeklyReviewText: {
+      fontWeight: "600",
+      fontSize: 15,
+    },
+    freezeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: 16,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: c.border,
+    },
+    freezeText: {
+      fontSize: 14,
+      color: c.text,
+    },
+    freezeBtn: {
+      backgroundColor: c.primaryLight,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+    },
+    freezeBtnText: {
+      color: c.primary,
+      fontWeight: "600",
+      fontSize: 13,
+    },
+  });
 
-const coachStyles = StyleSheet.create({
-  card: { backgroundColor: Colors.card, borderRadius: 14, padding: 16, marginBottom: 16 },
-  heading: { fontSize: 15, fontWeight: "600", color: Colors.text, marginBottom: 8 },
-  insight: { fontSize: 14, color: Colors.text, lineHeight: 22 },
-  btn: { backgroundColor: Colors.primary, borderRadius: 8, paddingVertical: 10, alignItems: "center", marginTop: 4 },
-  btnText: { color: "#fff", fontWeight: "600", fontSize: 13 },
-});
+const makeCoachStyles = (c: AppColors) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: c.card,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 16,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    heading: { fontSize: 15, fontWeight: "600", color: c.text, marginBottom: 8 },
+    insight: { fontSize: 14, color: c.text, lineHeight: 22 },
+    btn: { backgroundColor: c.primary, borderRadius: 8, paddingVertical: 10, alignItems: "center", marginTop: 4 },
+    btnText: { color: c.white, fontWeight: "600", fontSize: 13 },
+  });

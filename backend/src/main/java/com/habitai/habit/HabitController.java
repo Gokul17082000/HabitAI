@@ -4,12 +4,14 @@ import com.habitai.common.security.CurrentUser;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
+@Validated
 @RestController
 @RequestMapping("/habits")
 public class HabitController {
@@ -57,13 +59,15 @@ public class HabitController {
     }
 
     @GetMapping("/summary")
-    public Map<String, List<String>> getMonthSummary(@RequestParam int year, @RequestParam int month) {
+    public Map<String, List<String>> getMonthSummary(
+            @RequestParam @jakarta.validation.constraints.Min(2000) @jakarta.validation.constraints.Max(2100) int year,
+            @RequestParam @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(12) int month) {
         return habitService.getMonthSummary(year, month);
     }
 
     @PatchMapping("/{habitId}/pause")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void pauseHabit(@PathVariable long habitId, @RequestBody PauseRequest request) {
+    public void pauseHabit(@PathVariable long habitId, @Valid @RequestBody PauseRequest request) {
         habitService.pauseHabit(habitId, request);
     }
 
@@ -88,5 +92,11 @@ public class HabitController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void unarchiveHabit(@PathVariable long habitId) {
         habitService.unarchiveHabit(habitId);
+    }
+
+    @PatchMapping("/{habitId}/sort-order")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void updateSortOrder(@PathVariable long habitId, @Valid @RequestBody SortOrderRequest request) {
+        habitService.updateSortOrder(habitId, request.sortOrder());
     }
 }

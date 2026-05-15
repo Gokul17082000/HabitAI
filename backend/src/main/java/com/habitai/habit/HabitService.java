@@ -45,6 +45,9 @@ public class HabitService {
         return habitRepository.findByUserId(currentUser.getId())
                 .stream()
                 .filter(h -> !h.isArchived())
+                .sorted(java.util.Comparator
+                        .comparingInt(Habit::getSortOrder)
+                        .thenComparingLong(Habit::getId))
                 .map(this::toDTO)
                 .toList();
     }
@@ -138,6 +141,7 @@ public class HabitService {
         habit.setTargetTime(habitRequest.targetTime());
         habit.setCountable(habitRequest.isCountable());
         habit.setTargetCount(habitRequest.targetCount());
+        habit.setNotificationsEnabled(habitRequest.notificationsEnabled());
         habit.setCreatedAt(LocalDate.now(currentUser.getZone()));
 
         normalizeSchedule(habit);
@@ -181,6 +185,7 @@ public class HabitService {
         habit.setTargetTime(habitRequest.targetTime());
         habit.setCountable(habitRequest.isCountable());
         habit.setTargetCount(habitRequest.targetCount());
+        habit.setNotificationsEnabled(habitRequest.notificationsEnabled());
         // NOTE: createdAt is intentionally NOT updated here — editing a habit
         // must never change its original creation date, as streaks and activity
         // history are anchored to that date.
@@ -212,8 +217,17 @@ public class HabitService {
                 habit.getTargetCount(),
                 habit.isPaused(),
                 habit.getPausedUntil(),
-                habit.isArchived()
+                habit.isArchived(),
+                habit.isNotificationsEnabled(),
+                habit.getSortOrder()
         );
+    }
+
+    @Transactional
+    public void updateSortOrder(long habitId, int newSortOrder) {
+        Habit habit = habitAccessValidator.getAndValidate(habitId);
+        habit.setSortOrder(newSortOrder);
+        habitRepository.save(habit);
     }
 
     private void validateSchedule(HabitRequest habitRequest) {

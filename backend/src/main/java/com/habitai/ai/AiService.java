@@ -115,6 +115,13 @@ public class AiService {
                 int targetCount     = node.path("targetCount").asInt(1);
                 boolean isCountable = node.path("isCountable").asBoolean(false);
 
+                // Skip habits the LLM returned with no usable title or description
+                if (title.isBlank() || description.isBlank()) continue;
+
+                // Clamp targetCount to the allowed range (1–100)
+                if (targetCount < 1)   targetCount = 1;
+                if (targetCount > 100) targetCount = 100;
+
                 HabitCategory category;
                 try { category = HabitCategory.valueOf(categoryStr); }
                 catch (Exception e) { category = HabitCategory.GENERAL; }
@@ -150,7 +157,8 @@ public class AiService {
 
                 result.add(new HabitRequest(
                         title, description, category, frequency,
-                        daysOfWeek, daysOfMonth, targetTime, targetCount, isCountable
+                        daysOfWeek, daysOfMonth, targetTime, targetCount, isCountable,
+                        true
                 ));
             }
             return result;

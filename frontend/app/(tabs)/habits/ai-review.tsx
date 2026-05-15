@@ -6,10 +6,12 @@ import {
 import { router, useLocalSearchParams } from "expo-router";
 import { createHabitApi } from "../../../services/habitService";
 import { CreateHabitRequest, HabitCategory, HabitFrequency, DayOfWeek, HABIT_CATEGORIES, HABIT_FREQUENCIES, DAYS_OF_WEEK, DAY_SHORT } from "../../../types/habit";
-import { Colors } from "../../../constants/colors";
+import { useTheme } from "../../../context/ThemeContext";
+import { AppColors } from "../../../constants/colors";
 
 
 export default function AiReviewScreen() {
+  const { colors } = useTheme();
   const params = useLocalSearchParams();
 
   // Parse habits from params — track whether parsing succeeded so we can
@@ -123,6 +125,7 @@ export default function AiReviewScreen() {
   };
 
   const allSelected = selected.size === habits.length;
+  const styles = makeStyles(colors);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -151,7 +154,11 @@ export default function AiReviewScreen() {
             <View key={index} style={[styles.card, isSelected && styles.cardSelected]}>
 
               {/* Card header — tap to select/deselect */}
-              <Pressable style={styles.cardHeader} onPress={() => toggleSelect(index)}>
+              <Pressable
+                style={styles.cardHeader}
+                onPress={() => toggleSelect(index)}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
                 <View style={styles.cardHeaderLeft}>
                   <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
                     {isSelected && <Text style={styles.checkmark}>✓</Text>}
@@ -284,7 +291,7 @@ export default function AiReviewScreen() {
                         value={habit.targetTime}
                         onChangeText={(v) => updateHabit(index, "targetTime", v)}
                         placeholder="HH:mm:ss"
-                        placeholderTextColor={Colors.subtext}
+                        placeholderTextColor={colors.subtext}
                       />
                     </View>
                     <View style={styles.halfField}>
@@ -327,7 +334,7 @@ export default function AiReviewScreen() {
           disabled={saving || selected.size === 0}
         >
           {saving ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.white} />
           ) : (
             <Text style={styles.saveBtnText}>
               Add {selected.size} habit{selected.size !== 1 ? "s" : ""} to my plan
@@ -340,58 +347,58 @@ export default function AiReviewScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea:          { flex: 1, backgroundColor: Colors.background, paddingTop: StatusBar.currentHeight ?? 12 },
+const makeStyles = (c: AppColors) => StyleSheet.create({
+  safeArea:          { flex: 1, backgroundColor: c.background, paddingTop: StatusBar.currentHeight ?? 12 },
   header:            { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 20, paddingBottom: 8 },
-  back:              { fontSize: 14, color: Colors.primary, width: 60 },
-  title:             { fontSize: 17, fontWeight: "600", color: Colors.text },
-  selectAll:         { fontSize: 13, color: Colors.primary, fontWeight: "500" },
-  subtitle:          { fontSize: 13, color: Colors.subtext, paddingHorizontal: 20, marginBottom: 12 },
+  back:              { fontSize: 14, color: c.primary, width: 60 },
+  title:             { fontSize: 17, fontWeight: "600", color: c.text },
+  selectAll:         { fontSize: 13, color: c.primary, fontWeight: "500" },
+  subtitle:          { fontSize: 13, color: c.subtext, paddingHorizontal: 20, marginBottom: 12 },
   list:              { paddingHorizontal: 20, paddingBottom: 100 },
 
-  card:              { backgroundColor: Colors.white, borderRadius: 12, marginBottom: 12, borderWidth: 1.5, borderColor: "#e5e7eb", overflow: "hidden" },
-  cardSelected:      { borderColor: Colors.primary },
+  card:              { backgroundColor: c.card, borderRadius: 12, marginBottom: 12, borderWidth: 1.5, borderColor: c.border, overflow: "hidden" },
+  cardSelected:      { borderColor: c.primary },
   cardHeader:        { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14 },
   cardHeaderLeft:    { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
-  cardTitle:         { fontSize: 14, fontWeight: "600", color: Colors.text, flex: 1 },
-  categoryBadge:     { fontSize: 11, color: Colors.primary, fontWeight: "600", backgroundColor: "#ede9fe", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  cardTitle:         { fontSize: 14, fontWeight: "600", color: c.text, flex: 1 },
+  categoryBadge:     { fontSize: 11, color: c.primary, fontWeight: "600", backgroundColor: c.primaryLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
 
-  checkbox:          { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: "#d1d5db", alignItems: "center", justifyContent: "center" },
-  checkboxSelected:  { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  checkmark:         { color: "#fff", fontSize: 13, fontWeight: "700" },
+  checkbox:          { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: c.border, alignItems: "center", justifyContent: "center" },
+  checkboxSelected:  { backgroundColor: c.primary, borderColor: c.primary },
+  checkmark:         { color: c.white, fontSize: 13, fontWeight: "700" },
 
-  editSection:       { paddingHorizontal: 14, paddingBottom: 14, borderTopWidth: 1, borderTopColor: "#f3f4f6" },
-  label:             { fontSize: 12, color: Colors.subtext, marginBottom: 4, marginTop: 10 },
-  input:             { borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 8, padding: 10, fontSize: 14, color: Colors.text },
+  editSection:       { paddingHorizontal: 14, paddingBottom: 14, borderTopWidth: 1, borderTopColor: c.border },
+  label:             { fontSize: 12, color: c.subtext, marginBottom: 4, marginTop: 10 },
+  input:             { borderWidth: 1, borderColor: c.border, borderRadius: 8, padding: 10, fontSize: 14, color: c.text, backgroundColor: c.card },
   inputMultiline:    { minHeight: 56, textAlignVertical: "top" },
   row:               { flexDirection: "row", gap: 12 },
   halfField:         { flex: 1 },
 
   chipRow:           { flexDirection: "row", gap: 8 },
-  chip:              { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#f9fafb" },
-  chipActive:        { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  chipText:          { fontSize: 12, color: Colors.subtext },
-  chipTextActive:    { color: "#fff", fontWeight: "600" },
+  chip:              { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: c.border, backgroundColor: c.card },
+  chipActive:        { backgroundColor: c.primary, borderColor: c.primary },
+  chipText:          { fontSize: 12, color: c.subtext },
+  chipTextActive:    { color: c.white, fontWeight: "600" },
 
-  segmentRow:        { flexDirection: "row", borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 8, overflow: "hidden" },
-  segment:           { flex: 1, paddingVertical: 8, alignItems: "center", backgroundColor: "#f9fafb" },
-  segmentActive:     { backgroundColor: Colors.primary },
-  segmentText:       { fontSize: 12, color: Colors.subtext },
-  segmentTextActive: { color: "#fff", fontWeight: "600" },
+  segmentRow:        { flexDirection: "row", borderWidth: 1, borderColor: c.border, borderRadius: 8, overflow: "hidden" },
+  segment:           { flex: 1, paddingVertical: 8, alignItems: "center", backgroundColor: c.card },
+  segmentActive:     { backgroundColor: c.primary },
+  segmentText:       { fontSize: 12, color: c.subtext },
+  segmentTextActive: { color: c.white, fontWeight: "600" },
 
   daysRow:           { flexDirection: "row", gap: 6, flexWrap: "wrap" },
-  dayChip:           { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#f9fafb", alignItems: "center", justifyContent: "center" },
-  dayChipActive:     { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  dayChipText:       { fontSize: 12, color: Colors.subtext, fontWeight: "500" },
-  dayChipTextActive: { color: "#fff", fontWeight: "600" },
+  dayChip:           { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: c.border, backgroundColor: c.card, alignItems: "center", justifyContent: "center" },
+  dayChipActive:     { backgroundColor: c.primary, borderColor: c.primary },
+  dayChipText:       { fontSize: 12, color: c.subtext, fontWeight: "500" },
+  dayChipTextActive: { color: c.white, fontWeight: "600" },
 
   toggleRow:         { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
-  toggleBtn:         { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: "#e5e7eb", backgroundColor: "#f9fafb" },
-  toggleBtnActive:   { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  toggleText:        { fontSize: 13, color: Colors.subtext },
-  toggleTextActive:  { color: "#fff", fontWeight: "600" },
+  toggleBtn:         { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: c.border, backgroundColor: c.card },
+  toggleBtnActive:   { backgroundColor: c.primary, borderColor: c.primary },
+  toggleText:        { fontSize: 13, color: c.subtext },
+  toggleTextActive:  { color: c.white, fontWeight: "600" },
 
-  footer:            { position: "absolute", bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: "#e5e7eb" },
-  saveBtn:           { backgroundColor: Colors.primary, borderRadius: 10, paddingVertical: 14, alignItems: "center" },
-  saveBtnText:       { color: "#fff", fontWeight: "600", fontSize: 15 },
+  footer:            { position: "absolute", bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: c.background, borderTopWidth: 1, borderTopColor: c.border },
+  saveBtn:           { backgroundColor: c.primary, borderRadius: 10, paddingVertical: 14, alignItems: "center" },
+  saveBtnText:       { color: c.white, fontWeight: "600", fontSize: 15 },
 });

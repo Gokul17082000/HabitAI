@@ -1,4 +1,6 @@
 import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { useMemo } from "react";
+import { AppColors } from "../constants/colors";
 
 const CELL_SIZE = 11;
 const CELL_GAP = 2;
@@ -7,38 +9,62 @@ const DAY_LABEL_WIDTH = 20;
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-const STATUS_COLOR: Record<string, string> = {
-  COMPLETED: "#16a34a",
-  PARTIAL:   "#f97316",
-  MISSED:    "#dc2626",
-  PENDING:   "#e5e7eb",
-};
 
 interface Props {
   pixels: Record<string, string>;
+  colors: AppColors;
 }
 
-export default function YearHeatmap({ pixels }: Props) {
-  const today = new Date();
-  const startDate = new Date(today);
-  startDate.setDate(today.getDate() - 364);
+export default function YearHeatmap({ pixels, colors }: Props) {
+  const styles = makeStyles(colors);
+  const STATUS_COLOR: Record<string, string> = {
+    COMPLETED: colors.completed,
+    PARTIAL:   colors.partial,
+    MISSED:    colors.missed,
+    PENDING:   colors.border,
+  };
 
-  // Align to Monday
-  const dayOfWeek = (startDate.getDay() + 6) % 7;
-  startDate.setDate(startDate.getDate() - dayOfWeek);
+  const todayStr = new Date().toDateString();
 
-  const weeks: (Date | null)[][] = [];
-  const cursor = new Date(startDate);
+  const { weeks, monthLabels } = useMemo(() => {
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - 364);
 
-  for (let w = 0; w < 53; w++) {
-    const week: (Date | null)[] = [];
-    for (let d = 0; d < 7; d++) {
-      const cell = new Date(cursor);
-      week.push(cell > today ? null : cell);
-      cursor.setDate(cursor.getDate() + 1);
+    // Align to Monday
+    const dayOfWeek = (startDate.getDay() + 6) % 7;
+    startDate.setDate(startDate.getDate() - dayOfWeek);
+
+    const w: (Date | null)[][] = [];
+    const cursor = new Date(startDate);
+
+    for (let wi = 0; wi < 53; wi++) {
+      const week: (Date | null)[] = [];
+      for (let d = 0; d < 7; d++) {
+        const cell = new Date(cursor);
+        week.push(cell > today ? null : cell);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      w.push(week);
     }
-    weeks.push(week);
-  }
+
+    const ml: { label: string; weekIndex: number }[] = [];
+    let lastMonth = -1;
+    w.forEach((week, wi) => {
+      const firstDay = week.find((d) => d !== null);
+      if (!firstDay) return;
+      const month = firstDay.getMonth();
+      if (month !== lastMonth) {
+        ml.push({
+          label: firstDay.toLocaleString("default", { month: "short" }),
+          weekIndex: wi,
+        });
+        lastMonth = month;
+      }
+    });
+
+    return { weeks: w, monthLabels: ml };
+  }, [todayStr]); // recomputes when the date changes (midnight rollover)
 
   const formatKey = (date: Date) => {
     const y = date.getFullYear();
@@ -46,22 +72,6 @@ export default function YearHeatmap({ pixels }: Props) {
     const d = String(date.getDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
   };
-
-  // Month labels — track where each month first appears
-  const monthLabels: { label: string; weekIndex: number }[] = [];
-  let lastMonth = -1;
-  weeks.forEach((week, wi) => {
-    const firstDay = week.find((d) => d !== null);
-    if (!firstDay) return;
-    const month = firstDay.getMonth();
-    if (month !== lastMonth) {
-      monthLabels.push({
-        label: firstDay.toLocaleString("default", { month: "short" }),
-        weekIndex: wi,
-      });
-      lastMonth = month;
-    }
-  });
 
   return (
     <View>
@@ -108,7 +118,7 @@ export default function YearHeatmap({ pixels }: Props) {
                   }
                   const key = formatKey(date);
                   const status = pixels[key];
-                  const color = status ? STATUS_COLOR[status] : "#f3f4f6";
+                  const color = status ? STATUS_COLOR[status] : colors.border;
                   return (
                     <View
                       key={di}
@@ -138,15 +148,15 @@ export default function YearHeatmap({ pixels }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors) => StyleSheet.create({
   monthRow:    { flexDirection: "row", marginBottom: 4 },
-  monthLabel:  { fontSize: 10, color: "#6b7280", fontWeight: "500", width: 28 },
+  monthLabel:  { fontSize: 10, color: c.subtext, fontWeight: "500", width: 28 },
   gridRow:     { flexDirection: "row" },
-  dayLabel:    { fontSize: 9, color: "#9ca3af" },
+  dayLabel:    { fontSize: 9, color: c.placeholder },
   cell:        { width: CELL_SIZE, height: CELL_SIZE, borderRadius: 2, marginBottom: CELL_GAP },
   emptyCell:   { width: CELL_SIZE, height: CELL_SIZE, marginBottom: CELL_GAP },
   legend:      { flexDirection: "row", gap: 12, marginTop: 12, flexWrap: "wrap" },
   legendItem:  { flexDirection: "row", alignItems: "center", gap: 4 },
   legendCell:  { width: 10, height: 10, borderRadius: 2 },
-  legendLabel: { fontSize: 11, color: "#6b7280" },
+  legendLabel: { fontSize: 11, color: c.subtext },
 });

@@ -5,7 +5,7 @@ spring:
     password: ${DB_PASSWORD:}
     hikari:
       minimum-idle: 1
-      maximum-pool-size: 2
+      maximum-pool-size: 10
       connection-timeout: 20000
       idle-timeout: 300000
       max-lifetime: 600000
@@ -19,12 +19,12 @@ spring:
       ddl-auto: ${DDL_AUTO:validate}
     show-sql: false
     open-in-view: false
-    defer-datasource-initialization: true
+    defer-datasource-initialization: false
     properties:
       hibernate:
         format_sql: true
   main:
-    lazy-initialization: true
+    lazy-initialization: false
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -55,6 +55,10 @@ rate-limit:
   trusted-proxies: ${RATE_LIMIT_TRUSTED_PROXIES:}
   max-requests: 30
   window-ms: 60000
+
+ai-rate-limit:
+  max-requests: ${AI_RATE_LIMIT_MAX_REQUESTS:20}
+  window-ms: ${AI_RATE_LIMIT_WINDOW_MS:60000}
 
 firebase:
   service-account: ${FIREBASE_SERVICE_ACCOUNT:src/main/resources/firebase-service-account.json}

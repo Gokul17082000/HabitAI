@@ -28,9 +28,10 @@ export function formatTargetTime(date: Date): string {
   return `${hours}:${minutes}:${seconds}`;
 }
 
-export function parseTargetTime(time: string): Date {
-  const [h, m] = time.split(":");
+export function parseTargetTime(time: string | null | undefined): Date {
   const date = new Date();
+  if (!time) return date;
+  const [h, m] = time.split(":");
   date.setHours(Number(h), Number(m), 0, 0);
   return date;
 }

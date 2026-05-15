@@ -37,6 +37,7 @@ public class HabitLogService {
         this.streakFreezeUsageRepository = streakFreezeUsageRepository;
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public void updateTodayHabitStatus(long habitId, HabitLogRequest habitLogRequest) {
         Habit habit = habitAccessValidator.getAndValidate(habitId);
         long userId = currentUser.getId();
@@ -193,7 +194,7 @@ public class HabitLogService {
         int current = 0;
         for (LocalDate day : scheduledDays) {
             if (completedDates.contains(day)
-                    || frozenDates.contains(cursor)) {
+                    || frozenDates.contains(day)) {
                 current++;
                 longest = Math.max(longest, current);
             } else {

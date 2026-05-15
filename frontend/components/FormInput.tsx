@@ -1,6 +1,7 @@
 import { forwardRef, useState } from "react";
 import { Pressable, Text, TextInput, View, StyleSheet, TextInputProps } from "react-native";
-import { Colors } from "../constants/colors";
+import { useTheme } from "../context/ThemeContext";
+import { AppColors } from "../constants/colors";
 
 interface FormInputProps extends TextInputProps {
   label: string;
@@ -10,6 +11,8 @@ interface FormInputProps extends TextInputProps {
 
 const FormInput = forwardRef<TextInput, FormInputProps>(
   ({ label, error, secureTextEntry = false, ...props }, ref) => {
+    const { colors } = useTheme();
+    const styles = makeStyles(colors);
     const [showPassword, setShowPassword] = useState(false);
     const isPassword = secureTextEntry;
 
@@ -21,7 +24,7 @@ const FormInput = forwardRef<TextInput, FormInputProps>(
           <TextInput
             ref={ref}
             style={[styles.input, error && styles.inputError]}
-            placeholderTextColor={Colors.placeholder}
+            placeholderTextColor={colors.placeholder}
             secureTextEntry={isPassword && !showPassword}
             autoCapitalize="none"
             autoCorrect={false}
@@ -32,6 +35,8 @@ const FormInput = forwardRef<TextInput, FormInputProps>(
             <Pressable
               onPress={() => setShowPassword(!showPassword)}
               style={styles.eye}
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? "Hide password" : "Show password"}
             >
               <Text>{showPassword ? "🙈" : "👁️"}</Text>
             </Pressable>
@@ -46,40 +51,42 @@ const FormInput = forwardRef<TextInput, FormInputProps>(
 
 export default FormInput;
 
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 14,
-  },
-  label: {
-    fontSize: 13,
-    marginBottom: 6,
-    color: Colors.text,
-  },
-  inputWrapper: {
-    position: "relative",
-    justifyContent: "center",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    paddingRight: 40,
-    fontSize: 15,
-    color: Colors.text,
-  },
-  inputError: {
-    borderColor: Colors.error,
-  },
-  eye: {
-    position: "absolute",
-    right: 12,
-    padding: 8,
-  },
-  error: {
-    color: Colors.error,
-    fontSize: 12,
-    marginTop: 4,
-  },
-});
+const makeStyles = (c: AppColors) =>
+  StyleSheet.create({
+    container: {
+      marginBottom: 14,
+    },
+    label: {
+      fontSize: 13,
+      marginBottom: 6,
+      color: c.text,
+    },
+    inputWrapper: {
+      position: "relative",
+      justifyContent: "center",
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      paddingRight: 40,
+      fontSize: 15,
+      color: c.text,
+      backgroundColor: c.card,
+    },
+    inputError: {
+      borderColor: c.error,
+    },
+    eye: {
+      position: "absolute",
+      right: 12,
+      padding: 8,
+    },
+    error: {
+      color: c.error,
+      fontSize: 12,
+      marginTop: 4,
+    },
+  });

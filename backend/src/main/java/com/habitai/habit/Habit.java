@@ -79,6 +79,12 @@ public class Habit {
     private boolean archived = false;
 
     @Column(nullable = false)
+    private boolean notificationsEnabled = true;
+
+    @Column(nullable = false)
+    private int sortOrder = 0;
+
+    @Column(nullable = false)
     private LocalDate createdAt;
 
     @PrePersist

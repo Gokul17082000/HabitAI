@@ -15,5 +15,6 @@ public record HabitRequest(
         Set<Integer> daysOfMonth,
         @NotNull LocalTime targetTime,
         @Min(1) @Max(100) int targetCount,
-        boolean isCountable
+        boolean isCountable,
+        boolean notificationsEnabled
 ) {}

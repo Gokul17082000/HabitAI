@@ -24,7 +24,7 @@ public class User {
     @Column(nullable = false, length = 150)
     private String email;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 255)
     private String password;
 
     /**
@@ -46,6 +46,9 @@ public class User {
 
     @Column(nullable = false)
     private int streakFreezes = 0;
+
+    @Column
+    private java.time.LocalDate lastFreezeAwardedAt;
 
     @PrePersist
     public void prePersist() {

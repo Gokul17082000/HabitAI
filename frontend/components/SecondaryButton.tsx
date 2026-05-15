@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text } from "react-native";
-import { Colors } from "../constants/colors";
+import { useTheme } from "../context/ThemeContext";
+import { AppColors } from "../constants/colors";
 
 interface SecondaryButtonProps {
   title: string;
@@ -14,6 +15,9 @@ export default function SecondaryButton({
   disabled = false,
   onPress,
 }: SecondaryButtonProps) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
+
   return (
     <Pressable
       style={({ pressed }) => [
@@ -31,17 +35,18 @@ export default function SecondaryButton({
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  text: {
-    color: Colors.primary,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-});
+const makeStyles = (c: AppColors) =>
+  StyleSheet.create({
+    button: {
+      borderWidth: 1,
+      borderColor: c.primary,
+      paddingVertical: 14,
+      borderRadius: 8,
+      alignItems: "center",
+    },
+    text: {
+      color: c.primary,
+      fontSize: 16,
+      fontWeight: "600",
+    },
+  });

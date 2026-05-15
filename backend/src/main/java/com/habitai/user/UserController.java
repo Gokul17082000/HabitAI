@@ -56,4 +56,10 @@ public class UserController {
     public StreakFreezeResponse useFreeze(@RequestBody @Valid UseFreezeRequest request) {
         return streakFreezeService.useFreeze(request.date());
     }
+
+    @PutMapping("/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        userService.changePassword(request);
+    }
 }

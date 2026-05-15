@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, StatusBar } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, StatusBar, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { ActivityItem } from "../../../../types/habit";
 import { formatDate, formatDisplayDate } from "../../../../utils/formatters";
-import { Colors } from "../../../../constants/colors";
+import { useTheme } from "../../../../context/ThemeContext";
+import { AppColors } from "../../../../constants/colors";
 import { getHabitActivityApi, getHabitStreakApi, getLongestStreakApi } from "../../../../services/habitService";
 import { UnauthorizedError } from "../../../../utils/apiHandler";
 import MilestoneBadges from "../../../../components/MilestoneBadges";
@@ -27,7 +28,7 @@ const getRangeDays = (range: RangeOption): number => {
     case "3M": return 90;
     case "6M": return 180;
     case "1Y": return 365;
-    case "ALL": return 1825;
+    case "ALL": return 3650;
   }
 };
 
@@ -36,6 +37,8 @@ const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 /* ---------------- Screen ---------------- */
 export default function HabitActivityScreen() {
   const { habitId } = useLocalSearchParams<{ habitId: string }>();
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
 
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,8 +51,12 @@ export default function HabitActivityScreen() {
   useEffect(() => {
     if (!habitId) return;
     loadActivity(range);
-    loadStreaks();
   }, [habitId, range]);
+
+  useEffect(() => {
+    if (!habitId) return;
+    loadStreaks();
+  }, [habitId]);
 
   const loadActivity = async (selectedRange: RangeOption) => {
     setError("");
@@ -152,8 +159,8 @@ export default function HabitActivityScreen() {
       </ScrollView>
 
       {loading ? (
-        <View style={styles.centered}>
-          <Text style={styles.loadingText}>Loading activity...</Text>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       ) : (
         <>
@@ -180,19 +187,23 @@ export default function HabitActivityScreen() {
           <MilestoneBadges
               currentStreak={currentStreak}
               longestStreak={longestStreak}
+              colors={colors}
           />
 
           {/* GitHub-style Heatmap */}
           <Text style={styles.sectionTitle}>Consistency</Text>
-          <GitHubHeatmap activity={activity} />
+          <GitHubHeatmap activity={activity} range={range} colors={colors} />
 
           {/* Legend */}
           <View style={styles.legend}>
-            <Text style={styles.legendLabel}>Less</Text>
-            <View style={[styles.legendCell, { backgroundColor: "#e5e7eb" }]} />
-            <View style={[styles.legendCell, { backgroundColor: "#dc2626" }]} />
-            <View style={[styles.legendCell, { backgroundColor: "#16a34a" }]} />
-            <Text style={styles.legendLabel}>More</Text>
+            <View style={[styles.legendCell, { backgroundColor: colors.border }]} />
+            <Text style={styles.legendLabel}>None</Text>
+            <View style={[styles.legendCell, { backgroundColor: colors.missed }]} />
+            <Text style={styles.legendLabel}>Missed</Text>
+            <View style={[styles.legendCell, { backgroundColor: colors.partial }]} />
+            <Text style={styles.legendLabel}>Partial</Text>
+            <View style={[styles.legendCell, { backgroundColor: colors.completed }]} />
+            <Text style={styles.legendLabel}>Done</Text>
           </View>
 
           {/* Collapsible Recent Activity */}
@@ -238,7 +249,8 @@ export default function HabitActivityScreen() {
 }
 
 /* ---------------- GitHub Heatmap ---------------- */
-function GitHubHeatmap({ activity }: { activity: ActivityItem[] }) {
+function GitHubHeatmap({ activity, range, colors }: { activity: ActivityItem[]; range: RangeOption; colors: AppColors }) {
+  const styles = makeStyles(colors);
   const statusMap = new Map(activity.map((a) => [a.date, a.habitStatus]));
 
   const today = new Date();
@@ -247,9 +259,9 @@ function GitHubHeatmap({ activity }: { activity: ActivityItem[] }) {
   // Get day of week for today (Monday = 0, Sunday = 6)
   const dayOfWeek = (today.getDay() + 6) % 7;
 
-  // Go back enough days to show all activity
-  // Add dayOfWeek to align to Monday
-  const totalDays = activity.length + dayOfWeek;
+  // Base the grid on the selected range so new habits with zero activity
+  // still render a correctly-sized heatmap instead of an almost-empty grid.
+  const totalDays = getRangeDays(range) + dayOfWeek;
 
   const startDate = new Date(today);
   startDate.setDate(today.getDate() - totalDays + 1);
@@ -366,6 +378,7 @@ function GitHubHeatmap({ activity }: { activity: ActivityItem[] }) {
                       { width: cellSize, height: cellSize, marginBottom: cellGap },
                       !isFuture && status === "COMPLETED" && styles.cellCompleted,
                       !isFuture && status === "MISSED" && styles.cellMissed,
+                      !isFuture && status === "PARTIALLY_COMPLETED" && styles.cellPartial,
                       isToday && styles.cellToday,
                       isFuture && { backgroundColor: "transparent" },
                     ]}
@@ -384,204 +397,210 @@ function GitHubHeatmap({ activity }: { activity: ActivityItem[] }) {
 function statusEmoji(status: string) {
   if (status === "COMPLETED") return "✅";
   if (status === "MISSED") return "❌";
+  if (status === "PARTIALLY_COMPLETED") return "🔶";
   return "⏳";
 }
 
 /* ---------------- Styles ---------------- */
-const styles = StyleSheet.create({
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingTop: 60,
-  },
-  loadingText: {
-    color: Colors.subtext,
-    fontSize: 15,
-  },
-  errorText: {
-    color: Colors.error,
-    fontSize: 15,
-  },
-  container: {
-    flex: 1,
-    padding: 20,
-    paddingLeft: 24,
-    backgroundColor: Colors.background,
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-    paddingTop: StatusBar.currentHeight ?? 20,
-  },
-  header: {
-    fontSize: 22,
-    fontWeight: "600",
-    color: Colors.text,
-  },
-  close: {
-    color: Colors.primary,
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#e5e7eb",
-    marginBottom: 16,
-  },
-  rangeStrip: {
-    marginBottom: 16,
-  },
-  rangeChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginRight: 8,
-    backgroundColor: Colors.card,
-  },
-  rangeChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  rangeChipText: {
-    fontSize: 13,
-    color: Colors.text,
-  },
-  rangeChipTextActive: {
-    color: Colors.white,
-    fontWeight: "600",
-  },
-  summaryCard: {
-    backgroundColor: Colors.card,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  summaryMain: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: Colors.text,
-  },
-  summarySub: {
-    marginTop: 6,
-    color: Colors.subtext,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 10,
-    color: Colors.text,
-  },
-  monthLabel: {
-    fontSize: 9,
-    color: Colors.subtext,
-    width: 28,
-  },
-  dayLabel: {
-    fontSize: 10,
-    color: Colors.subtext,
-  },
-  heatCell: {
-    borderRadius: 3,
-    backgroundColor: "#e5e7eb",
-  },
-  cellCompleted: {
-    backgroundColor: "#16a34a",
-  },
-  cellMissed: {
-    backgroundColor: "#dc2626",
-  },
-  cellToday: {
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-  },
-  legend: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 24,
-    marginTop: 8,
-  },
-  legendCell: {
-    width: 13,
-    height: 13,
-    borderRadius: 3,
-  },
-  legendLabel: {
-    fontSize: 11,
-    color: Colors.subtext,
-  },
-  recentHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  chevron: {
-    fontSize: 12,
-    color: Colors.subtext,
-  },
-  recentRow: {
-    backgroundColor: Colors.card,
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 8,
-    flexDirection: "column",
-  },
-  recentRowTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  noteText: {
-    fontSize: 13,
-    color: Colors.subtext,
-    marginTop: 6,
-    fontStyle: "italic",
-  },
-  dateText: {
-    fontSize: 14,
-    color: Colors.text,
-  },
-  statusText: {
-    fontWeight: "600",
-    color: Colors.text,
-  },
-  emptyText: {
-    color: Colors.subtext,
-    textAlign: "center",
-    marginTop: 20,
-  },
-  streakRow: {
-    flexDirection: "row",
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#e5e7eb",
-  },
-  streakItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  streakDivider: {
-    width: 1,
-    backgroundColor: "#e5e7eb",
-  },
-  streakValue: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: Colors.text,
-  },
-  streakLabel: {
-    fontSize: 12,
-    color: Colors.subtext,
-    marginTop: 4,
-  },
-  closeBtn: {
-    padding: 12,
-    borderRadius: 8,
-  },
-});
+const makeStyles = (c: AppColors) =>
+  StyleSheet.create({
+    centered: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingTop: 60,
+    },
+    loadingContainer: {
+      minHeight: 200,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    errorText: {
+      color: c.error,
+      fontSize: 15,
+    },
+    container: {
+      flex: 1,
+      padding: 20,
+      paddingLeft: 24,
+      backgroundColor: c.background,
+    },
+    headerRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 8,
+      paddingTop: StatusBar.currentHeight ?? 20,
+    },
+    header: {
+      fontSize: 22,
+      fontWeight: "600",
+      color: c.text,
+    },
+    close: {
+      color: c.primary,
+      fontSize: 16,
+      fontWeight: "500",
+    },
+    divider: {
+      height: 1,
+      backgroundColor: c.border,
+      marginBottom: 16,
+    },
+    rangeStrip: {
+      marginBottom: 16,
+    },
+    rangeChip: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: c.border,
+      marginRight: 8,
+      backgroundColor: c.card,
+    },
+    rangeChipActive: {
+      backgroundColor: c.primary,
+      borderColor: c.primary,
+    },
+    rangeChipText: {
+      fontSize: 13,
+      color: c.text,
+    },
+    rangeChipTextActive: {
+      color: c.white,
+      fontWeight: "600",
+    },
+    summaryCard: {
+      backgroundColor: c.card,
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 20,
+    },
+    summaryMain: {
+      fontSize: 24,
+      fontWeight: "700",
+      color: c.text,
+    },
+    summarySub: {
+      marginTop: 6,
+      color: c.subtext,
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: "600",
+      marginBottom: 10,
+      color: c.text,
+    },
+    monthLabel: {
+      fontSize: 9,
+      color: c.subtext,
+      width: 28,
+    },
+    dayLabel: {
+      fontSize: 10,
+      color: c.subtext,
+    },
+    heatCell: {
+      borderRadius: 3,
+      backgroundColor: c.border,
+    },
+    cellCompleted: {
+      backgroundColor: c.completed,
+    },
+    cellMissed: {
+      backgroundColor: c.missed,
+    },
+    cellPartial: {
+      backgroundColor: c.partial,
+    },
+    cellToday: {
+      borderWidth: 1.5,
+      borderColor: c.primary,
+    },
+    legend: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginBottom: 24,
+      marginTop: 8,
+    },
+    legendCell: {
+      width: 13,
+      height: 13,
+      borderRadius: 3,
+    },
+    legendLabel: {
+      fontSize: 11,
+      color: c.subtext,
+    },
+    recentHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 10,
+    },
+    chevron: {
+      fontSize: 12,
+      color: c.subtext,
+    },
+    recentRow: {
+      backgroundColor: c.card,
+      padding: 12,
+      borderRadius: 10,
+      marginBottom: 8,
+      flexDirection: "column",
+    },
+    recentRowTop: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    noteText: {
+      fontSize: 13,
+      color: c.subtext,
+      marginTop: 6,
+      fontStyle: "italic",
+    },
+    dateText: {
+      fontSize: 14,
+      color: c.text,
+    },
+    statusText: {
+      fontWeight: "600",
+      color: c.text,
+    },
+    emptyText: {
+      color: c.subtext,
+      textAlign: "center",
+      marginTop: 20,
+    },
+    streakRow: {
+      flexDirection: "row",
+      marginTop: 16,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: c.border,
+    },
+    streakItem: {
+      flex: 1,
+      alignItems: "center",
+    },
+    streakDivider: {
+      width: 1,
+      backgroundColor: c.border,
+    },
+    streakValue: {
+      fontSize: 20,
+      fontWeight: "700",
+      color: c.text,
+    },
+    streakLabel: {
+      fontSize: 12,
+      color: c.subtext,
+      marginTop: 4,
+    },
+    closeBtn: {
+      padding: 12,
+      borderRadius: 8,
+    },
+  });

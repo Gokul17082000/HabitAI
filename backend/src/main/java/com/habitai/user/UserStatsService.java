@@ -6,6 +6,8 @@ import com.habitai.common.security.CurrentUser;
 import com.habitai.exception.UserNotFoundException;
 import com.habitai.habit.HabitScheduleService;
 import com.habitai.habit.Habit;
+import com.habitai.habit.HabitPauseHistory;
+import com.habitai.habit.HabitPauseHistoryRepository;
 import com.habitai.habit.HabitRepository;
 import com.habitai.habitlog.HabitLog;
 import com.habitai.habitlog.HabitLogRepository;
@@ -29,6 +31,7 @@ public class UserStatsService {
     private final HabitScheduleService habitScheduleService;
     private final AiService aiService;
     private final StreakFreezeUsageRepository streakFreezeUsageRepository;
+    private final HabitPauseHistoryRepository habitPauseHistoryRepository;
 
     public UserStatsService(HabitRepository habitRepository,
                             HabitLogRepository habitLogRepository,
@@ -36,7 +39,8 @@ public class UserStatsService {
                             UserRepository userRepository,
                             HabitScheduleService habitScheduleService,
                             @Lazy AiService aiService,
-                            StreakFreezeUsageRepository streakFreezeUsageRepository) {
+                            StreakFreezeUsageRepository streakFreezeUsageRepository,
+                            HabitPauseHistoryRepository habitPauseHistoryRepository) {
         this.habitRepository = habitRepository;
         this.habitLogRepository = habitLogRepository;
         this.currentUser = currentUser;
@@ -44,6 +48,7 @@ public class UserStatsService {
         this.habitScheduleService = habitScheduleService;
         this.aiService = aiService;
         this.streakFreezeUsageRepository = streakFreezeUsageRepository;
+        this.habitPauseHistoryRepository = habitPauseHistoryRepository;
     }
 
     @Transactional(readOnly = true)
@@ -191,7 +196,10 @@ public class UserStatsService {
         LocalDate today = LocalDate.now(zone);
         LocalDate yearStart = today.minusDays(364);
 
-        List<Habit> habits = habitRepository.findByUserId(userId);
+        List<Habit> habits = habitRepository.findByUserId(userId)
+                .stream()
+                .filter(h -> !h.isArchived())
+                .toList();
         if (habits.isEmpty()) return Map.of();
 
         List<HabitLog> logs = habitLogRepository
@@ -200,18 +208,23 @@ public class UserStatsService {
         Map<LocalDate, List<HabitLog>> logsByDate = logs.stream()
                 .collect(Collectors.groupingBy(HabitLog::getDate));
 
+        // Bulk-load all pause records for these habits upfront so the day loop
+        // below never hits the DB per habit per day (was O(habits × 365) queries).
+        Set<Long> habitIds = habits.stream().map(Habit::getId).collect(Collectors.toSet());
+        Map<Long, List<HabitPauseHistory>> pausesByHabitId = habitPauseHistoryRepository
+                .findByHabitIdIn(habitIds)
+                .stream()
+                .collect(Collectors.groupingBy(HabitPauseHistory::getHabitId));
+
         Map<String, String> result = new HashMap<>();
         LocalDate cursor = yearStart;
 
         while (!cursor.isAfter(today)) {
             final LocalDate date = cursor;
 
-            // FIX: use isHabitPausedOnDate instead of h.isPaused() so the pixel
-            // for a given date reflects whether the habit was paused *on that date*,
-            // not just whether it is paused right now. Consistent with getMonthSummary.
             boolean anyScheduled = habits.stream()
                     .anyMatch(h -> !date.isBefore(h.getCreatedAt())
-                            && !habitScheduleService.isHabitPausedOnDate(h.getId(), date)
+                            && !isPausedOnDate(pausesByHabitId.getOrDefault(h.getId(), List.of()), date)
                             && habitScheduleService.isScheduledForDate(h, date));
 
             if (anyScheduled) {
@@ -264,8 +277,9 @@ public class UserStatsService {
                 .collect(Collectors.toMap(
                         row -> ((Number) row[0]).longValue(),
                         row -> new long[]{
-                                ((Number) row[1]).longValue(),
-                                ((Number) row[2]).longValue()
+                                ((Number) row[1]).longValue(), // completed
+                                ((Number) row[2]).longValue(), // missed
+                                ((Number) row[3]).longValue()  // partially_completed
                         }
                 ));
 
@@ -275,10 +289,11 @@ public class UserStatsService {
         List<WeeklyReviewResponse.HabitWeekStat> habitStatsList = new ArrayList<>();
 
         for (Habit habit : habits) {
-            long[] stats = statsByHabit.getOrDefault(habit.getId(), new long[]{0, 0});
+            long[] stats = statsByHabit.getOrDefault(habit.getId(), new long[]{0, 0, 0});
             long completed = stats[0];
-            long missed = stats[1];
-            long total = completed + missed;
+            long missed    = stats[1];
+            long partial   = stats[2];
+            long total = completed + missed + partial;
             totalCompleted += completed;
             totalScheduled += total;
 
@@ -301,5 +316,10 @@ public class UserStatsService {
                 : "No activity this week yet. Start logging your habits!";
 
         return new WeeklyReviewResponse(weekStart, today, overallPct, habitStatsList, insight);
+    }
+
+    private boolean isPausedOnDate(List<HabitPauseHistory> pauses, LocalDate date) {
+        return pauses.stream()
+                .anyMatch(p -> !date.isBefore(p.getPausedFrom()) && !date.isAfter(p.getPausedUntil()));
     }
 }

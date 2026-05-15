@@ -14,4 +14,7 @@ public interface HabitPauseHistoryRepository extends JpaRepository<HabitPauseHis
     void deleteByHabitId(Long habitId);
 
     Optional<HabitPauseHistory> findTopByHabitIdOrderByPausedFromDesc(Long habitId);
+
+    /** Bulk-loads all pause records for a set of habit IDs — used to avoid N+1 in year-pixels. */
+    List<HabitPauseHistory> findByHabitIdIn(java.util.Collection<Long> habitIds);
 }

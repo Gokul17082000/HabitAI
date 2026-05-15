@@ -76,9 +76,10 @@ public class HabitStatusScheduler {
         // We collect the distinct (date, userId) combos needed after timezone resolution.
         // For simplicity, load logs for all potentially relevant dates (yesterday UTC
         // through tomorrow UTC covers any user timezone).
+        // ±2 days covers UTC+14 and UTC-12 — all possible user timezones
         LocalDate utcToday = LocalDate.now(ZoneId.of("UTC"));
         Set<String> alreadyLoggedKeys = habitLogRepository
-                .findByDateBetween(utcToday.minusDays(1), utcToday.plusDays(1))
+                .findByDateBetween(utcToday.minusDays(2), utcToday.plusDays(2))
                 .stream()
                 .map(log -> log.getHabitId() + ":" + log.getUserId() + ":" + log.getDate())
                 .collect(Collectors.toSet());
@@ -93,8 +94,9 @@ public class HabitStatusScheduler {
             LocalDate today = LocalDate.now(zone);
             LocalTime now = LocalTime.now(zone);
 
-            // Only mark missed if the habit's target time has already passed today
-            if (!now.isAfter(habit.getTargetTime())) continue;
+            // Only mark missed if the habit's target time has already passed today.
+            // Guard null — habits with no targetTime are treated as not overdue.
+            if (habit.getTargetTime() == null || !now.isAfter(habit.getTargetTime())) continue;
 
             // Only mark missed if scheduled for today in the user's calendar
             if (!habitScheduleService.isScheduledForDate(habit, today)) continue;

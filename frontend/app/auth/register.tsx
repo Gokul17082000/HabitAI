@@ -5,9 +5,13 @@ import FormInput from "../../components/FormInput";
 import PrimaryButton from "../../components/PrimaryButton";
 import { registerApi } from "../../services/authService";
 import { isValidEmail, isStrongPassword } from "../../utils/validation";
-import { Colors } from "../../constants/colors";
+import { useTheme } from "../../context/ThemeContext";
+import { AppColors } from "../../constants/colors";
 
 export default function RegisterScreen() {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -119,52 +123,55 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 20,
-    backgroundColor: Colors.background,
-  },
-  branding: {
-    alignItems: "center",
-    marginBottom: 30,
-  },
-  appTitle: {
-    fontSize: 32,
-    fontWeight: "bold",
-  },
-  subtitle: {
-    fontSize: 15,
-    color: Colors.subtext,
-    marginTop: 6,
-  },
-  card: {
-    backgroundColor: Colors.card,
-    padding: 20,
-    borderRadius: 12,
-  },
-  screenTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  passwordHint: {
-    fontSize: 12,
-    color: Colors.subtext,
-    marginBottom: 8,
-  },
-  link: {
-    marginTop: 20,
-    textAlign: "center",
-    color: Colors.primary,
-    fontWeight: "500",
-  },
-  apiError: {
-    color: Colors.error,
-    textAlign: "center",
-    marginBottom: 12,
-    fontSize: 14,
-  },
-});
+const makeStyles = (c: AppColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: "center",
+      padding: 20,
+      backgroundColor: c.background,
+    },
+    branding: {
+      alignItems: "center",
+      marginBottom: 30,
+    },
+    appTitle: {
+      fontSize: 32,
+      fontWeight: "bold",
+      color: c.primary,
+    },
+    subtitle: {
+      fontSize: 15,
+      color: c.subtext,
+      marginTop: 6,
+    },
+    card: {
+      backgroundColor: c.card,
+      padding: 20,
+      borderRadius: 12,
+    },
+    screenTitle: {
+      fontSize: 20,
+      fontWeight: "600",
+      textAlign: "center",
+      marginBottom: 16,
+      color: c.text,
+    },
+    passwordHint: {
+      fontSize: 12,
+      color: c.subtext,
+      marginBottom: 8,
+    },
+    link: {
+      marginTop: 20,
+      textAlign: "center",
+      color: c.primary,
+      fontWeight: "500",
+    },
+    apiError: {
+      color: c.error,
+      textAlign: "center",
+      marginBottom: 12,
+      fontSize: 14,
+    },
+  });

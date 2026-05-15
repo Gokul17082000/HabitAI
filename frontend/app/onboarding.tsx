@@ -5,11 +5,13 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  StatusBar,
 } from "react-native";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { setOnboardingComplete } from "../utils/onboardingStorage";
-import { Colors } from "../constants/colors";
-import { StatusBar } from "react-native";
+import { useTheme } from "../context/ThemeContext";
+import { AppColors } from "../constants/colors";
 
 
 const SLIDES = [
@@ -34,6 +36,9 @@ const SLIDES = [
 ];
 
 export default function OnboardingScreen() {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const styles = makeStyles(colors, insets.bottom);
   const [currentSlide, setCurrentSlide] = useState(0);
 
   const handleNext = async () => {
@@ -97,13 +102,13 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: AppColors, bottomInset: number) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
-    paddingTop: StatusBar.currentHeight ?? 40,
+    backgroundColor: c.background,
+    paddingTop: StatusBar.currentHeight ?? 20,
     paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingBottom: Math.max(40, bottomInset + 24),
     justifyContent: "space-between",
   },
   skipBtn: {
@@ -111,7 +116,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   skipText: {
-    color: Colors.subtext,
+    color: c.subtext,
     fontSize: 15,
     fontWeight: "500",
   },
@@ -128,13 +133,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: Colors.text,
+    color: c.text,
     textAlign: "center",
     marginBottom: 16,
   },
   subtitle: {
     fontSize: 16,
-    color: Colors.subtext,
+    color: c.subtext,
     textAlign: "center",
     lineHeight: 24,
   },
@@ -148,22 +153,22 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.border,
+    backgroundColor: c.border,
   },
   dotActive: {
     width: 24,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.primary,
+    backgroundColor: c.primary,
   },
   nextBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: c.primary,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
   },
   nextText: {
-    color: Colors.white,
+    color: c.white,
     fontSize: 16,
     fontWeight: "600",
   },

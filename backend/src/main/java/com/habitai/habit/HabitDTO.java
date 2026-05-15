@@ -19,5 +19,7 @@ public record HabitDTO(
         int targetCount,
         boolean paused,
         LocalDate pausedUntil,
-        boolean archived
+        boolean archived,
+        boolean notificationsEnabled,
+        int sortOrder
 ) {}

@@ -1,5 +1,7 @@
-import { Pressable, StyleSheet, Text } from "react-native";
-import { Colors } from "../constants/colors";
+import { useRef } from "react";
+import { Pressable, StyleSheet, Text, Animated } from "react-native";
+import { useTheme } from "../context/ThemeContext";
+import { AppColors } from "../constants/colors";
 
 interface PrimaryButtonProps {
   title: string;
@@ -14,34 +16,59 @@ export default function PrimaryButton({
   disabled = false,
   onPress,
 }: PrimaryButtonProps) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const onPressIn = () =>
+    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 60, bounciness: 0 }).start();
+
+  const onPressOut = () =>
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 60, bounciness: 6 }).start();
+
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.button,
-        pressed && { opacity: 0.7 },
-        (loading || disabled) && { opacity: 0.6 },
-      ]}
-      disabled={loading || disabled}
-      onPress={onPress}
-    >
-      <Text style={styles.text}>
-        {loading ? "Please wait..." : title}
-      </Text>
-    </Pressable>
+    <Animated.View style={[styles.wrapper, { transform: [{ scale }] }, (loading || disabled) && styles.wrapperDisabled]}>
+      <Pressable
+        style={styles.button}
+        disabled={loading || disabled}
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+      >
+        <Text style={styles.text}>
+          {loading ? "Please wait..." : title}
+        </Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: "center",
-    marginTop: 10,
-  },
-  text: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-});
+const makeStyles = (c: AppColors) =>
+  StyleSheet.create({
+    wrapper: {
+      marginTop: 10,
+      borderRadius: 12,
+      shadowColor: c.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.28,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    wrapperDisabled: {
+      opacity: 0.6,
+      shadowOpacity: 0,
+      elevation: 0,
+    },
+    button: {
+      backgroundColor: c.primary,
+      paddingVertical: 15,
+      borderRadius: 12,
+      alignItems: "center",
+    },
+    text: {
+      color: c.white,
+      fontSize: 16,
+      fontWeight: "600",
+      letterSpacing: 0.2,
+    },
+  });

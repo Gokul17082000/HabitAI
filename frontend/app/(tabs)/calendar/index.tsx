@@ -1,18 +1,19 @@
 import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView, StatusBar } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView, StatusBar, ActivityIndicator } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { getHabitsForDateApi, getMonthSummaryApi } from "../../../services/habitService";
 import { HabitResponse, HabitStatus } from "../../../types/habit";
 import { formatDate, formatTime } from "../../../utils/formatters";
-import { Colors } from "../../../constants/colors";
+import { useTheme } from "../../../context/ThemeContext";
+import { AppColors } from "../../../constants/colors";
 import { UnauthorizedError } from "../../../utils/apiHandler";
 
-const STATUS_CONFIG: Record<HabitStatus, { color: string; emoji: string; label: string }> = {
-  COMPLETED: { color: "#16a34a", emoji: "✅", label: "COMPLETED" },
-  MISSED: { color: "#dc2626", emoji: "❌", label: "MISSED" },
-  PENDING: { color: "#f59e0b", emoji: "⏳", label: "PENDING" },
-  PARTIALLY_COMPLETED: { color: "#f97316", emoji: "🔶", label: "PARTIAL" },
-};
+const makeStatusConfig = (c: AppColors): Record<HabitStatus, { color: string; emoji: string; label: string }> => ({
+  COMPLETED: { color: c.completed, emoji: "✅", label: "COMPLETED" },
+  MISSED: { color: c.missed, emoji: "❌", label: "MISSED" },
+  PENDING: { color: c.pending, emoji: "⏳", label: "PENDING" },
+  PARTIALLY_COMPLETED: { color: c.partial, emoji: "🔶", label: "PARTIAL" },
+});
 
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -28,6 +29,7 @@ function getFirstDayOfMonth(year: number, month: number): number {
 
 /* ---------------- Screen ---------------- */
 export default function CalendarScreen() {
+  const { colors } = useTheme();
   const todayDate = new Date();
   const today = formatDate(todayDate);
 
@@ -44,11 +46,18 @@ export default function CalendarScreen() {
   const isToday = selectedDate === today;
 
   /* ---------------- Refresh on focus ---------------- */
+  // Month overview only re-fetches when the visible month changes, not on day tap
+  useFocusEffect(
+    useCallback(() => {
+      loadMonthOverview();
+    }, [currentYear, currentMonth])
+  );
+
+  // Day habits re-fetch whenever the selected date changes or screen gains focus
   useFocusEffect(
     useCallback(() => {
       loadHabitsForDate(selectedDate);
-      loadMonthOverview();
-    }, [selectedDate, currentYear, currentMonth])
+    }, [selectedDate])
   );
 
   const loadHabitsForDate = async (date: string) => {
@@ -65,12 +74,15 @@ export default function CalendarScreen() {
     }
   };
 
+  const KNOWN_STATUSES = new Set<string>(["COMPLETED", "MISSED", "PENDING", "PARTIALLY_COMPLETED"]);
+
   const loadMonthOverview = async () => {
     try {
       const data = await getMonthSummaryApi(currentYear, currentMonth + 1);
       const newMap = new Map<string, HabitStatus[]>();
       Object.entries(data).forEach(([date, statuses]) => {
-        newMap.set(date, statuses as HabitStatus[]);
+        const safe = (statuses as string[]).filter((s) => KNOWN_STATUSES.has(s)) as HabitStatus[];
+        newMap.set(date, safe);
       });
       setMonthStatusMap(newMap);
     } catch (e) {
@@ -123,16 +135,20 @@ export default function CalendarScreen() {
   });
 
   /* ---------------- Get dot color for a day ---------------- */
+  const STATUS_CONFIG = makeStatusConfig(colors);
+
   const getDotColor = (dateStr: string): string | null => {
     const statuses = monthStatusMap.get(dateStr);
     if (!statuses || statuses.length === 0) return null;
-    if (statuses.every((s) => s === "COMPLETED")) return "#16a34a";
-    if (statuses.some((s) => s === "COMPLETED")) return "#f97316";
-    if (statuses.some((s) => s === "MISSED")) return "#dc2626";
-    return "#f59e0b";
+    if (statuses.every((s) => s === "COMPLETED")) return colors.completed;
+    if (statuses.some((s) => s === "COMPLETED")) return colors.partial;
+    if (statuses.some((s) => s === "MISSED")) return colors.missed;
+    return colors.pending;
   };
 
   /* ---------------- Render ---------------- */
+  const styles = makeStyles(colors);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -182,10 +198,7 @@ export default function CalendarScreen() {
                       isSelected && styles.selectedCell,
                       isTodayCell && !isSelected && styles.todayCell,
                     ]}
-                    onPress={() => {
-                      setSelectedDate(dateStr);
-                      loadHabitsForDate(dateStr);
-                    }}
+                    onPress={() => setSelectedDate(dateStr)}
                   >
                     <Text
                       style={[
@@ -219,25 +232,29 @@ export default function CalendarScreen() {
             })}
           </Text>
           {isFuture && (
-            <View style={[styles.badge, { backgroundColor: "#eff6ff" }]}>
-              <Text style={[styles.badgeText, { color: "#3b82f6" }]}>🔒 Future</Text>
+            <View style={styles.badgeFuture}>
+              <Text style={styles.badgeFutureText}>🔒 Future</Text>
             </View>
           )}
           {isPast && (
-            <View style={[styles.badge, { backgroundColor: "#fef3c7" }]}>
-              <Text style={[styles.badgeText, { color: "#d97706" }]}>📅 Past</Text>
+            <View style={styles.badgePast}>
+              <Text style={styles.badgePastText}>📅 Past</Text>
             </View>
           )}
           {isToday && (
-            <View style={[styles.badge, { backgroundColor: "#f0fdf4" }]}>
-              <Text style={[styles.badgeText, { color: "#16a34a" }]}>Today</Text>
+            <View style={styles.badgeToday}>
+              <Text style={styles.badgeTodayText}>Today</Text>
             </View>
           )}
         </View>
 
         {/* Habits for selected date */}
         {loading ? (
-          <Text style={styles.loadingText}>Loading habits...</Text>
+          <ActivityIndicator
+            color={colors.primary}
+            size="small"
+            style={{ marginTop: 24 }}
+          />
         ) : error ? (
           <Text style={styles.errorText}>{error}</Text>
         ) : habits.length === 0 ? (
@@ -282,10 +299,10 @@ export default function CalendarScreen() {
         {/* Legend */}
         <View style={styles.legend}>
           {[
-            { color: "#16a34a", label: "All completed" },
-            { color: "#f97316", label: "Partial" },
-            { color: "#dc2626", label: "Missed" },
-            { color: "#f59e0b", label: "Pending" },
+            { color: colors.completed, label: "All completed" },
+            { color: colors.partial, label: "Partial" },
+            { color: colors.missed, label: "Missed" },
+            { color: colors.pending, label: "Pending" },
           ].map((item) => (
             <View key={item.label} style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: item.color }]} />
@@ -299,230 +316,223 @@ export default function CalendarScreen() {
 }
 
 /* ---------------- Styles ---------------- */
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    paddingTop: StatusBar.currentHeight ?? 12,
-  },
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  header: {
-    fontSize: 22,
-    fontWeight: "600",
-    marginBottom: 8,
-    color: Colors.text,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#e5e7eb",
-    marginBottom: 16,
-  },
-  monthNav: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  navBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.card,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  navBtnText: {
-    fontSize: 22,
-    color: Colors.text,
-    fontWeight: "600",
-  },
-  monthTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: Colors.text,
-  },
-  weekRow: {
-    flexDirection: "row",
-    marginBottom: 8,
-  },
-  weekDay: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: 12,
-    fontWeight: "600",
-    color: Colors.subtext,
-    paddingVertical: 4,
-  },
-  grid: {
-    marginBottom: 16,
-  },
-  row: {
-    flexDirection: "row",
-  },
-  cell: {
-    flex: 1,
-    height: 52,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 2,
-  },
-  selectedCell: {
-    backgroundColor: Colors.primary,
-    borderRadius: 8,
-  },
-  todayCell: {
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-    borderRadius: 8,
-  },
-  cellText: {
-    fontSize: 14,
-    color: Colors.text,
-    fontWeight: "400",
-  },
-  selectedCellText: {
-    color: Colors.white,
-    fontWeight: "600",
-  },
-  todayCellText: {
-    color: Colors.primary,
-    fontWeight: "600",
-  },
-  dot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    marginTop: 2,
-  },
-  selectedDateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  selectedDateLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.text,
-    flex: 1,
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  loadingText: {
-    color: Colors.subtext,
-    textAlign: "center",
-    marginTop: 20,
-  },
-  errorText: {
-    color: Colors.error,
-    textAlign: "center",
-    marginTop: 20,
-  },
-  emptyState: {
-    marginTop: 30,
-    alignItems: "center",
-  },
-  emptyIcon: {
-    fontSize: 42,
-    marginBottom: 10,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 4,
-    color: Colors.text,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: Colors.subtext,
-    textAlign: "center",
-    maxWidth: 260,
-  },
-  card: {
-    backgroundColor: Colors.card,
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderLeftWidth: 4,
-  },
-  futureCard: {
-    opacity: 0.7,
-  },
-  cardLeft: {
-    flex: 1,
-    marginRight: 12,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: Colors.text,
-    marginBottom: 6,
-  },
-  cardMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  cardCategory: {
-    fontSize: 12,
-    color: Colors.subtext,
-  },
-  cardDot: {
-    fontSize: 12,
-    color: Colors.subtext,
-  },
-  cardTime: {
-    fontSize: 12,
-    color: Colors.primary,
-  },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 4,
-  },
-  statusEmoji: {
-    fontSize: 12,
-  },
-  statusLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  legend: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    marginTop: 20,
-    marginBottom: 30,
-    justifyContent: "center",
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendLabel: {
-    fontSize: 11,
-    color: Colors.subtext,
-  },
-});
+const makeStyles = (c: AppColors) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: c.background,
+      paddingTop: StatusBar.currentHeight ?? 12,
+    },
+    container: {
+      flex: 1,
+      padding: 20,
+    },
+    header: {
+      fontSize: 22,
+      fontWeight: "600",
+      marginBottom: 8,
+      color: c.text,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: c.border,
+      marginBottom: 16,
+    },
+    monthNav: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 16,
+    },
+    navBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: c.card,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    navBtnText: {
+      fontSize: 22,
+      color: c.text,
+      fontWeight: "600",
+    },
+    monthTitle: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: c.text,
+    },
+    weekRow: {
+      flexDirection: "row",
+      marginBottom: 8,
+    },
+    weekDay: {
+      flex: 1,
+      textAlign: "center",
+      fontSize: 12,
+      fontWeight: "600",
+      color: c.subtext,
+      paddingVertical: 4,
+    },
+    grid: {
+      marginBottom: 16,
+    },
+    row: {
+      flexDirection: "row",
+    },
+    cell: {
+      flex: 1,
+      height: 52,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 2,
+    },
+    selectedCell: {
+      backgroundColor: c.primary,
+      borderRadius: 8,
+    },
+    todayCell: {
+      borderWidth: 1.5,
+      borderColor: c.primary,
+      borderRadius: 8,
+    },
+    cellText: {
+      fontSize: 14,
+      color: c.text,
+      fontWeight: "400",
+    },
+    selectedCellText: {
+      color: c.white,
+      fontWeight: "600",
+    },
+    todayCellText: {
+      color: c.primary,
+      fontWeight: "600",
+    },
+    dot: {
+      width: 5,
+      height: 5,
+      borderRadius: 3,
+      marginTop: 2,
+    },
+    selectedDateRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 12,
+    },
+    selectedDateLabel: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: c.text,
+      flex: 1,
+    },
+    badgeFuture:     { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: c.primaryLight },
+    badgeFutureText: { fontSize: 12, fontWeight: "500", color: c.primary },
+    badgePast:       { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: c.streakLight },
+    badgePastText:   { fontSize: 12, fontWeight: "500", color: c.pending },
+    badgeToday:      { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: c.completedLight },
+    badgeTodayText:  { fontSize: 12, fontWeight: "500", color: c.completed },
+    errorText: {
+      color: c.error,
+      textAlign: "center",
+      marginTop: 20,
+    },
+    emptyState: {
+      marginTop: 30,
+      alignItems: "center",
+    },
+    emptyIcon: {
+      fontSize: 42,
+      marginBottom: 10,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: "600",
+      marginBottom: 4,
+      color: c.text,
+    },
+    emptySubtitle: {
+      fontSize: 14,
+      color: c.subtext,
+      textAlign: "center",
+      maxWidth: 260,
+    },
+    card: {
+      backgroundColor: c.card,
+      padding: 14,
+      borderRadius: 12,
+      marginBottom: 10,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      borderLeftWidth: 4,
+    },
+    futureCard: {
+      opacity: 0.7,
+    },
+    cardLeft: {
+      flex: 1,
+      marginRight: 12,
+    },
+    cardTitle: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: c.text,
+      marginBottom: 6,
+    },
+    cardMeta: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    cardCategory: {
+      fontSize: 12,
+      color: c.subtext,
+    },
+    cardDot: {
+      fontSize: 12,
+      color: c.subtext,
+    },
+    cardTime: {
+      fontSize: 12,
+      color: c.primary,
+    },
+    statusBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 20,
+      gap: 4,
+    },
+    statusEmoji: {
+      fontSize: 12,
+    },
+    statusLabel: {
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    legend: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 12,
+      marginTop: 20,
+      marginBottom: 30,
+      justifyContent: "center",
+    },
+    legendItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    legendDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    legendLabel: {
+      fontSize: 11,
+      color: c.subtext,
+    },
+  });

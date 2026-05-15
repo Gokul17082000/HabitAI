@@ -1,5 +1,6 @@
 package com.habitai.scheduler;
 
+import com.habitai.auth.RefreshTokenRepository;
 import com.habitai.common.AppConstants;
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitRepository;
@@ -13,7 +14,9 @@ import com.habitai.user.User;
 import com.habitai.user.UserRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -31,19 +34,22 @@ public class SchedulerService {
     private final UserRepository userRepository;
     private final HabitScheduleService habitScheduleService;
     private final StreakFreezeService streakFreezeService;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     public SchedulerService(HabitRepository habitRepository,
                             HabitLogRepository habitLogRepository,
                             UserRepository userRepository,
                             NotificationService notificationService,
                             HabitScheduleService habitScheduleService,
-                            StreakFreezeService streakFreezeService) {
+                            StreakFreezeService streakFreezeService,
+                            RefreshTokenRepository refreshTokenRepository) {
         this.habitRepository = habitRepository;
         this.habitLogRepository = habitLogRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.habitScheduleService = habitScheduleService;
         this.streakFreezeService = streakFreezeService;
+        this.refreshTokenRepository = refreshTokenRepository;
     }
 
     /**
@@ -112,14 +118,22 @@ public class SchedulerService {
         }
     }
 
+    // Runs nightly at 00:30 IST — purges expired refresh tokens to prevent unbounded table growth
+    @Transactional
+    @Scheduled(cron = "0 30 0 * * *", zone = "Asia/Kolkata")
+    public void purgeExpiredRefreshTokens() {
+        refreshTokenRepository.deleteExpiredTokens(Instant.now());
+    }
+
     /**
      * Runs at midnight IST daily. Auto-resumes habits whose pause window has expired.
      * NOTE: intentionally IST-anchored — pause durations are in whole days and the
      * resume fires once per day. Document this if the app ever becomes multi-region.
      */
+    @Transactional
     @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Kolkata")
     public void autoResumeHabits() {
-        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
         List<Habit> toResume = habitRepository.findByPausedTrueAndPausedUntilLessThanEqual(today);
         toResume.forEach(habit -> {
             habit.setPaused(false);
@@ -128,9 +142,10 @@ public class SchedulerService {
         habitRepository.saveAll(toResume);
     }
 
+    @Transactional
     @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Kolkata")
     public void awardStreakFreezes() {
-        LocalDate today = LocalDate.now(AppConstants.APP_ZONE);
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
         LocalDate sevenDaysAgo = today.minusDays(6);
 
         // Find users who completed at least one habit every day for 7 days
@@ -148,7 +163,7 @@ public class SchedulerService {
             }
 
             if (sevenDayStreak) {
-                streakFreezeService.awardFreezeIfEarned(user.getId());
+                streakFreezeService.awardFreezeIfEarned(user.getId(), today);
             }
         }
     }

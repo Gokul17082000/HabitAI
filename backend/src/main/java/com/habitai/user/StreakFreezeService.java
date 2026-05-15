@@ -80,12 +80,19 @@ public class StreakFreezeService {
      * Awards 1 freeze up to the MAX_FREEZES cap.
      */
     @Transactional
-    public void awardFreezeIfEarned(long userId) {
+    public void awardFreezeIfEarned(long userId, java.time.LocalDate today) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
+        // Only award once per 7-day window — prevents daily re-award for sustained streaks
+        if (user.getLastFreezeAwardedAt() != null
+                && !today.isAfter(user.getLastFreezeAwardedAt().plusDays(6))) {
+            return;
+        }
+
         if (user.getStreakFreezes() < MAX_FREEZES) {
             user.setStreakFreezes(user.getStreakFreezes() + 1);
+            user.setLastFreezeAwardedAt(today);
             userRepository.save(user);
         }
     }
