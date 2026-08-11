@@ -31,6 +31,10 @@ public interface HabitLogRepository extends JpaRepository<HabitLog, Long> {
     /** Used by the MISSED scheduler to pre-load logs across a date window (covers all timezones). */
     List<HabitLog> findByDateBetween(LocalDate startDate, LocalDate endDate);
 
+    /** Scoped variant used by the scheduler — only loads logs for the users whose habits are being evaluated. */
+    List<HabitLog> findByUserIdInAndDateBetween(java.util.Collection<Long> userIds,
+                                                LocalDate startDate, LocalDate endDate);
+
     @Transactional
     void deleteByHabitIdAndUserId(Long habitId, Long userId);
 
@@ -104,4 +108,11 @@ public interface HabitLogRepository extends JpaRepository<HabitLog, Long> {
 
     @Query("SELECT COUNT(DISTINCT l.date) FROM HabitLog l WHERE l.userId = :userId AND l.status = :status")
     long countDistinctDatesByUserIdAndStatus(@Param("userId") Long userId, @Param("status") HabitStatus status);
+
+    /** Bulk-loads (userId, date) pairs for all COMPLETED logs in a date range.
+     *  Used by the streak-freeze scheduler to avoid an N+1 per-user query. */
+    @Query("SELECT l.userId, l.date FROM HabitLog l " +
+            "WHERE l.status = 'COMPLETED' AND l.date BETWEEN :start AND :end")
+    List<Object[]> findCompletedUserDatesInRange(@Param("start") LocalDate start,
+                                                  @Param("end") LocalDate end);
 }

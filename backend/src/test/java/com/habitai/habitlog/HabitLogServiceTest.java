@@ -14,9 +14,11 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -37,6 +39,9 @@ class HabitLogServiceTest {
     @Mock
     private HabitScheduleService habitScheduleService;
 
+    @Mock
+    private com.habitai.user.StreakFreezeUsageRepository streakFreezeUsageRepository;
+
     @InjectMocks
     private HabitLogService habitLogService;
 
@@ -48,7 +53,9 @@ class HabitLogServiceTest {
     void setUp() {
         today = LocalDate.now();
         when(currentUser.getId()).thenReturn(USER_ID);
+        when(currentUser.getZone()).thenReturn(ZoneId.of("UTC"));
         when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class))).thenReturn(true);
+        when(streakFreezeUsageRepository.findUsedOnByUserId(USER_ID)).thenReturn(Set.of());
     }
 
     // updateTodayHabitStatus Tests
@@ -94,6 +101,30 @@ class HabitLogServiceTest {
         verify(habitLogRepository).save(argThat(log ->
                 log.getStatus() == HabitStatus.MISSED
         ));
+    }
+
+    @Test
+    void testUpdateTodayCountableHabitMissedPreservesNote() {
+        // A countable habit auto-marked MISSED (count 0) with a "why did you skip" note
+        // must persist the MISSED log and its note — not be deleted as an un-log.
+        Habit countableHabit = new Habit();
+        countableHabit.setId(HABIT_ID);
+        countableHabit.setCountable(true);
+        countableHabit.setTargetCount(5);
+        when(habitAccessValidator.getAndValidate(HABIT_ID)).thenReturn(countableHabit);
+        when(habitLogRepository.findByHabitIdAndUserIdAndDate(HABIT_ID, USER_ID, today))
+                .thenReturn(Optional.empty());
+
+        HabitLogRequest request = new HabitLogRequest(today, HabitStatus.MISSED, 0, "Was too tired");
+
+        habitLogService.updateTodayHabitStatus(HABIT_ID, request);
+
+        verify(habitLogRepository).save(argThat(log ->
+                log.getStatus() == HabitStatus.MISSED
+                        && log.getCurrentCount() == 0
+                        && "Was too tired".equals(log.getNote())
+        ));
+        verify(habitLogRepository, never()).delete(any());
     }
 
     @Test

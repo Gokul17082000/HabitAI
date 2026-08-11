@@ -33,6 +33,12 @@ class HabitLogControllerTest {
     @MockitoBean
     private HabitLogService habitLogService;
 
+    @MockitoBean
+    private com.habitai.security.JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private com.habitai.security.RateLimitFilter rateLimitFilter;
+
     private ObjectMapper objectMapper;
     private LocalDate today;
 

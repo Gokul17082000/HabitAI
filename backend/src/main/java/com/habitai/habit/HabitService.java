@@ -15,6 +15,7 @@ import com.habitai.common.AppConstants;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -66,12 +67,21 @@ public class HabitService {
         LocalTime now = LocalTime.now(zone);
         LocalDate today = LocalDate.now(zone);
 
-        List<Habit> habits = habitRepository.findByUserId(userId)
+        List<Habit> allHabits = habitRepository.findByUserId(userId);
+
+        // Bulk-load pause history so we can evaluate historical pause state per date,
+        // not just the live isPaused() flag. Mirrors the same pattern in getMonthSummary.
+        Set<Long> habitIds = allHabits.stream().map(Habit::getId).collect(Collectors.toSet());
+        Map<Long, List<HabitPauseHistory>> pausesByHabitId = habitPauseHistoryRepository
+                .findByHabitIdIn(habitIds)
                 .stream()
-                .filter(habit -> !habit.isPaused())
+                .collect(Collectors.groupingBy(HabitPauseHistory::getHabitId));
+
+        List<Habit> habits = allHabits.stream()
                 .filter(habit -> !habit.isArchived())
                 .filter(habit -> isScheduledForDate(habit, date))
                 .filter(habit -> !date.isBefore(habit.getCreatedAt()))
+                .filter(habit -> !isPausedOnDate(pausesByHabitId.getOrDefault(habit.getId(), List.of()), date))
                 .toList();
 
         Map<Long, HabitLog> logMap = habitLogRepository
@@ -277,6 +287,15 @@ public class HabitService {
 
         List<Habit> habits = habitRepository.findByUserId(userId);
 
+        // Bulk-load pause history for all habits upfront — avoids O(habits × days) DB
+        // queries from calling isHabitPausedOnDate (a DB existsBy) inside the day loop.
+        // Same pattern already used in UserStatsService.getYearPixels.
+        Set<Long> habitIds = habits.stream().map(Habit::getId).collect(Collectors.toSet());
+        Map<Long, List<HabitPauseHistory>> pausesByHabitId = habitPauseHistoryRepository
+                .findByHabitIdIn(habitIds)
+                .stream()
+                .collect(Collectors.groupingBy(HabitPauseHistory::getHabitId));
+
         Map<String, List<String>> result = new HashMap<>();
 
         LocalDate current = startDate;
@@ -288,12 +307,7 @@ public class HabitService {
             List<Habit> scheduledHabits = habits.stream()
                     .filter(h -> isScheduledForDate(h, date))
                     .filter(h -> !date.isBefore(h.getCreatedAt()))
-                    // SUGGESTION FIX: exclude habits that were paused on this specific date.
-                    // Previously, all paused habits were included and shown as MISSED for
-                    // the entire month, inflating missed counts for paused periods.
-                    // A habit is considered paused on a date if paused=true AND
-                    // pausedUntil is on or after that date (meaning the pause was active).
-                    .filter(h -> !isHabitPausedOnDate(h, date))
+                    .filter(h -> !isPausedOnDate(pausesByHabitId.getOrDefault(h.getId(), List.of()), date))
                     .toList();
 
             if (!scheduledHabits.isEmpty()) {
@@ -319,12 +333,9 @@ public class HabitService {
         return result;
     }
 
-    /**
-     * Delegates to HabitScheduleService — moved there so UserStatsService can
-     * share the same logic without duplicating it.
-     */
-    private boolean isHabitPausedOnDate(Habit habit, LocalDate date) {
-        return habitScheduleService.isHabitPausedOnDate(habit.getId(), date);
+    private boolean isPausedOnDate(List<HabitPauseHistory> pauses, LocalDate date) {
+        return pauses.stream()
+                .anyMatch(p -> !date.isBefore(p.getPausedFrom()) && !date.isAfter(p.getPausedUntil()));
     }
 
     @Transactional
@@ -337,11 +348,20 @@ public class HabitService {
         habit.setPausedUntil(until);
         habitRepository.save(habit);
 
-        HabitPauseHistory habitPauseHistory = new HabitPauseHistory();
-        habitPauseHistory.setHabitId(habitId);
-        habitPauseHistory.setPausedFrom(today);
-        habitPauseHistory.setPausedUntil(until);
+        // If already paused, extend the existing record rather than inserting a new one.
+        // A second insert would leave an orphan row that resumeHabit() (which only clears
+        // the most recent row) cannot clean up, permanently hiding the habit from summaries.
+        HabitPauseHistory habitPauseHistory = habitPauseHistoryRepository
+                .findTopByHabitIdOrderByPausedFromDesc(habitId)
+                .filter(h -> !h.getPausedFrom().isAfter(today) && !h.getPausedUntil().isBefore(today))
+                .orElseGet(() -> {
+                    HabitPauseHistory newHistory = new HabitPauseHistory();
+                    newHistory.setHabitId(habitId);
+                    newHistory.setPausedFrom(today);
+                    return newHistory;
+                });
 
+        habitPauseHistory.setPausedUntil(until);
         habitPauseHistoryRepository.save(habitPauseHistory);
     }
 

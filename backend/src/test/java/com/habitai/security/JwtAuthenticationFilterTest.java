@@ -2,6 +2,8 @@ package com.habitai.security;
 
 import com.habitai.auth.JwtService;
 import com.habitai.common.security.UserPrincipal;
+import com.habitai.user.User;
+import com.habitai.user.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,6 +22,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,6 +35,9 @@ class JwtAuthenticationFilterTest {
 
     @Mock
     private JwtService jwtService;
+
+    @Mock
+    private UserRepository userRepository;
 
     @Mock
     private HttpServletRequest request;
@@ -48,6 +54,10 @@ class JwtAuthenticationFilterTest {
     @BeforeEach
     void setUp() {
         SecurityContextHolder.clearContext();
+
+        User mockUser = new User();
+        mockUser.setTimezone("UTC");
+        when(userRepository.findById(any(Long.class))).thenReturn(Optional.of(mockUser));
     }
 
     // doFilterInternal - No Authorization Header Tests

@@ -19,6 +19,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -78,10 +79,10 @@ class UserStatsServiceTest {
                 .thenReturn(List.of(today, today.minusDays(1)));
         when(habitLogRepository.findDistinctLogDatesByUserId(eq(userId)))
                 .thenReturn(List.of(today.minusDays(1), today));
-        when(habitLogRepository.existsByUserIdAndDateAndStatus(eq(userId), eq(today), eq(HabitStatus.COMPLETED))).thenReturn(true);
-        when(habitLogRepository.existsByUserIdAndDateAndStatus(eq(userId), eq(today), eq(HabitStatus.MISSED))).thenReturn(false);
-        when(habitLogRepository.existsByUserIdAndDateAndStatus(eq(userId), eq(today.minusDays(1)), eq(HabitStatus.COMPLETED))).thenReturn(true);
-        when(habitLogRepository.existsByUserIdAndDateAndStatus(eq(userId), eq(today.minusDays(1)), eq(HabitStatus.MISSED))).thenReturn(false);
+        when(habitLogRepository.findDatesByUserIdAndStatus(eq(userId), eq(HabitStatus.COMPLETED)))
+                .thenReturn(Set.of(today, today.minusDays(1)));
+        when(habitLogRepository.findDatesByUserIdAndStatus(eq(userId), eq(HabitStatus.MISSED)))
+                .thenReturn(Set.of());
 
         when(habitLogRepository.findHabitCompletionStatsByUserId(eq(userId))).thenReturn(List.of(
                 new Object[]{10L, 1L, 2L},

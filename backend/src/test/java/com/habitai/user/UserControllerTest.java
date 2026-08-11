@@ -40,6 +40,15 @@ class UserControllerTest {
     @MockitoBean
     private UserStatsService userStatsService;
 
+    @MockitoBean
+    private StreakFreezeService streakFreezeService;
+
+    @MockitoBean
+    private com.habitai.security.JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @MockitoBean
+    private com.habitai.security.RateLimitFilter rateLimitFilter;
+
     @Test
     void getUserDetails_ReturnsUserDTO() throws Exception {
         when(userService.getUserDetails()).thenReturn(new UserDTO("user@example.com"));

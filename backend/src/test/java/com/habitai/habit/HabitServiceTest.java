@@ -1,5 +1,6 @@
 package com.habitai.habit;
 
+import com.habitai.common.AppConstants;
 import com.habitai.common.validation.HabitAccessValidator;
 import com.habitai.common.security.CurrentUser;
 import com.habitai.habitlog.HabitLog;
@@ -61,6 +62,7 @@ class HabitServiceTest {
         realScheduleService = new HabitScheduleService(habitPauseHistoryRepository);
 
         when(currentUser.getId()).thenReturn(userId);
+        when(currentUser.getZone()).thenReturn(AppConstants.APP_ZONE);
         when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
                 .thenAnswer(invocation -> realScheduleService.isScheduledForDate(
                         invocation.getArgument(0), invocation.getArgument(1)));
@@ -75,6 +77,7 @@ class HabitServiceTest {
                 null,
                 LocalTime.of(6, 0),
                 1,
+                false,
                 false
         );
 
@@ -88,6 +91,7 @@ class HabitServiceTest {
                 null,
                 LocalTime.of(18, 0),
                 1,
+                false,
                 false
         );
 
@@ -101,6 +105,7 @@ class HabitServiceTest {
                 Set.of(1, 15),
                 LocalTime.of(10, 0),
                 1,
+                false,
                 false
         );
 
@@ -167,6 +172,7 @@ class HabitServiceTest {
                 null,
                 LocalTime.of(18, 0),
                 1,
+                false,
                 false
         );
 
@@ -186,6 +192,7 @@ class HabitServiceTest {
                 null,
                 LocalTime.of(10, 0),
                 1,
+                false,
                 false
         );
 
@@ -205,6 +212,7 @@ class HabitServiceTest {
                 Set.of(32),
                 LocalTime.of(10, 0),
                 1,
+                false,
                 false
         );
 
@@ -269,6 +277,7 @@ class HabitServiceTest {
                 null,
                 LocalTime.of(7, 0),
                 1,
+                false,
                 false
         );
 
@@ -358,7 +367,7 @@ class HabitServiceTest {
         dailyHabit.setCategory(HabitCategory.FITNESS);
         dailyHabit.setFrequency(HabitFrequency.DAILY);
         dailyHabit.setTargetTime(LocalTime.of(6, 0));
-        dailyHabit.setCreatedAt(LocalDate.now().minusDays(10));
+        dailyHabit.setCreatedAt(date.minusDays(10));
 
         when(habitRepository.findByUserId(userId)).thenReturn(List.of(dailyHabit));
         when(habitLogRepository.findByUserIdAndDate(userId, date)).thenReturn(Collections.emptyList());
@@ -534,7 +543,7 @@ class HabitServiceTest {
         when(habitRepository.save(any(Habit.class))).thenReturn(dailyHabit);
 
         // Act
-        HabitDTO result = habitService.createHabit(new HabitRequest("Daily", "", HabitCategory.GENERAL, HabitFrequency.DAILY, Set.of(DayOfWeek.MONDAY), Set.of(1), LocalTime.of(6, 0), 1, false));
+        HabitDTO result = habitService.createHabit(new HabitRequest("Daily", "", HabitCategory.GENERAL, HabitFrequency.DAILY, Set.of(DayOfWeek.MONDAY), Set.of(1), LocalTime.of(6, 0), 1, false, false));
 
         // Assert
         assertNotNull(result);
@@ -556,7 +565,7 @@ class HabitServiceTest {
         when(habitRepository.save(any(Habit.class))).thenReturn(weeklyHabit);
 
         // Act
-        HabitDTO result = habitService.createHabit(new HabitRequest("Weekly", "", HabitCategory.GENERAL, HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY), null, LocalTime.of(6, 0), 1, false));
+        HabitDTO result = habitService.createHabit(new HabitRequest("Weekly", "", HabitCategory.GENERAL, HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY), null, LocalTime.of(6, 0), 1, false, false));
 
         // Assert
         assertNotNull(result);
@@ -578,7 +587,7 @@ class HabitServiceTest {
         when(habitRepository.save(any(Habit.class))).thenReturn(monthlyHabit);
 
         // Act
-        HabitDTO result = habitService.createHabit(new HabitRequest("Monthly", "", HabitCategory.GENERAL, HabitFrequency.MONTHLY, null, Set.of(1, 2), LocalTime.of(6, 0), 1, false));
+        HabitDTO result = habitService.createHabit(new HabitRequest("Monthly", "", HabitCategory.GENERAL, HabitFrequency.MONTHLY, null, Set.of(1, 2), LocalTime.of(6, 0), 1, false, false));
 
         // Assert
         assertNotNull(result);

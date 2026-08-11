@@ -11,10 +11,21 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HexFormat;
+import java.util.Optional;
 
 @Service
 public class AuthService {
+
+    // A valid BCrypt hash used only to perform a constant-time dummy comparison when the
+    // supplied email doesn't exist. Without this, an unknown email returns much faster than a
+    // known email with a wrong password, leaking account existence via a timing side-channel.
+    private static final String DUMMY_BCRYPT_HASH =
+            "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -45,9 +56,15 @@ public class AuthService {
             user.setPassword(passwordEncoder.encode(registerRequest.password()));
             userRepository.save(user);
         } catch (DataIntegrityViolationException ex) {
-            String message = ex.getMostSpecificCause().getMessage().toLowerCase();
-            if (message.contains("unique") || message.contains("duplicate")) {
-                throw new UserAlreadyExistException("User already exists!");
+            // Covers the concurrent-registration race that the findByEmail check above can't prevent.
+            // Hibernate translates PostgreSQL unique-constraint violations to DataIntegrityViolationException
+            // (not DuplicateKeyException, which is only thrown by Spring's JDBC template layer).
+            String cause = ex.getMostSpecificCause().getMessage();
+            if (cause != null) {
+                String lower = cause.toLowerCase();
+                if (lower.contains("unique") || lower.contains("duplicate") || lower.contains("uk_user_email")) {
+                    throw new UserAlreadyExistException("User already exists!");
+                }
             }
             throw new DatabaseException("A database error occurred. Please try again.");
         }
@@ -59,11 +76,18 @@ public class AuthService {
         // Normalise to lowercase — matches how email is stored at registration
         String email = loginRequest.email().trim().toLowerCase();
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User Not Found!"));
+        // Return an identical error for both "unknown email" and "wrong password" so an attacker
+        // cannot enumerate which emails are registered. When the email is unknown we still run a
+        // password comparison against a dummy hash to keep the response time constant.
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            passwordEncoder.matches(loginRequest.password(), DUMMY_BCRYPT_HASH);
+            throw new PasswordDoesNotMatchException("Invalid email or password.");
+        }
 
+        User user = userOpt.get();
         if (!passwordEncoder.matches(loginRequest.password(), user.getPassword())) {
-            throw new PasswordDoesNotMatchException("Invalid credentials!");
+            throw new PasswordDoesNotMatchException("Invalid email or password.");
         }
 
         // Invalidate any existing refresh tokens for this user on new login
@@ -84,7 +108,7 @@ public class AuthService {
             throw new IllegalStateException("Invalid or expired refresh token.");
         }
 
-        RefreshToken stored = refreshTokenRepository.findByToken(incomingToken)
+        RefreshToken stored = refreshTokenRepository.findByToken(hashToken(incomingToken))
                 .orElseThrow(() -> new IllegalStateException("Refresh token not recognised."));
 
         if (stored.isUsed()) {
@@ -119,6 +143,20 @@ public class AuthService {
 
     private void persistRefreshToken(String rawToken, Long userId) {
         Instant expiresAt = Instant.now().plusMillis(jwtService.getRefreshExpiration());
-        refreshTokenRepository.save(new RefreshToken(rawToken, userId, expiresAt));
+        // Store only the SHA-256 hash — a leaked DB dump then contains no usable tokens.
+        // The raw token lives only on the client. Tokens are high-entropy JWTs, so an
+        // unsalted cryptographic hash is sufficient (no offline guessing is feasible).
+        refreshTokenRepository.save(new RefreshToken(hashToken(rawToken), userId, expiresAt));
+    }
+
+    private static String hashToken(String rawToken) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(rawToken.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            // SHA-256 is guaranteed present on every JVM — this can never happen.
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
+        }
     }
 }

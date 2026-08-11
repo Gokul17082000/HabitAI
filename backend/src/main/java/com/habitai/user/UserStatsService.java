@@ -100,18 +100,29 @@ public class UserStatsService {
 
         LocalDate today = LocalDate.now(zone);
 
-        // FIX: load both sets in bulk — 2 queries total instead of 2 queries per date (N+1)
         Set<LocalDate> completedDates = habitLogRepository.findDatesByUserIdAndStatus(userId, HabitStatus.COMPLETED);
         Set<LocalDate> missedDates    = habitLogRepository.findDatesByUserIdAndStatus(userId, HabitStatus.MISSED);
-
         Set<LocalDate> frozenDates = streakFreezeUsageRepository.findUsedOnByUserId(userId);
 
-        LocalDate cursor = today;
+        // If today has no log yet (day still in progress), start counting from yesterday
+        // so the loop doesn't immediately break when it sees yesterday as the first log date.
+        // Mirrors the same handling in HabitLogService.getCurrentStreak.
+        LocalDate cursor = allLogDates.get(0).equals(today) ? today : today.minusDays(1);
         int streak = 0;
 
         for (LocalDate date : allLogDates) {
-            if (!date.equals(cursor) && !date.equals(cursor.minusDays(1))) break;
+            // Advance cursor past any frozen days that have no log entry (won't appear
+            // in allLogDates). Without this, a frozen no-log day would break the loop
+            // because date would be two days behind cursor.
+            while (cursor.isAfter(date) && frozenDates.contains(cursor)) {
+                cursor = cursor.minusDays(1);
+            }
 
+            if (!date.equals(cursor)) break;
+
+            // A streak day requires a completion and no miss — consistent with
+            // calculateLongestStreak. A day with a miss breaks the streak even if
+            // another habit was completed that day.
             boolean hasCompleted = completedDates.contains(date);
             boolean hasMissed    = missedDates.contains(date);
 
@@ -122,7 +133,7 @@ public class UserStatsService {
                 // Today is still in progress — don't break, just skip it
                 cursor = date.minusDays(1);
             } else if (frozenDates.contains(date)) {
-                // frozen date — skip without breaking streak
+                // frozen date with a log entry — skip without breaking streak
                 cursor = date.minusDays(1);
             } else {
                 break;
@@ -143,18 +154,34 @@ public class UserStatsService {
 
         int longest = 0;
         int current = 0;
+        LocalDate prevDate = null;
 
         for (LocalDate date : allLogDates) {
+            if (prevDate != null) {
+                // Check every day between prevDate and date. Any gap day that is not
+                // in frozenDates represents a genuine break in the streak.
+                LocalDate expected = prevDate.plusDays(1);
+                while (expected.isBefore(date)) {
+                    if (!frozenDates.contains(expected)) {
+                        current = 0;
+                        break;
+                    }
+                    expected = expected.plusDays(1);
+                }
+            }
+
             boolean hasCompleted = completedDates.contains(date);
             boolean hasMissed    = missedDates.contains(date);
 
-            if (hasCompleted && !hasMissed
-                    || frozenDates.contains(date)) {
+            if (hasCompleted && !hasMissed) {
                 current++;
                 longest = Math.max(longest, current);
+            } else if (frozenDates.contains(date)) {
+                // frozen day: preserve streak without counting it toward the length
             } else {
                 current = 0;
             }
+            prevDate = date;
         }
         return longest;
     }
@@ -258,7 +285,8 @@ public class UserStatsService {
         return result;
     }
 
-    @Transactional(readOnly = true)
+    // Not @Transactional — the AI call (up to 15 s) must not hold a DB connection.
+    // Each repo call below uses its own short-lived connection via Spring's default behaviour.
     public WeeklyReviewResponse getWeeklyReview() {
         long userId = currentUser.getId();
         ZoneId zone = currentUser.getZone();

@@ -2,54 +2,68 @@ package com.habitai.habit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.habitai.common.security.CurrentUser;
 import com.habitai.exception.GlobalExceptionHandler;
 import com.habitai.habitlog.HabitStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.*;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(HabitController.class)
-@AutoConfigureMockMvc(addFilters = false)
-@Import(GlobalExceptionHandler.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class HabitControllerTest {
 
-    @Autowired
     private MockMvc mockMvc;
 
-    private ObjectMapper objectMapper;
-
-    @MockitoBean
+    @Mock
     private HabitService habitService;
+
+    @Mock
+    private CurrentUser currentUser;
+
+    @InjectMocks
+    private HabitController habitController;
+
+    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
+        mockMvc = MockMvcBuilders.standaloneSetup(habitController)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .setValidator(new org.springframework.validation.beanvalidation.LocalValidatorFactoryBean())
+                .build();
+        when(currentUser.getZone()).thenReturn(ZoneId.of("UTC"));
     }
 
     @Test
     void getAllHabits_ShouldReturnListOfHabits() throws Exception {
         // Arrange
         List<HabitDTO> habits = List.of(
-                new HabitDTO(1L, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null, false),
-                new HabitDTO(2L, "Gym", "Workout", HabitCategory.FITNESS, HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY), null, LocalTime.of(18, 0), LocalDate.now(), false, 1, false, null, false)
+                new HabitDTO(1L, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null, false, false, 0),
+                new HabitDTO(2L, "Gym", "Workout", HabitCategory.FITNESS, HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY), null, LocalTime.of(18, 0), LocalDate.now(), false, 1, false, null, false, false, 0)
         );
         when(habitService.getAllHabits()).thenReturn(habits);
 
@@ -109,7 +123,7 @@ class HabitControllerTest {
     void getHabitById_WithValidId_ShouldReturnHabit() throws Exception {
         // Arrange
         long habitId = 1L;
-        HabitDTO habit = new HabitDTO(habitId, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null, false);
+        HabitDTO habit = new HabitDTO(habitId, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null, false, false, 0);
         when(habitService.getHabitById(habitId)).thenReturn(habit);
 
         // Act & Assert
@@ -132,9 +146,10 @@ class HabitControllerTest {
                 null,
                 LocalTime.of(6, 0),
                 1,
+                false,
                 false
         );
-        HabitDTO response = new HabitDTO(1L, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null, false);
+        HabitDTO response = new HabitDTO(1L, "Morning Run", "30 min run", HabitCategory.FITNESS, HabitFrequency.DAILY, null, null, LocalTime.of(6, 0), LocalDate.now(), false, 1, false, null, false, false, 0);
         when(habitService.createHabit(any(HabitRequest.class))).thenReturn(response);
 
         // Act & Assert
@@ -158,9 +173,10 @@ class HabitControllerTest {
                 null,
                 LocalTime.of(18, 0),
                 1,
+                false,
                 false
         );
-        HabitDTO response = new HabitDTO(2L, "Gym Day", "Workout", HabitCategory.FITNESS, HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), null, LocalTime.of(18, 0), LocalDate.now(), false, 1, false, null, false);
+        HabitDTO response = new HabitDTO(2L, "Gym Day", "Workout", HabitCategory.FITNESS, HabitFrequency.WEEKLY, Set.of(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), null, LocalTime.of(18, 0), LocalDate.now(), false, 1, false, null, false, false, 0);
         when(habitService.createHabit(any(HabitRequest.class))).thenReturn(response);
 
         // Act & Assert
@@ -182,7 +198,8 @@ class HabitControllerTest {
                     "frequency": "DAILY",
                     "targetTime": "06:00:00",
                     "targetCount": 1,
-                    "isCountable": false
+                    "isCountable": false,
+                    "notificationsEnabled": false
                 }
                 """;
 
@@ -203,7 +220,8 @@ class HabitControllerTest {
                     "frequency": "DAILY",
                     "targetTime": "06:00:00",
                     "targetCount": 1,
-                    "isCountable": false
+                    "isCountable": false,
+                    "notificationsEnabled": false
                 }
                 """;
 
@@ -224,7 +242,8 @@ class HabitControllerTest {
                     "category": "FITNESS",
                     "targetTime": "06:00:00",
                     "targetCount": 1,
-                    "isCountable": false
+                    "isCountable": false,
+                    "notificationsEnabled": false
                 }
                 """;
 
@@ -248,6 +267,7 @@ class HabitControllerTest {
                 null,
                 LocalTime.of(7, 0),
                 1,
+                false,
                 false
         );
         doNothing().when(habitService).updateHabit(eq(habitId), any(HabitRequest.class));
@@ -271,7 +291,8 @@ class HabitControllerTest {
                     "frequency": "DAILY",
                     "targetTime": "06:00:00",
                     "targetCount": 1,
-                    "isCountable": false
+                    "isCountable": false,
+                    "notificationsEnabled": false
                 }
                 """;
 

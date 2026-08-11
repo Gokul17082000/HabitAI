@@ -6,10 +6,14 @@ import com.habitai.habit.Habit;
 import com.habitai.habit.HabitScheduleService;
 import com.habitai.user.StreakFreezeService;
 import com.habitai.user.StreakFreezeUsageRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +28,12 @@ public class HabitLogService {
     private final CurrentUser currentUser;
     private final HabitScheduleService habitScheduleService;
     private final StreakFreezeUsageRepository streakFreezeUsageRepository;
+
+    // Self-reference through the Spring proxy so @Transactional(REQUIRES_NEW) on
+    // retryAfterConcurrentInsert actually starts a new transaction (self-calls bypass the proxy).
+    @Autowired
+    @Lazy
+    private HabitLogService self;
 
     public HabitLogService(HabitLogRepository habitLogRepository,
                            HabitAccessValidator habitAccessValidator,
@@ -58,15 +68,44 @@ public class HabitLogService {
         try {
             saveHabitLog(habit, habitId, userId, today, habitLogRequest, existing);
         } catch (DataIntegrityViolationException e) {
-            // Concurrent request already inserted a row — re-fetch and update it
-            Optional<HabitLog> concurrent = habitLogRepository
-                    .findByHabitIdAndUserIdAndDate(habitId, userId, today);
-            saveHabitLog(habit, habitId, userId, today, habitLogRequest, concurrent);
+            // Concurrent request already inserted a row — delegate to self through the
+            // Spring proxy so REQUIRES_NEW actually suspends this transaction and opens a
+            // fresh one. A direct this.retry(...) call bypasses the proxy and inherits the
+            // current (now rollback-only) transaction, silently discarding the save.
+            self.retryAfterConcurrentInsert(habit, habitId, userId, today, habitLogRequest);
         }
+    }
+
+    @org.springframework.transaction.annotation.Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void retryAfterConcurrentInsert(Habit habit, long habitId, long userId,
+                                           LocalDate today, HabitLogRequest habitLogRequest) {
+        Optional<HabitLog> concurrent = habitLogRepository
+                .findByHabitIdAndUserIdAndDate(habitId, userId, today);
+        saveHabitLog(habit, habitId, userId, today, habitLogRequest, concurrent);
     }
 
     private void saveHabitLog(Habit habit, long habitId, long userId, LocalDate today,
                               HabitLogRequest habitLogRequest, Optional<HabitLog> existing) {
+        // --- MISSED (carries an explanatory note) ---
+        // MISSED is sent when the user attaches a "why did you skip" note. It arrives with
+        // count 0 for both binary and countable habits. Persist it explicitly here — otherwise
+        // the countable branch below treats count <= 0 as an un-log and deletes the row,
+        // silently discarding the note the user just wrote (and falsely reporting success).
+        if (habitLogRequest.habitStatus() == HabitStatus.MISSED) {
+            HabitLog habitLog = existing.orElseGet(() -> {
+                HabitLog newLog = new HabitLog();
+                newLog.setHabitId(habitId);
+                newLog.setUserId(userId);
+                newLog.setDate(today);
+                return newLog;
+            });
+            habitLog.setStatus(HabitStatus.MISSED);
+            habitLog.setCurrentCount(0);
+            habitLog.setNote(habitLogRequest.note());
+            habitLogRepository.save(habitLog);
+            return;
+        }
+
         // --- Binary habit (yes/no) ---
         if (!habit.isCountable()) {
             if (habitLogRequest.habitStatus() == HabitStatus.PENDING) {
@@ -193,10 +232,11 @@ public class HabitLogService {
         int longest = 0;
         int current = 0;
         for (LocalDate day : scheduledDays) {
-            if (completedDates.contains(day)
-                    || frozenDates.contains(day)) {
+            if (completedDates.contains(day)) {
                 current++;
                 longest = Math.max(longest, current);
+            } else if (frozenDates.contains(day)) {
+                // frozen day: preserve streak without counting it toward the length
             } else {
                 current = 0;
             }
@@ -219,6 +259,7 @@ public class HabitLogService {
 
         List<HabitActivityStatus> habitActivityStatusList = new ArrayList<>();
         LocalDate today = LocalDate.now(zone);
+        LocalTime nowTime = LocalTime.now(zone);
         LocalDate currentDate = effectiveStart;
         LocalDate effectiveEndDate = endDate.isAfter(today) ? today : endDate;
 
@@ -229,12 +270,26 @@ public class HabitLogService {
                 continue;
             }
 
+            // Skip logs whose dates fall before currentDate — these belong to dates
+            // that are no longer scheduled (e.g. after a DAILY→WEEKLY frequency change).
+            // Without this, i gets stuck on the stale log and every subsequent
+            // scheduled date would appear as MISSED even if it has a valid log.
+            while (i < habitLogs.size() && habitLogs.get(i).getDate().isBefore(currentDate)) {
+                i++;
+            }
+
             HabitActivityStatus habitActivityStatus;
             if (i < habitLogs.size() && habitLogs.get(i).getDate().isEqual(currentDate)) {
                 habitActivityStatus = new HabitActivityStatus(currentDate, habitLogs.get(i).getStatus(), habitLogs.get(i).getNote());
                 i++;
             } else if (currentDate.isEqual(today)) {
-                habitActivityStatus = new HabitActivityStatus(currentDate, HabitStatus.PENDING, null);
+                // Mirror HabitService.getDefaultStatus: if targetTime has already passed,
+                // show MISSED rather than PENDING so both endpoints agree.
+                LocalTime target = habit.getTargetTime();
+                HabitStatus todayStatus = (target == null || nowTime.isBefore(target))
+                        ? HabitStatus.PENDING
+                        : HabitStatus.MISSED;
+                habitActivityStatus = new HabitActivityStatus(currentDate, todayStatus, null);
             } else {
                 habitActivityStatus = new HabitActivityStatus(currentDate, HabitStatus.MISSED, null);
             }

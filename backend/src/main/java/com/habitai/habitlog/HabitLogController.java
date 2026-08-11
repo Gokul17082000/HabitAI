@@ -2,11 +2,14 @@ package com.habitai.habitlog;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
+@Validated
 @RestController
 @RequestMapping("/habits")
 public class HabitLogController {
@@ -40,6 +43,9 @@ public class HabitLogController {
             @RequestParam LocalDate endDate) {
         if (startDate.isAfter(endDate)) {
             throw new IllegalArgumentException("startDate must not be after endDate");
+        }
+        if (ChronoUnit.DAYS.between(startDate, endDate) > 365) {
+            throw new IllegalArgumentException("Date range must not exceed 366 days");
         }
         return habitLogService.getHabitActivity(habitId, startDate, endDate);
     }

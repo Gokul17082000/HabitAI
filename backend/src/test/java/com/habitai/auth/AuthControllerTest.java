@@ -1,38 +1,55 @@
 package com.habitai.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.habitai.common.security.CurrentUser;
 import com.habitai.exception.GlobalExceptionHandler;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(AuthController.class)
-@AutoConfigureMockMvc(addFilters = false) // Disables Spring Security filters for this isolated unit test
-@Import(GlobalExceptionHandler.class)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class AuthControllerTest {
 
-    @Autowired
     private MockMvc mockMvc;
+
+    @Mock
+    private AuthService authService;
+
+    @Mock
+    private CurrentUser currentUser;
+
+    @InjectMocks
+    private AuthController authController;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @MockitoBean
-    private AuthService authService;
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.standaloneSetup(authController)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .setValidator(new org.springframework.validation.beanvalidation.LocalValidatorFactoryBean())
+                .build();
+    }
 
     @Test
     void register_WithValidRequest_ShouldReturnCreated() throws Exception {
-        RegisterRequest validRequest = new RegisterRequest("test@habitai.com", "password123");
+        RegisterRequest validRequest = new RegisterRequest("test@habitai.com", "Password1!");
         RegisterResponse mockResponse = new RegisterResponse("User Successfully created!");
         
         when(authService.register(any(RegisterRequest.class))).thenReturn(mockResponse);

@@ -1,6 +1,5 @@
 package com.habitai.auth;
 
-import com.habitai.exception.DatabaseException;
 import com.habitai.exception.PasswordDoesNotMatchException;
 import com.habitai.exception.UserAlreadyExistException;
 import com.habitai.exception.UserNotFoundException;
@@ -93,16 +92,18 @@ class AuthServiceTest {
     }
     
     @Test
-    void register_WhenDatabaseThrowsOtherViolation_ShouldThrowDatabaseException() {
+    void register_WhenDatabaseThrowsConcurrentDuplicate_ShouldThrowUserAlreadyExistException() {
         when(userRepository.findByEmail(authRequest.email())).thenReturn(Optional.empty());
         when(passwordEncoder.encode(authRequest.password())).thenReturn("encodedPassword");
-        
+
+        // Simulates the concurrent-registration race: two requests pass the findByEmail
+        // check simultaneously, then both hit save() — the second one gets a unique violation.
         DataIntegrityViolationException dbException = new DataIntegrityViolationException(
-                "Error", new Throwable("some other db error constraint"));
-        
+                "Error", new Throwable("duplicate key value violates unique constraint"));
+
         when(userRepository.save(any(User.class))).thenThrow(dbException);
-        
-        assertThrows(DatabaseException.class, () -> authService.register(authRequest));
+
+        assertThrows(UserAlreadyExistException.class, () -> authService.register(authRequest));
     }
 
     // --- TESTS FOR LOGIN ---
@@ -125,12 +126,15 @@ class AuthServiceTest {
     }
 
     @Test
-    void login_WhenUserNotFound_ShouldThrowUserNotFoundException() {
+    void login_WhenUserNotFound_ShouldThrowSameErrorAsWrongPassword() {
+        // An unknown email must fail identically to a wrong password so account
+        // existence cannot be enumerated. We still run a dummy password comparison
+        // to keep the response timing constant against the found-user path.
         when(userRepository.findByEmail(authRequest.email())).thenReturn(Optional.empty());
-        
-        assertThrows(UserNotFoundException.class, () -> authService.login(loginRequest));
-        
-        verify(passwordEncoder, never()).matches(anyString(), anyString());
+
+        assertThrows(PasswordDoesNotMatchException.class, () -> authService.login(loginRequest));
+
+        verify(passwordEncoder).matches(anyString(), anyString());
         verify(jwtService, never()).generateToken(any(User.class));
     }
 

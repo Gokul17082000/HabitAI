@@ -52,6 +52,10 @@ public class UserService {
             throw new PasswordDoesNotMatchException("Current password is incorrect");
         }
 
+        if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("New password must differ from the current password");
+        }
+
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
     }

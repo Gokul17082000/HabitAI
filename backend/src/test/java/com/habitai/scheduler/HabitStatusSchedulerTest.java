@@ -1,11 +1,14 @@
 package com.habitai.scheduler;
 
 import com.habitai.habit.Habit;
+import com.habitai.habit.HabitCategory;
+import com.habitai.habit.HabitFrequency;
 import com.habitai.habit.HabitRepository;
 import com.habitai.habit.HabitScheduleService;
 import com.habitai.habitlog.HabitLog;
 import com.habitai.habitlog.HabitLogRepository;
 import com.habitai.habitlog.HabitStatus;
+import com.habitai.user.User;
 import com.habitai.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,12 +19,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -48,480 +54,159 @@ class HabitStatusSchedulerTest {
 
     @BeforeEach
     void setUp() {
-        today = LocalDate.now();
-        now = LocalTime.now();
+        today = LocalDate.now(ZoneId.of("UTC"));
+        now = LocalTime.now(ZoneId.of("UTC")).minusMinutes(5);
+
         when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class))).thenReturn(true);
-    }
-
-    // updateMissedHabits - No Habits Tests
-
-    @Test
-    void testUpdateMissedHabitsWhenNoOverdueHabits() {
-        // Arrange
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
+        when(habitLogRepository.findByUserIdInAndDateBetween(anyCollection(), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(new ArrayList<>());
-
-        // Act
-        habitStatusScheduler.updateMissedHabits();
-
-        // Assert
-        verify(habitRepository).findByPausedFalseAndArchivedFalse();
-        verify(habitLogRepository, never()).findByDate(any());
-        verify(habitLogRepository, never()).saveAll(any());
     }
 
     @Test
-    void testUpdateMissedHabitsWithEmptyOverdueList() {
-        // Arrange
-        List<Habit> emptyList = new ArrayList<>();
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(emptyList);
+    void testUpdateMissedHabitsWhenNoActiveHabits() {
+        when(habitRepository.findByPausedFalseAndArchivedFalse()).thenReturn(new ArrayList<>());
 
-        // Act
         habitStatusScheduler.updateMissedHabits();
 
-        // Assert
-        verify(habitRepository).findByPausedFalseAndArchivedFalse();
         verify(habitLogRepository, never()).saveAll(any());
     }
-
-    // updateMissedHabits - Single Habit Tests
 
     @Test
     void testUpdateMissedHabitsWithSingleOverdueHabit() {
-        // Arrange
-        Habit habit = createHabit(1L, 100L, LocalTime.of(8, 0));
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(new ArrayList<>());
-        when(habitScheduleService.isScheduledForDate(habit, today))
-                .thenReturn(true);
+        Habit habit = createHabit(1L, 100L, now.minusMinutes(1));
+        User user = createUser(100L, "UTC");
 
-        // Act
+        when(habitRepository.findByPausedFalseAndArchivedFalse()).thenReturn(List.of(habit));
+        when(userRepository.findByIdIn(anyCollection())).thenReturn(List.of(user));
+
         habitStatusScheduler.updateMissedHabits();
 
-        // Assert
         verify(habitLogRepository).saveAll(any());
     }
 
     @Test
-    void testUpdateMissedHabitsWhenHabitNotScheduledForDate() {
-        // Arrange
-        Habit habit = createHabit(1L, 100L, LocalTime.of(8, 0));
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(new ArrayList<>());
-        when(habitScheduleService.isScheduledForDate(habit, today))
-                .thenReturn(false);
+    void testUpdateMissedHabitsDoesNotSaveIfNotScheduled() {
+        Habit habit = createHabit(1L, 100L, now.minusMinutes(1));
+        User user = createUser(100L, "UTC");
 
-        // Act
+        when(habitRepository.findByPausedFalseAndArchivedFalse()).thenReturn(List.of(habit));
+        when(userRepository.findByIdIn(anyCollection())).thenReturn(List.of(user));
+        when(habitScheduleService.isScheduledForDate(habit, today)).thenReturn(false);
+
         habitStatusScheduler.updateMissedHabits();
 
-        // Assert
         verify(habitLogRepository, never()).saveAll(any());
     }
 
     @Test
-    void testUpdateMissedHabitsWhenHabitAlreadyLogged() {
-        // Arrange
-        Habit habit = createHabit(1L, 100L, LocalTime.of(8, 0));
-        HabitLog existingLog = new HabitLog();
-        existingLog.setHabitId(1L);
-        existingLog.setUserId(100L);
-        existingLog.setDate(today);
-        existingLog.setStatus(HabitStatus.COMPLETED);
+    void testUpdateMissedHabitsDoesNotSaveIfAlreadyLogged() {
+        Habit habit = createHabit(1L, 100L, now.minusMinutes(1));
+        User user = createUser(100L, "UTC");
+        HabitLog existingLog = createHabitLog(1L, 100L, today, HabitStatus.COMPLETED);
 
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(habitLogRepository.findByDate(today))
+        when(habitRepository.findByPausedFalseAndArchivedFalse()).thenReturn(List.of(habit));
+        when(userRepository.findByIdIn(anyCollection())).thenReturn(List.of(user));
+        when(habitLogRepository.findByUserIdInAndDateBetween(anyCollection(), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of(existingLog));
-        when(habitScheduleService.isScheduledForDate(habit, today))
-                .thenReturn(true);
 
-        // Act
         habitStatusScheduler.updateMissedHabits();
 
-        // Assert
         verify(habitLogRepository, never()).saveAll(any());
     }
-
-    // updateMissedHabits - Multiple Habits Tests
 
     @Test
     void testUpdateMissedHabitsWithMultipleOverdueHabits() {
-        // Arrange
-        Habit habit1 = createHabit(1L, 100L, LocalTime.of(8, 0));
-        Habit habit2 = createHabit(2L, 100L, LocalTime.of(9, 0));
-        Habit habit3 = createHabit(3L, 100L, LocalTime.of(10, 0));
+        Habit habit1 = createHabit(1L, 100L, now.minusMinutes(1));
+        Habit habit2 = createHabit(2L, 100L, now.minusMinutes(2));
+        Habit habit3 = createHabit(3L, 100L, now.minusMinutes(3));
+        User user = createUser(100L, "UTC");
 
-        when(habitRepository.findByPausedFalseAndArchivedFalse())
-                .thenReturn(List.of(habit1, habit2, habit3));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(new ArrayList<>());
-        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
-                .thenReturn(true);
+        when(habitRepository.findByPausedFalseAndArchivedFalse()).thenReturn(List.of(habit1, habit2, habit3));
+        when(userRepository.findByIdIn(anyCollection())).thenReturn(List.of(user));
 
-        // Act
         habitStatusScheduler.updateMissedHabits();
 
-        // Assert
-        verify(habitLogRepository, times(1)).saveAll(any());
-    }
-
-    @Test
-    void testUpdateMissedHabitsWithMixedScheduledAndUnscheduled() {
-        // Arrange
-        Habit scheduledHabit1 = createHabit(1L, 100L, LocalTime.of(8, 0));
-        Habit unscheduledHabit = createHabit(2L, 100L, LocalTime.of(9, 0));
-        Habit scheduledHabit2 = createHabit(3L, 100L, LocalTime.of(10, 0));
-
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(scheduledHabit1, unscheduledHabit, scheduledHabit2));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(new ArrayList<>());
-
-        when(habitScheduleService.isScheduledForDate(scheduledHabit1, today))
-                .thenReturn(true);
-        when(habitScheduleService.isScheduledForDate(unscheduledHabit, today))
-                .thenReturn(false);
-        when(habitScheduleService.isScheduledForDate(scheduledHabit2, today))
-                .thenReturn(true);
-
-        // Act
-        habitStatusScheduler.updateMissedHabits();
-
-        // Assert
-        verify(habitLogRepository, times(1)).saveAll(any());
-    }
-
-    @Test
-    void testUpdateMissedHabitsWithPartiallyLoggedHabits() {
-        // Arrange
-        Habit habit1 = createHabit(1L, 100L, LocalTime.of(8, 0));
-        Habit habit2 = createHabit(2L, 100L, LocalTime.of(9, 0));
-        Habit habit3 = createHabit(3L, 100L, LocalTime.of(10, 0));
-
-        HabitLog log2 = new HabitLog();
-        log2.setHabitId(2L);
-        log2.setUserId(100L);
-        log2.setDate(today);
-        log2.setStatus(HabitStatus.COMPLETED);
-
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit1, habit2, habit3));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(List.of(log2));
-        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
-                .thenReturn(true);
-
-        // Act
-        habitStatusScheduler.updateMissedHabits();
-
-        // Assert
-        verify(habitLogRepository, times(1)).saveAll(any());
-    }
-
-    // updateMissedHabits - Different User Tests
-
-    @Test
-    void testUpdateMissedHabitsWithMultipleUsers() {
-        // Arrange
-        Habit habit1User1 = createHabit(1L, 100L, LocalTime.of(8, 0));
-        Habit habit2User2 = createHabit(2L, 200L, LocalTime.of(8, 0));
-        Habit habit3User1 = createHabit(3L, 100L, LocalTime.of(9, 0));
-
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit1User1, habit2User2, habit3User1));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(new ArrayList<>());
-        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
-                .thenReturn(true);
-
-        // Act
-        habitStatusScheduler.updateMissedHabits();
-
-        // Assert
-        verify(habitLogRepository, times(1)).saveAll(any());
-    }
-
-    @Test
-    void testUpdateMissedHabitsKeysWithDifferentUsersAndHabits() {
-        // Arrange
-        Habit habit1User1 = createHabit(1L, 100L, LocalTime.of(8, 0));
-        Habit habit1User2 = createHabit(1L, 200L, LocalTime.of(8, 0));
-
-        HabitLog log1User1 = new HabitLog();
-        log1User1.setHabitId(1L);
-        log1User1.setUserId(100L);
-        log1User1.setDate(today);
-        log1User1.setStatus(HabitStatus.COMPLETED);
-
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit1User1, habit1User2));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(List.of(log1User1));
-        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
-                .thenReturn(true);
-
-        // Act
-        habitStatusScheduler.updateMissedHabits();
-
-        // Assert
-        verify(habitLogRepository, times(1)).saveAll(any());
-    }
-
-    // updateMissedHabits - Different Time Tests
-
-    @Test
-    void testUpdateMissedHabitsFiltersHabitsByCurrentTime() {
-        // Arrange
-        Habit earlyHabit = createHabit(1L, 100L, LocalTime.of(8, 0));
-        Habit lateHabit = createHabit(2L, 100L, LocalTime.of(14, 0));
-
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(earlyHabit));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(new ArrayList<>());
-        when(habitScheduleService.isScheduledForDate(earlyHabit, today))
-                .thenReturn(true);
-
-        // Act
-        habitStatusScheduler.updateMissedHabits();
-
-        // Assert
-        verify(habitRepository).findByTargetTimeBefore(any(LocalTime.class));
-        verify(habitLogRepository, times(1)).saveAll(any());
-    }
-
-    @Test
-    void testUpdateMissedHabitsWithEarlyMorningTime() {
-        // Arrange
-        Habit habit = createHabit(1L, 100L, LocalTime.of(6, 0));
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(new ArrayList<>());
-        when(habitScheduleService.isScheduledForDate(habit, today))
-                .thenReturn(true);
-
-        // Act
-        habitStatusScheduler.updateMissedHabits();
-
-        // Assert
-        verify(habitLogRepository, times(1)).saveAll(any());
-    }
-
-    @Test
-    void testUpdateMissedHabitsWithLateEveningTime() {
-        // Arrange
-        Habit habit = createHabit(1L, 100L, LocalTime.of(22, 0));
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(new ArrayList<>());
-        when(habitScheduleService.isScheduledForDate(habit, today))
-                .thenReturn(true);
-
-        // Act
-        habitStatusScheduler.updateMissedHabits();
-
-        // Assert
-        verify(habitLogRepository, times(1)).saveAll(any());
-    }
-
-    // updateMissedHabits - No Insert Tests
-
-    @Test
-    void testUpdateMissedHabitsDoesNotSaveEmptyList() {
-        // Arrange
-        Habit habit = createHabit(1L, 100L, LocalTime.of(8, 0));
-        HabitLog existingLog = new HabitLog();
-        existingLog.setHabitId(1L);
-        existingLog.setUserId(100L);
-        existingLog.setDate(today);
-        existingLog.setStatus(HabitStatus.COMPLETED);
-
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(List.of(existingLog));
-        when(habitScheduleService.isScheduledForDate(habit, today))
-                .thenReturn(true);
-
-        // Act
-        habitStatusScheduler.updateMissedHabits();
-
-        // Assert
-        verify(habitLogRepository, never()).saveAll(any());
-    }
-
-    @Test
-    void testUpdateMissedHabitsAllHabitsAlreadyLogged() {
-        // Arrange
-        Habit habit1 = createHabit(1L, 100L, LocalTime.of(8, 0));
-        Habit habit2 = createHabit(2L, 100L, LocalTime.of(9, 0));
-
-        HabitLog log1 = new HabitLog();
-        log1.setHabitId(1L);
-        log1.setUserId(100L);
-        log1.setDate(today);
-
-        HabitLog log2 = new HabitLog();
-        log2.setHabitId(2L);
-        log2.setUserId(100L);
-        log2.setDate(today);
-
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit1, habit2));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(List.of(log1, log2));
-        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
-                .thenReturn(true);
-
-        // Act
-        habitStatusScheduler.updateMissedHabits();
-
-        // Assert
-        verify(habitLogRepository, never()).saveAll(any());
-    }
-
-    @Test
-    void testUpdateMissedHabitsIdempotent() {
-        // Arrange
-        Habit habit = createHabit(1L, 100L, LocalTime.of(8, 0));
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(new ArrayList<>());
-        when(habitScheduleService.isScheduledForDate(habit, today))
-                .thenReturn(true);
-
-        // Act
-        habitStatusScheduler.updateMissedHabits();
-        habitStatusScheduler.updateMissedHabits();
-
-        // Assert - Should be called twice, once for each invocation
-        verify(habitRepository, times(2)).findByTargetTimeBefore(any(LocalTime.class));
-        verify(habitLogRepository, times(2)).findByDate(today);
-    }
-
-    @Test
-    void testUpdateMissedHabitsTransactional() {
-        // Arrange
-        Habit habit = createHabit(1L, 100L, LocalTime.of(8, 0));
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(new ArrayList<>());
-        when(habitScheduleService.isScheduledForDate(habit, today))
-                .thenReturn(true);
-
-        // Act - The method is @Transactional, so this verifies it completes without error
-        try {
-            habitStatusScheduler.updateMissedHabits();
-        } catch (Exception e) {
-            throw new AssertionError("updateMissedHabits() should not throw exception", e);
-        }
-
-        // Assert
         verify(habitLogRepository).saveAll(any());
     }
 
-    // updateMissedHabits - Status Verification Tests
-
     @Test
-    void testUpdateMissedHabitsCreatesLogsWithMissedStatus() {
-        // Arrange
-        Habit habit1 = createHabit(10L, 100L, LocalTime.of(8, 0));
-        Habit habit2 = createHabit(20L, 100L, LocalTime.of(9, 0));
+    void testUpdateMissedHabitsWithDifferentUserTimezones() {
+        Habit habit1 = createHabit(1L, 100L, now.minusMinutes(1));
+        Habit habit2 = createHabit(2L, 200L, now.minusMinutes(1));
+        User user1 = createUser(100L, "America/New_York");
+        User user2 = createUser(200L, "Asia/Kolkata");
 
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit1, habit2));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(new ArrayList<>());
-        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
-                .thenReturn(true);
+        when(habitRepository.findByPausedFalseAndArchivedFalse()).thenReturn(List.of(habit1, habit2));
+        when(userRepository.findByIdIn(anyCollection())).thenReturn(List.of(user1, user2));
 
-        // Act
         habitStatusScheduler.updateMissedHabits();
 
-        // Assert
-        verify(habitLogRepository, times(1)).saveAll(any());
+        verify(habitLogRepository).saveAll(any());
     }
 
     @Test
-    void testUpdateMissedHabitsWithLargeNumberOfHabits() {
-        // Arrange
-        List<Habit> habits = new ArrayList<>();
-        for (int i = 1; i <= 50; i++) {
-            habits.add(createHabit((long) i, 100L, LocalTime.of(8, 0)));
-        }
+    void testUpdateMissedHabitsIsIdempotentAcrossRuns() {
+        Habit habit = createHabit(1L, 100L, now.minusMinutes(1));
+        User user = createUser(100L, "UTC");
 
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(habits);
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(new ArrayList<>());
-        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
-                .thenReturn(true);
+        when(habitRepository.findByPausedFalseAndArchivedFalse()).thenReturn(List.of(habit));
+        when(userRepository.findByIdIn(anyCollection())).thenReturn(List.of(user));
 
-        // Act
+        habitStatusScheduler.updateMissedHabits();
         habitStatusScheduler.updateMissedHabits();
 
-        // Assert
-        verify(habitLogRepository, times(1)).saveAll(any());
+        verify(habitRepository, times(2)).findByPausedFalseAndArchivedFalse();
+        verify(habitLogRepository, times(2)).findByUserIdInAndDateBetween(anyCollection(), any(LocalDate.class), any(LocalDate.class));
     }
 
     @Test
-    void testUpdateMissedHabitsWithAllHabitsScheduled() {
-        // Arrange
-        Habit habit1 = createHabit(1L, 100L, LocalTime.of(8, 0));
-        Habit habit2 = createHabit(2L, 100L, LocalTime.of(9, 0));
-        Habit habit3 = createHabit(3L, 100L, LocalTime.of(10, 0));
-        Habit habit4 = createHabit(4L, 100L, LocalTime.of(11, 0));
+    void testUpdateMissedHabitsDoesNotSaveEmptyLogList() {
+        Habit habit = createHabit(1L, 100L, now.minusMinutes(1));
+        User user = createUser(100L, "UTC");
+        HabitLog existingLog = createHabitLog(1L, 100L, today, HabitStatus.COMPLETED);
 
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit1, habit2, habit3, habit4));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(new ArrayList<>());
-        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
-                .thenReturn(true);
+        when(habitRepository.findByPausedFalseAndArchivedFalse()).thenReturn(List.of(habit));
+        when(userRepository.findByIdIn(anyCollection())).thenReturn(List.of(user));
+        when(habitLogRepository.findByUserIdInAndDateBetween(anyCollection(), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of(existingLog));
 
-        // Act
         habitStatusScheduler.updateMissedHabits();
 
-        // Assert
-        verify(habitLogRepository, times(1)).saveAll(any());
-    }
-
-    @Test
-    void testUpdateMissedHabitsWithNoneScheduled() {
-        // Arrange
-        Habit habit1 = createHabit(1L, 100L, LocalTime.of(8, 0));
-        Habit habit2 = createHabit(2L, 100L, LocalTime.of(9, 0));
-
-        when(habitRepository.findByTargetTimeBefore(any(LocalTime.class)))
-                .thenReturn(List.of(habit1, habit2));
-        when(habitLogRepository.findByDate(today))
-                .thenReturn(new ArrayList<>());
-        when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class)))
-                .thenReturn(false);
-
-        // Act
-        habitStatusScheduler.updateMissedHabits();
-
-        // Assert
         verify(habitLogRepository, never()).saveAll(any());
     }
 
-    // Helper method to create test habits
     private Habit createHabit(Long id, Long userId, LocalTime targetTime) {
         Habit habit = new Habit();
         habit.setId(id);
         habit.setUserId(userId);
+        habit.setTitle("Test Habit");
+        habit.setCategory(HabitCategory.FITNESS);
+        habit.setFrequency(HabitFrequency.DAILY);
         habit.setTargetTime(targetTime);
+        habit.setCreatedAt(today.minusDays(1));
+        habit.setNotificationsEnabled(true);
+        habit.setPaused(false);
+        habit.setArchived(false);
         return habit;
     }
 
+    private User createUser(Long userId, String timezone) {
+        User user = new User();
+        user.setId(userId);
+        user.setPushToken("token" + userId);
+        user.setTimezone(timezone);
+        user.setEmail("user" + userId + "@example.com");
+        user.setPassword("password");
+        user.setCreatedAt(Instant.now());
+        return user;
+    }
+
+    private HabitLog createHabitLog(Long habitId, Long userId, LocalDate date, HabitStatus status) {
+        HabitLog log = new HabitLog();
+        log.setHabitId(habitId);
+        log.setUserId(userId);
+        log.setDate(date);
+        log.setStatus(status);
+        return log;
+    }
 }

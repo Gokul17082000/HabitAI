@@ -43,10 +43,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             long userId = Long.parseLong(jwtService.extractUserId(token));
 
             // Load the user's timezone from DB so date calculations respect their local time.
-            // This is a single indexed PK lookup — negligible overhead per request.
+            // Also serves as a liveness check — a deleted user's JWT must not authenticate.
             String timezone = userRepository.findById(userId)
                     .map(u -> u.getTimezone())
-                    .orElse("UTC");
+                    .orElse(null);
+
+            if (timezone == null) {
+                // User no longer exists — treat the request as unauthenticated.
+                filterChain.doFilter(request, response);
+                return;
+            }
 
             UserPrincipal principal = new UserPrincipal(userId, timezone);
             UsernamePasswordAuthenticationToken authentication =

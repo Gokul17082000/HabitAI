@@ -11,7 +11,8 @@ import java.time.LocalDate;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "streak_freeze_usage")
+@Table(name = "streak_freeze_usage",
+        uniqueConstraints = @UniqueConstraint(name = "uq_freeze_user_date", columnNames = {"userId", "usedOn"}))
 public class StreakFreezeUsage {
 
     @Id

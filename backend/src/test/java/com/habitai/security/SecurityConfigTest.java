@@ -7,38 +7,56 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.security.web.SecurityFilterChain;
+import org.mockito.Mockito;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@WebMvcTest(controllers = SecurityConfigTest.TestController.class)
-@Import({SecurityConfig.class, SecurityConfigTest.TestCorsProperties.class})
+@WebMvcTest(
+        controllers = SecurityConfigTest.TestController.class,
+        properties = {
+                "cors.allowed-origins[0]=http://localhost:8081",
+                "cors.allowed-origins[1]=http://192.168.1.2:8081",
+                "cors.allowed-origins[2]=http://192.168.1.2:19006"
+        }
+)
+@Import({SecurityConfig.class, SecurityConfigTest.TestConfig.class, CorsProperties.class})
 @AutoConfigureMockMvc(addFilters = true)
 class SecurityConfigTest {
-
-    @MockitoBean
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Autowired
     private CorsProperties corsProperties;
 
     @TestConfiguration
-    static class TestCorsProperties {
+    static class TestConfig {
+
         @Bean
-        CorsProperties corsProperties() {
-            CorsProperties corsProperties = new CorsProperties();
-            corsProperties.setAllowedOrigins(List.of("http://localhost"));
-            return corsProperties;
+        JwtAuthenticationFilter jwtAuthenticationFilter() {
+            return Mockito.mock(JwtAuthenticationFilter.class);
+        }
+
+        @Bean
+        RateLimitFilter rateLimitFilter() {
+            return Mockito.mock(RateLimitFilter.class);
+        }
+
+        @Bean
+        AiRateLimitFilter aiRateLimitFilter() {
+            return Mockito.mock(AiRateLimitFilter.class);
+        }
+
+        @Bean
+        MdcLoggingFilter mdcLoggingFilter() {
+            return Mockito.mock(MdcLoggingFilter.class);
         }
     }
 

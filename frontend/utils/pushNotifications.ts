@@ -1,6 +1,6 @@
 import { PermissionsAndroid, Platform, Alert, Linking } from "react-native";
-import { getToken } from "./authStorage";
 import { API_ENDPOINTS } from "../constants/api";
+import { buildAuthHeaders, handleResponse, retryPost } from "./apiHandler";
 
 if (Platform.OS === "android") {
   import("@react-native-firebase/messaging").then(({ default: messaging }) => {
@@ -66,22 +66,12 @@ export async function registerForPushNotifications(): Promise<void> {
 
 async function savePushToken(pushToken: string): Promise<void> {
   try {
-    const authToken = await getToken();
-    if (!authToken) return;
-
-    const res = await fetch(API_ENDPOINTS.pushToken, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ token: pushToken }),
-    });
-
-    if (!res.ok) {
-      console.error("Push token save failed, status:", res.status);
-    }
+    const url = API_ENDPOINTS.pushToken;
+    const body = JSON.stringify({ token: pushToken });
+    const headers = await buildAuthHeaders();
+    const response = await fetch(url, { method: "POST", headers, body });
+    await handleResponse<void>(response, retryPost(url, "POST", body));
   } catch (e) {
-    console.error("Network error saving push token:", e);
+    console.error("Failed to save push token:", e);
   }
 }

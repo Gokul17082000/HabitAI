@@ -3,6 +3,7 @@ package com.habitai.scheduler;
 import com.habitai.habit.Habit;
 import com.habitai.habit.HabitRepository;
 import com.habitai.habit.HabitScheduleService;
+import com.habitai.habitlog.HabitLogRepository;
 import com.habitai.notification.NotificationService;
 import com.habitai.user.User;
 import com.habitai.user.UserRepository;
@@ -18,6 +19,7 @@ import org.mockito.quality.Strictness;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +32,9 @@ class SchedulerServiceTest {
 
     @Mock
     private HabitRepository habitRepository;
+
+    @Mock
+    private HabitLogRepository habitLogRepository;
 
     @Mock
     private NotificationService notificationService;
@@ -48,12 +53,17 @@ class SchedulerServiceTest {
 
     @BeforeEach
     void setUp() {
-        // pick a deterministic non-midnight time to avoid wraparound in most tests
-        now = LocalTime.of(9, 0);
+        // Use actual current time and shift slightly ahead so target times are still
+        // within the reminder window when the service checks LocalTime.now(zone).
+        now = LocalTime.now(ZoneOffset.UTC).plusSeconds(1);
         later = now.plusMinutes(15);
 
         schedulerService = spy(schedulerService);
         when(habitScheduleService.isScheduledForDate(any(Habit.class), any(LocalDate.class))).thenReturn(true);
+        when(userRepository.findByPushTokenNotNull()).thenReturn(new ArrayList<>());
+        // Default: no habits already logged today — tests that need a logged habit can override
+        when(habitLogRepository.findByUserIdInAndDateBetween(any(), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(new ArrayList<>());
     }
 
     // sendHabitReminder - No Habits Tests
@@ -61,22 +71,23 @@ class SchedulerServiceTest {
     @Test
     void testSendHabitReminderWhenNoHabitsFound() {
         // Arrange
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(new ArrayList<>());
+        when(userRepository.findByPushTokenNotNull()).thenReturn(new ArrayList<>());
 
         // Act
         schedulerService.sendHabitReminder();
 
         // Assert
-        verify(habitRepository).findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class));
+        verify(userRepository).findByPushTokenNotNull();
         verify(notificationService, never()).notify(any(), any(), any());
+        verifyNoInteractions(habitRepository);
     }
 
     @Test
     void testSendHabitReminderWithEmptyHabitList() {
         // Arrange
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(new ArrayList<>());
+        User user = createUser(100L, "token123");
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(new ArrayList<>());
 
         // Act
         schedulerService.sendHabitReminder();
@@ -93,9 +104,8 @@ class SchedulerServiceTest {
         Habit habit = createHabit(1L, 100L, "Morning Exercise", now);
         User user = createUser(100L, "token123");
 
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(user));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(List.of(habit));
 
         // Act
         schedulerService.sendHabitReminder();
@@ -107,11 +117,7 @@ class SchedulerServiceTest {
     @Test
     void testSendHabitReminderWithSingleHabitNoUser() {
         // Arrange
-        Habit habit = createHabit(1L, 999L, "Morning Exercise", now);
-
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of());
+        when(userRepository.findByPushTokenNotNull()).thenReturn(new ArrayList<>());
 
         // Act
         schedulerService.sendHabitReminder();
@@ -123,12 +129,7 @@ class SchedulerServiceTest {
     @Test
     void testSendHabitReminderWithUserNoPushToken() {
         // Arrange
-        Habit habit = createHabit(1L, 100L, "Morning Exercise", now);
-        User user = createUser(100L, null);
-
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(user));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(new ArrayList<>());
 
         // Act
         schedulerService.sendHabitReminder();
@@ -143,9 +144,8 @@ class SchedulerServiceTest {
         Habit habit = createHabit(1L, 100L, "Morning Exercise", now);
         User user = createUser(100L, "   ");
 
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(user));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(List.of(habit));
 
         // Act
         schedulerService.sendHabitReminder();
@@ -160,9 +160,8 @@ class SchedulerServiceTest {
         Habit habit = createHabit(1L, 100L, "Morning Exercise", now);
         User user = createUser(100L, "valid_token_12345");
 
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(user));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(List.of(habit));
 
         // Act
         schedulerService.sendHabitReminder();
@@ -181,9 +180,8 @@ class SchedulerServiceTest {
         Habit habit3 = createHabit(3L, 100L, "Breakfast", now.plusMinutes(10));
         User user = createUser(100L, "token123");
 
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit1, habit2, habit3));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(user));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(List.of(habit1, habit2, habit3));
 
         // Act
         schedulerService.sendHabitReminder();
@@ -202,9 +200,8 @@ class SchedulerServiceTest {
         Habit habit2 = createHabit(2L, 100L, "Morning Exercise", now);
         User user = createUser(100L, "token123");
 
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit1, habit2));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(user));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(List.of(habit1, habit2));
 
         // Act
         schedulerService.sendHabitReminder();
@@ -225,9 +222,8 @@ class SchedulerServiceTest {
         User user1 = createUser(100L, "token100");
         User user2 = createUser(200L, "token200");
 
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit1User1, habit2User2, habit3User1));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(user1, user2));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user1, user2));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(List.of(habit1User1, habit2User2, habit3User1));
 
         // Act
         schedulerService.sendHabitReminder();
@@ -248,9 +244,8 @@ class SchedulerServiceTest {
         User user1 = createUser(100L, "token100");
         User user2 = createUser(200L, null);
 
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit1User1, habit2User2));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(user1, user2));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user1));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(List.of(habit1User1));
 
         // Act
         schedulerService.sendHabitReminder();
@@ -263,51 +258,38 @@ class SchedulerServiceTest {
     // sendHabitReminder - Midnight Wraparound Tests
 
     @Test
-    void testSendHabitReminderWithMidnightWraparound() {
-        // Arrange - Mock getCurrentTime() to return 23:50 so end (00:05) < start (23:50)
-        LocalTime startTime = LocalTime.of(23, 50);
-        LocalTime endTime = LocalTime.of(0, 5);
-
-        Habit habit1 = createHabit(1L, 100L, "Late Night", startTime);
-        Habit habit2 = createHabit(2L, 100L, "Early Morning", endTime);
+    void testSendHabitReminderWithInvalidTimezoneFallsBackToUTC() {
+        // Arrange
+        Habit habit = createHabit(1L, 100L, "Late Night", now);
         User user = createUser(100L, "token123");
+        user.setTimezone("Invalid/Zone");
 
-        when(habitRepository.findByTargetTimeAfter(startTime))
-                .thenReturn(List.of(habit1));
-        when(habitRepository.findByTargetTimeBefore(endTime))
-                .thenReturn(List.of(habit2));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(user));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(List.of(habit));
 
         // Act
         schedulerService.sendHabitReminder();
 
         // Assert
-        verify(habitRepository).findByTargetTimeAfter(startTime);
-        verify(habitRepository).findByTargetTimeBefore(endTime);
-        verify(notificationService, times(2)).notify(any(), any(), any());
+        verify(notificationService).notify("token123", "Late Night", now);
     }
 
     // sendHabitReminder - Time Range Tests
 
     @Test
-    void testSendHabitReminderChecksCorrectTimeRange() {
+    void testSendHabitReminderChecksCorrectUserQuery() {
         // Arrange
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(new ArrayList<>());
+        User user = createUser(100L, "token123");
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(new ArrayList<>());
 
         // Act
         schedulerService.sendHabitReminder();
 
         // Assert
-        ArgumentCaptor<LocalTime> startCaptor = ArgumentCaptor.forClass(LocalTime.class);
-        ArgumentCaptor<LocalTime> endCaptor = ArgumentCaptor.forClass(LocalTime.class);
-        verify(habitRepository).findByTargetTimeBetween(startCaptor.capture(), endCaptor.capture());
-        
-        LocalTime start = startCaptor.getValue();
-        LocalTime end = endCaptor.getValue();
-        
-        // Verify end is 15 minutes after start
-        assert(end.equals(start.plusMinutes(15)) || end.isBefore(start));
+        ArgumentCaptor<List<Long>> userIdsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(habitRepository).findByUserIdIn(userIdsCaptor.capture());
+        assert userIdsCaptor.getValue().contains(100L);
     }
 
     // sendHabitReminder - Habit Properties Tests
@@ -318,9 +300,8 @@ class SchedulerServiceTest {
         Habit habit = createHabit(1L, 100L, "Read Book", now);
         User user = createUser(100L, "token123");
 
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(user));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(List.of(habit));
 
         // Act
         schedulerService.sendHabitReminder();
@@ -332,13 +313,12 @@ class SchedulerServiceTest {
     @Test
     void testSendHabitReminderPassesCorrectHabitTime() {
         // Arrange
-        LocalTime customTime = LocalTime.of(14, 30);
+        LocalTime customTime = now;
         Habit habit = createHabit(1L, 100L, "Afternoon Walk", customTime);
         User user = createUser(100L, "token123");
 
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(user));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(List.of(habit));
 
         // Act
         schedulerService.sendHabitReminder();
@@ -353,9 +333,8 @@ class SchedulerServiceTest {
         Habit habit = createHabit(1L, 100L, "Drink 💧 Water!", now);
         User user = createUser(100L, "token123");
 
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(user));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(List.of(habit));
 
         // Act
         schedulerService.sendHabitReminder();
@@ -375,15 +354,13 @@ class SchedulerServiceTest {
             habits.add(createHabit((long) i, userId, "Habit" + i, now.plusMinutes(i % 15)));
         }
 
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(habits);
-
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(
                 createUser(100L, "token100"),
                 createUser(101L, "token101"),
                 createUser(102L, "token102"),
                 createUser(103L, "token103"),
                 createUser(104L, "token104")));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(habits);
 
         // Act
         schedulerService.sendHabitReminder();
@@ -400,12 +377,9 @@ class SchedulerServiceTest {
         habits.add(createHabit(2L, 200L, "Habit2", now.plusMinutes(5)));
         habits.add(createHabit(3L, 300L, "Habit3", now.plusMinutes(10)));
 
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(habits);
-
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(
-                createUser(100L, "token100"),
-                createUser(300L, null)));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(
+                createUser(100L, "token100")));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(List.of(habits.get(0)));
 
         // Act
         schedulerService.sendHabitReminder();
@@ -422,9 +396,8 @@ class SchedulerServiceTest {
         Habit habit = createHabit(1L, 100L, longTitle, now);
         User user = createUser(100L, "token123");
 
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(user));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(List.of(habit));
 
         // Act
         schedulerService.sendHabitReminder();
@@ -441,9 +414,8 @@ class SchedulerServiceTest {
         Habit habit = createHabit(1L, 100L, "Morning Exercise", now);
         User user = createUser(100L, "token123");
 
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of(user));
+        when(userRepository.findByPushTokenNotNull()).thenReturn(List.of(user));
+        when(habitRepository.findByUserIdIn(any())).thenReturn(List.of(habit));
 
         // Act
         schedulerService.sendHabitReminder();
@@ -456,11 +428,7 @@ class SchedulerServiceTest {
     @Test
     void testSendHabitReminderWithNullUserOptional() {
         // Arrange
-        Habit habit = createHabit(1L, 999L, "Habit", now);
-
-        when(habitRepository.findByTargetTimeBetween(any(LocalTime.class), any(LocalTime.class)))
-                .thenReturn(List.of(habit));
-        when(userRepository.findByIdIn(any())).thenReturn(List.of());
+        when(userRepository.findByPushTokenNotNull()).thenReturn(new ArrayList<>());
 
         // Act & Assert - Should not throw NPE
         try {
@@ -485,6 +453,7 @@ class SchedulerServiceTest {
         User user = new User();
         user.setId(userId);
         user.setPushToken(pushToken);
+        user.setTimezone("UTC");
         return user;
     }
 

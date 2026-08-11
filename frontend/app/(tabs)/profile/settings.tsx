@@ -54,6 +54,10 @@ export default function SettingsScreen() {
       setError("Password must contain at least one special character (@$!%*?&)");
       return;
     }
+    if (newPassword === currentPassword) {
+      setError("New password must differ from your current password");
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setError("New passwords do not match");
       return;

@@ -51,8 +51,9 @@ function isTokenValid(token: string): boolean {
     if (parts.length !== 3) return false;
     const payload = JSON.parse(base64UrlDecode(parts[1]));
     if (typeof payload.exp !== "number") return false;
-    // exp is in seconds; Date.now() is in ms. 30s skew tolerance for drifted clocks.
-    return payload.exp * 1000 > Date.now() - 30_000;
+    // exp is in seconds; Date.now() is in ms. Reject 30s before expiry so we
+    // never send a token the server is about to invalidate.
+    return payload.exp * 1000 - 30_000 > Date.now();
   } catch {
     return false;
   }
@@ -127,6 +128,9 @@ export default function LoginScreen() {
       valid = false;
     } else if (password.length < 8) {
       setPasswordError("Password must be at least 8 characters");
+      valid = false;
+    } else if (password.length > 128) {
+      setPasswordError("Password must be 128 characters or fewer");
       valid = false;
     }
 
